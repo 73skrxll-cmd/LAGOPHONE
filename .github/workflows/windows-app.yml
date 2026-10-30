@@ -2,6 +2,17 @@ name: Build Windows application
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/windows-app.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'src/**'
+      - 'electron/**'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
 
 permissions:
   contents: read
