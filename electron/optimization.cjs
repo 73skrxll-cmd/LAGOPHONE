@@ -1,0 +1,20 @@
+const catalog = require('../shared/optimization.json');
+function buildPlan(input, selected, actual, gamePath = null) {
+  if (!['10','11'].includes(selected) || selected !== actual) throw new Error('Выбранная Windows не совпадает с установленной.');
+  if (!input || typeof input !== 'object') throw new Error('Некорректный профиль');
+  const profile = catalog.profiles.find(p=>p.id===input.profile);
+  if (!profile || !['keep','balanced','high','ultimate'].includes(input.power) || !catalog.games.some(g=>g.id===input.game)) throw new Error('Неизвестный профиль, план питания или игра');
+  if (!input.uses || catalog.features.some(f=>typeof input.uses[f.id] !== 'boolean') || typeof input.sysmain !== 'boolean') throw new Error('Ответьте на вопросы об использовании функций');
+  const steps=catalog.steps.filter(s=>{
+    if(s.level>profile.level) return false;
+    if(s.special==='power') return input.power!=='keep';
+    if(s.special==='game') return input.game!=='none' && !!gamePath;
+    if(s.experimental) return input.sysmain===true;
+    return !s.feature || input.uses[s.feature]===false;
+  });
+  if (!Array.isArray(input.selected) || new Set(input.selected).size!==input.selected.length || input.selected.some(id=>!steps.some(s=>s.id===id))) throw new Error('Список действий не соответствует вашим ответам');
+  const chosen=steps.filter(s=>input.selected.includes(s.id));
+  if(!chosen.length) throw new Error('Выберите хотя бы одно действие');
+  return {profile:profile.id, version:selected, ids:chosen.map(s=>s.id), power:input.power, gamePath:chosen.some(s=>s.id==='game-gpu')?gamePath:null};
+}
+module.exports={catalog, buildPlan};

@@ -10,6 +10,7 @@ on:
       - 'package-lock.json'
       - 'src/**'
       - 'electron/**'
+      - 'shared/**'
       - 'index.html'
       - 'vite.config.ts'
       - 'tsconfig.json'
@@ -29,7 +30,10 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: npm test
+      - name: Test validation, PowerShell and real registry rollback on disposable runner
+        run: npm test
+        env:
+          LAGOPHONE_WINDOWS_INTEGRATION: '1'
       - name: Build installer
         run: npm run dist:win -- --publish never
         env:

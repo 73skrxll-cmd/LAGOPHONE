@@ -4,6 +4,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { apps, links, validateAction } = require('./policy.cjs');
 let win;
+const optimizer = require('./optimizer-ipc.cjs').registerOptimizer(() => win);
 function powershell(script) {
   if (process.platform !== 'win32') return Promise.reject(new Error('Системные функции доступны только в Windows.'));
   const encoded = Buffer.from("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; " + script, 'utf16le').toString('base64');
@@ -22,8 +23,11 @@ async function system() {
     uptime=[math]::Floor(((Get-Date)-$os.LastBootUpTime).TotalHours)} | ConvertTo-Json -Depth 4 -Compress
   `));
 }
+if (!app.requestSingleInstanceLock()) app.quit();
+app.on('second-instance', () => { if (win) { if(win.isMinimized()) win.restore(); win.focus(); } });
 app.whenReady().then(() => {
   win = new BrowserWindow({ width: 1440, height: 960, minWidth: 960, minHeight: 680, backgroundColor: '#101211', title: 'LAGOPHONE', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname,'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  win.on('close', e => { if(optimizer.isRunning()){e.preventDefault();void dialog.showMessageBox(win,{type:'info',message:'Дождитесь завершения оптимизации или отката.',detail:'Сейчас сохраняются и проверяются настройки Windows.'});} });
   win.loadFile(path.join(__dirname,'../dist/index.html'));
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', e => e.preventDefault());
@@ -31,6 +35,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => app.quit());
 ipcMain.handle('system', () => system());
 ipcMain.handle('action', async (_, id, version) => {
+  if(optimizer.isRunning()) throw new Error('Дождитесь завершения оптимизации или отката.');
   const info = await system();
   const action = validateAction(id, version, info.version);
   const choice = await dialog.showMessageBox(win, { type:'question', title:'Подтверждение', message:action.title, detail:'Перед изменениями рекомендуется создать точку восстановления. Продолжить?', buttons:['Отмена','Продолжить'], defaultId:0, cancelId:0 });

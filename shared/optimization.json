@@ -1,0 +1,41 @@
+{
+  "profiles": [
+    {"id":"basic","name":"Базовый","level":0,"description":"Игровой режим и более простой интерфейс. Службы остаются включёнными."},
+    {"id":"balanced","name":"Средний","level":1,"description":"Базовые настройки и отключение принтера, Bluetooth, факса и записи игр — только если вы ими не пользуетесь."},
+    {"id":"deep","name":"Глубокий","level":2,"description":"Дополнительно индексатор поиска, офлайн-карты, медиасервер и удалённый реестр. Каждое отключение зависит от ваших ответов."}
+  ],
+  "features": [
+    {"id":"printer","name":"Принтер и печать в PDF","detail":"Spooler: печать на принтере и Microsoft Print to PDF. При отключении обе функции перестанут работать."},
+    {"id":"bluetooth","name":"Bluetooth-устройства","detail":"bthserv: обнаружение и подключение Bluetooth-наушников, мышей, геймпадов и других устройств. Они могут отключиться."},
+    {"id":"recording","name":"Запись игр и клипов","detail":"Game DVR: фоновая запись и захват игр через Windows. Отключение записи не удаляет Game Bar, Xbox и Microsoft Store."},
+    {"id":"fax","name":"Отправка факсов","detail":"Fax: отправка и получение факсов через Windows. Если служба отсутствует, действие пропускается."},
+    {"id":"search","name":"Быстрый поиск файлов и Outlook","detail":"WSearch: индексирование файлов, почты и содержимого. Поиск может стать медленнее, некоторые результаты могут отсутствовать."},
+    {"id":"offlineMaps","name":"Офлайн-карты Windows","detail":"MapsBroker: загрузка и обновление офлайн-карт. Уже установленные карты не удаляются."},
+    {"id":"mediaShare","name":"Медиатека по локальной сети","detail":"WMPNetworkSvc: общий доступ к медиатеке Windows Media Player. Передача её на другие устройства перестанет работать."},
+    {"id":"remote","name":"Удалённое управление реестром","detail":"RemoteRegistry: администрирование реестра по сети. Это не служба удалённого рабочего стола."}
+  ],
+  "steps": [
+    {"id":"game-mode","name":"Включить игровой режим","level":0,"detail":"Windows сможет применять встроенную приоритизацию игрового сеанса. Античиты и параметры загрузки не меняются."},
+    {"id":"transparency","name":"Отключить прозрачность","level":0,"detail":"Убирает прозрачность интерфейса. Сохраняется исходное значение для отката."},
+    {"id":"animations","name":"Упростить анимацию окон","level":1,"detail":"Отключает анимацию сворачивания и разворачивания. Для полного применения может понадобиться повторный вход."},
+    {"id":"capture","name":"Отключить запись Game DVR","level":1,"feature":"recording","detail":"Отключает захват и фоновую запись Windows. Панель Win+G, Microsoft Store, Xbox и Gaming Services не удаляются."},
+    {"id":"spooler","name":"Отключить службу печати","level":1,"feature":"printer","service":"Spooler","detail":"Останавливает Spooler и отключает автозапуск. Принтер и Microsoft Print to PDF работать не будут."},
+    {"id":"bluetooth","name":"Отключить поддержку Bluetooth","level":1,"feature":"bluetooth","service":"bthserv","detail":"Останавливает bthserv и отключает автозапуск. Bluetooth-устройства могут отключиться. При активных зависимых службах действие пропускается."},
+    {"id":"fax","name":"Отключить факс","level":1,"feature":"fax","service":"Fax","detail":"Останавливает службу Fax и отключает её автозапуск. Факсы Windows будут недоступны."},
+    {"id":"search","name":"Отключить индексацию поиска","level":2,"feature":"search","service":"WSearch","detail":"Останавливает WSearch. Индексируемый поиск и поиск в Outlook могут ухудшиться. Индекс не удаляется."},
+    {"id":"maps","name":"Отключить обслуживание офлайн-карт","level":2,"feature":"offlineMaps","service":"MapsBroker","detail":"Останавливает MapsBroker. Офлайн-карты не будут автоматически обслуживаться."},
+    {"id":"media","name":"Отключить общий доступ к медиатеке","level":2,"feature":"mediaShare","service":"WMPNetworkSvc","detail":"Останавливает WMPNetworkSvc. Общий доступ к медиатеке WMP по сети будет недоступен."},
+    {"id":"remote-registry","name":"Отключить удалённый реестр","level":2,"feature":"remote","service":"RemoteRegistry","detail":"Останавливает RemoteRegistry. Удалённое администрирование реестра станет недоступным."},
+    {"id":"sysmain","name":"Отключить SysMain · экспериментально","level":2,"experimental":true,"service":"SysMain","detail":"Отключает предварительную загрузку часто используемых данных. Может снизить фоновую нагрузку, но также замедлить запуск программ. Прирост FPS не гарантируется."},
+    {"id":"power","name":"Изменить план питания","level":0,"special":"power","detail":"Выбранный план может увеличить нагрев, шум и расход батареи. Исходный план сохраняется; недоступные планы не создаются принудительно."},
+    {"id":"game-gpu","name":"Высокая производительность GPU для игры","level":0,"special":"game","detail":"Устанавливает графическое предпочтение Windows только для выбранного EXE. Драйверы, игровые файлы и античит не меняются. Не гарантирует прирост на ПК с одной видеокартой."}
+  ],
+  "games": [
+    {"id":"none","name":"Без игрового профиля","executables":[]},
+    {"id":"cs2","name":"Counter-Strike 2","executables":["cs2.exe"]},
+    {"id":"valorant","name":"VALORANT","executables":["valorant-win64-shipping.exe"]},
+    {"id":"fortnite","name":"Fortnite","executables":["fortniteclient-win64-shipping.exe"]},
+    {"id":"dota2","name":"Dota 2","executables":["dota2.exe"]},
+    {"id":"apex","name":"Apex Legends","executables":["r5apex.exe","r5apex_dx12.exe"]}
+  ]
+}
