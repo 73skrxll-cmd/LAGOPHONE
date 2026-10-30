@@ -10,13 +10,26 @@
     "desktop": "npm run build && electron .",
     "build": "tsc -b && vite build",
     "test": "node electron/policy.test.cjs",
-    "dist:win": "npm run build && electron-builder --win nsis"
+    "dist:win": "npm run build && electron-builder --win nsis --x64",
+    "dist:portable": "npm run build && electron-builder --win portable --x64"
   },
   "dependencies": { "lucide-react": "^0.468.0", "react": "^18.3.1", "react-dom": "^18.3.1" },
   "devDependencies": { "@types/react": "^18.3.18", "@types/react-dom": "^18.3.5", "@vitejs/plugin-react": "^4.3.4", "electron": "^40.0.0", "electron-builder": "^26.0.12", "typescript": "^5.7.3", "vite": "^6.1.0" },
   "build": {
     "appId": "com.lagophone.desktop", "productName": "LAGOPHONE", "directories": { "output": "release" },
     "files": ["dist/**/*", "electron/**/*", "package.json"],
-    "win": { "target": "nsis" }, "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true }
+    "win": { "target": "nsis", "signAndEditExecutable": false },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "LAGOPHONE",
+      "runAfterFinish": true,
+      "artifactName": "LAGOPHONE-Setup-${version}-${arch}.${ext}"
+    },
+    "portable": { "artifactName": "LAGOPHONE-Portable-${version}-${arch}.${ext}" }
   }
 }
