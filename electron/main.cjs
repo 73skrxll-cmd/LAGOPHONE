@@ -1,3 +1,4 @@
+const { windowsPowerShellEnvironment, windowsPowerShellExecutable } = require('./windows-powershell.cjs');
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { execFile } = require('node:child_process');
 const path = require('node:path');
@@ -8,7 +9,7 @@ const optimizer = require('./optimizer-ipc.cjs').registerOptimizer(() => win);
 function powershell(script) {
   if (process.platform !== 'win32') return Promise.reject(new Error('Системные функции доступны только в Windows.'));
   const encoded = Buffer.from("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; " + script, 'utf16le').toString('base64');
-  return new Promise((resolve, reject) => execFile('powershell.exe', ['-NoProfile','-NonInteractive','-EncodedCommand', encoded], { windowsHide: true, timeout: 120000, maxBuffer: 4*1024*1024 }, (err, out) => err ? reject(new Error('Windows не выполнила действие. Проверьте права доступа и доступность системного компонента.')) : resolve(out.trim())));
+  return new Promise((resolve, reject) => execFile(windowsPowerShellExecutable(), ['-NoProfile','-NonInteractive','-EncodedCommand', encoded], { env: windowsPowerShellEnvironment(), windowsHide: true, timeout: 120000, maxBuffer: 4*1024*1024 }, (err, out) => err ? reject(new Error('Windows не выполнила действие. Проверьте права доступа и доступность системного компонента.')) : resolve(out.trim())));
 }
 async function system() {
   if (process.platform !== 'win32') return { demo: true };

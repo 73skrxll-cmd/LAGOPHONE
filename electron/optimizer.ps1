@@ -4,6 +4,10 @@
   [string]$ResultPath
 )
 $ErrorActionPreference='Stop'
+# An elevated process or a direct caller may also inherit PowerShell 7's environment.
+# Restrict module loading to the native Windows PowerShell paths before importing anything.
+$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules')+[IO.Path]::PathSeparator+[IO.Path]::Combine($env:ProgramFiles,'WindowsPowerShell','Modules')
+[Environment]::SetEnvironmentVariable('PSModuleAnalysisCachePath',$null,'Process')
 [Console]::OutputEncoding=[Text.Encoding]::UTF8
 $payload=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($PayloadBase64)) | ConvertFrom-Json
 $sid=[string]$payload.sid
@@ -139,6 +143,7 @@ $mutex=$null;$locked=$false
 try {
   if($Mode -eq 'inspect') { $result=Inspect }
   else {
+    Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
     $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
     $principal=[Security.Principal.WindowsPrincipal]::new($identity)
     if(!$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Administrator permission is required'}

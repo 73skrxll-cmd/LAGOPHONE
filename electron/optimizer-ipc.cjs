@@ -1,3 +1,4 @@
+const { windowsPowerShellEnvironment, windowsPowerShellExecutable } = require('./windows-powershell.cjs');
 const {app,ipcMain,dialog}=require('electron');
 const {execFile}=require('node:child_process');
 const fs=require('node:fs/promises');
@@ -6,7 +7,7 @@ const os=require('node:os');
 const {catalog,buildPlan}=require('./optimization.cjs');
 const quote=value=>"'"+String(value).replaceAll("'","''")+"'";
 function ps(script,timeout=600000){
-  return new Promise((resolve,reject)=>execFile('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8; "+script,'utf16le').toString('base64')],{windowsHide:true,timeout,maxBuffer:4*1024*1024},(e,out)=>e?reject(new Error('Windows не выполнила операцию. Возможно, отменён запрос администратора. Если выполнение было прервано, проверьте состояние и используйте откат.')):resolve(out.trim())));
+  return new Promise((resolve,reject)=>execFile(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8; "+script,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(),windowsHide:true,timeout,maxBuffer:4*1024*1024},(e,out)=>e?reject(new Error('Windows не выполнила операцию. Возможно, отменён запрос администратора. Если выполнение было прервано, проверьте состояние и используйте откат.')):resolve(out.trim())));
 }
 function registerOptimizer(getWindow){
   let running=false;
