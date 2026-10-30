@@ -19,12 +19,26 @@ test('Windows PowerShell loads its own security module when launched from a Powe
  $directory=[IO.Path]::Combine([IO.Path]::GetTempPath(),'lagophone-acl-'+[guid]::NewGuid().ToString());
  [IO.Directory]::CreateDirectory($directory) | Out-Null;
  try {
+   $original=Get-Acl -LiteralPath $directory;
    $sections=[Security.AccessControl.AccessControlSections]::Access -bor [Security.AccessControl.AccessControlSections]::Owner -bor [Security.AccessControl.AccessControlSections]::Group;
-   $acl=Get-Acl -LiteralPath $directory;
-   $before=$acl.GetSecurityDescriptorSddlForm($sections);
-   Set-Acl -LiteralPath $directory -AclObject $acl -ErrorAction Stop;
-   $after=(Get-Acl -LiteralPath $directory).GetSecurityDescriptorSddlForm($sections);
-   @{version=$PSVersionTable.PSVersion.Major;source=$command.Source;assembly=$assembly.Name;assemblyMajor=$assembly.Version.Major;implementation=$command.ImplementingType.FullName;aclRoundtrip=($before -eq $after)} | ConvertTo-Json -Compress;
+   $beforeSddl=$original.GetSecurityDescriptorSddlForm($sections);
+   Set-Acl -LiteralPath $directory -AclObject $original -ErrorAction Stop;
+   $roundtripSddl=(Get-Acl -LiteralPath $directory).GetSecurityDescriptorSddlForm($sections);
+   # Compare intended access, not byte-for-byte SDDL flags from inherited ACLs.
+   $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User;
+   $desired=[Security.AccessControl.DirectorySecurity]::new();
+   $desired.SetOwner($original.GetOwner([Security.Principal.SecurityIdentifier]));
+   $desired.SetGroup($original.GetGroup([Security.Principal.SecurityIdentifier]));
+   $desired.SetAccessRuleProtection($true,$false);
+   $desired.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow'));
+   Set-Acl -LiteralPath $directory -AclObject $desired -ErrorAction Stop;
+   $actual=Get-Acl -LiteralPath $directory;
+   $rules=@($actual.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]) | ForEach-Object {@{sid=$_.IdentityReference.Value;rights=[int]$_.FileSystemRights;inheritance=[int]$_.InheritanceFlags;propagation=[int]$_.PropagationFlags;inherited=$_.IsInherited;type=[string]$_.AccessControlType}});
+   $probe=[IO.Path]::Combine($directory,'write-probe.txt');
+   [IO.File]::WriteAllText($probe,'ACL access verified');
+   $writeVerified=([IO.File]::ReadAllText($probe) -eq 'ACL access verified');
+   [IO.File]::Delete($probe);
+   @{version=$PSVersionTable.PSVersion.Major;source=$command.Source;assembly=$assembly.Name;assemblyMajor=$assembly.Version.Major;implementation=$command.ImplementingType.FullName;beforeSddl=$beforeSddl;roundtripSddl=$roundtripSddl;desiredSddl=$desired.GetSecurityDescriptorSddlForm($sections);actualSddl=$actual.GetSecurityDescriptorSddlForm($sections);protected=$actual.AreAccessRulesProtected;owner=$actual.GetOwner([Security.Principal.SecurityIdentifier]).Value;expectedOwner=$original.GetOwner([Security.Principal.SecurityIdentifier]).Value;userSid=$sid.Value;rules=$rules;writeVerified=$writeVerified} | ConvertTo-Json -Depth 6 -Compress;
  } finally { Remove-Item -LiteralPath $directory -Recurse -Force }
  `;
  const result=JSON.parse(execFileSync(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(inherited),encoding:'utf8',timeout:30000,windowsHide:true}).trim());
@@ -33,7 +47,10 @@ test('Windows PowerShell loads its own security module when launched from a Powe
  assert.equal(result.assembly,'Microsoft.PowerShell.Security',JSON.stringify(result));
  assert.equal(result.assemblyMajor,3,JSON.stringify(result));
  assert.equal(result.implementation,'Microsoft.PowerShell.Commands.SetAclCommand',JSON.stringify(result));
- assert.equal(result.aclRoundtrip,true,JSON.stringify(result));
+ assert.equal(result.protected,true,JSON.stringify(result));
+ assert.equal(result.owner,result.expectedOwner,JSON.stringify(result));
+ assert.deepEqual(result.rules,[{sid:result.userSid,rights:2032127,inheritance:3,propagation:0,inherited:false,type:'Allow'}],JSON.stringify(result));
+ assert.equal(result.writeVerified,true,JSON.stringify(result));
 });
 test('Windows PowerShell 5.1 parses production worker', {skip},()=>{
  assert.equal(ps(`$tokens=$null;$errors=$null;[Management.Automation.Language.Parser]::ParseFile(${quote(worker)},[ref]$tokens,[ref]$errors) | Out-Null;if($errors.Count){throw ($errors | Out-String)}; 'OK'`),'OK');
