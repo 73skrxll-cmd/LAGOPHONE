@@ -98,3 +98,5 @@ npm run dist:portable -- --publish never
 ### Исправление 0.2.1
 
 Исправлен запуск Windows PowerShell 5.1 из окружения PowerShell 7 (в том числе GitHub Actions через Node.js). Дочерний процесс получает штатные пути модулей Windows PowerShell, а не несовместимые пути PS7; родительское окружение и proxy/authentication не изменяются. Повышенный worker повторно задаёт штатный путь перед импортом модулей. Проверка ACL не удалена: тест загружает именно встроенный `Microsoft.PowerShell.Security`, находит `Set-Acl`, затем выполняет прежнюю проверку применения и точного отката реестра. Причина описана в [документации Microsoft](https://learn.microsoft.com/powershell/module/microsoft.powershell.core/about/about_psmodulepath#starting-windows-powershell-from-powershell-7).
+
+Проверка загрузки модуля в Windows учитывает встроенные snap-in: путь `ModuleBase` не используется как единственный признак версии. Проверяются версия процесса Windows PowerShell, источник и сборка настоящего `Set-Acl`, а также применение исходного ACL к специально созданной временной папке с проверкой SDDL до и после. Тест применения и отката настроек Windows сохранён.

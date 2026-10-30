@@ -9,9 +9,31 @@ const quote=x=>"'"+String(x).replaceAll("'","''")+"'";
 const skip=process.platform!=='win32';
 test('Windows PowerShell loads its own security module when launched from a PowerShell 7 environment', {skip},()=>{
  const inherited={...process.env,PSModulePath:path.win32.join(process.env.ProgramFiles||'C:\\Program Files','PowerShell','7','Modules'),PSModuleAnalysisCachePath:path.join(require('node:os').tmpdir(),'pwsh7-analysis-cache-fixture')};
- const code="$ErrorActionPreference='Stop'; Import-Module Microsoft.PowerShell.Security -ErrorAction Stop; $module=Get-Module Microsoft.PowerShell.Security; $expected=[IO.Path]::Combine($PSHOME,'Modules','Microsoft.PowerShell.Security'); if($module.ModuleBase -ne $expected){throw 'Wrong security module loaded'}; Get-Command Set-Acl -ErrorAction Stop | Out-Null; 'OK'";
- const result=execFileSync(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(inherited),encoding:'utf8',timeout:30000,windowsHide:true}).trim();
- assert.equal(result,'OK');
+ // Windows PowerShell can expose built-in commands as snap-ins, so ModuleBase is
+ // not a reliable identity check. Verify the command assembly and exercise its ACL API.
+ const code=`
+ $ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8;
+ Import-Module Microsoft.PowerShell.Security -ErrorAction Stop;
+ $command=Get-Command Set-Acl -CommandType Cmdlet -ErrorAction Stop;
+ $assembly=$command.ImplementingType.Assembly.GetName();
+ $directory=[IO.Path]::Combine([IO.Path]::GetTempPath(),'lagophone-acl-'+[guid]::NewGuid().ToString());
+ [IO.Directory]::CreateDirectory($directory) | Out-Null;
+ try {
+   $sections=[Security.AccessControl.AccessControlSections]::Access -bor [Security.AccessControl.AccessControlSections]::Owner -bor [Security.AccessControl.AccessControlSections]::Group;
+   $acl=Get-Acl -LiteralPath $directory;
+   $before=$acl.GetSecurityDescriptorSddlForm($sections);
+   Set-Acl -LiteralPath $directory -AclObject $acl -ErrorAction Stop;
+   $after=(Get-Acl -LiteralPath $directory).GetSecurityDescriptorSddlForm($sections);
+   @{version=$PSVersionTable.PSVersion.Major;source=$command.Source;assembly=$assembly.Name;assemblyMajor=$assembly.Version.Major;implementation=$command.ImplementingType.FullName;aclRoundtrip=($before -eq $after)} | ConvertTo-Json -Compress;
+ } finally { Remove-Item -LiteralPath $directory -Recurse -Force }
+ `;
+ const result=JSON.parse(execFileSync(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(code,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(inherited),encoding:'utf8',timeout:30000,windowsHide:true}).trim());
+ assert.equal(result.version,5,JSON.stringify(result));
+ assert.equal(result.source,'Microsoft.PowerShell.Security',JSON.stringify(result));
+ assert.equal(result.assembly,'Microsoft.PowerShell.Security',JSON.stringify(result));
+ assert.equal(result.assemblyMajor,3,JSON.stringify(result));
+ assert.equal(result.implementation,'Microsoft.PowerShell.Commands.SetAclCommand',JSON.stringify(result));
+ assert.equal(result.aclRoundtrip,true,JSON.stringify(result));
 });
 test('Windows PowerShell 5.1 parses production worker', {skip},()=>{
  assert.equal(ps(`$tokens=$null;$errors=$null;[Management.Automation.Language.Parser]::ParseFile(${quote(worker)},[ref]$tokens,[ref]$errors) | Out-Null;if($errors.Count){throw ($errors | Out-String)}; 'OK'`),'OK');
