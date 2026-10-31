@@ -63,7 +63,7 @@ function registerOptimizer(getWindow,activities,restart){
     const plan=buildPlan(input,version,actual.version,games.get(input?.game),actual.build);
     const status=await run('inspect',{},false);
     if(!status.ok)throw new Error(status.error||'Не удалось прочитать состояние.');
-    if(status.active)throw new Error('Сначала восстановите предыдущие настройки.');
+    if(status.needsRecovery)throw new Error('Сначала завершите восстановление прерванной операции.');
     const unavailable=plan.ids.filter(id=>status.availability?.[id]?.available===false);
     if(unavailable.length)throw new Error('Выбранные пункты недоступны на этом ПК. Обновите список настроек: '+unavailable.map(id=>catalog.steps.find(step=>step.id===id)?.name||id).join(', '));
     plan.ratingPlan.ids=plan.ratingPlan.ids.filter(id=>status.availability?.[id]?.available!==false);
@@ -72,7 +72,7 @@ function registerOptimizer(getWindow,activities,restart){
     if(choice.response!==1){const result={ok:true,cancelled:true,report:[]};await activities.add(optimizationEvents('apply',input,result));return result;}
     setPhase('windows');
     const result=await run('apply',plan,true);
-    if(restart)result.restart=await restart.afterApply(plan,result,actual.version);
+    if(restart)result.restart=await restart.afterApply({...plan,profile:result.profile||plan.profile},result,actual.version);
     await activities.add(optimizationEvents('apply',plan,result));return result;
     } catch(error){await activities.add([{kind:'apply',status:'error',title:'Ошибка применения настроек',detail:error.message}]);throw error}
   });});

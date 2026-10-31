@@ -84,8 +84,12 @@ test('Windows journal: read settings, apply user registry profile, verify, resto
  const capture=()=>ps(`$paths=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedLocations}')) | ConvertFrom-Json;$out=@();foreach($item in $paths){$key=Get-Item -LiteralPath $item.p -ErrorAction SilentlyContinue;$exists=$key -and $key.GetValueNames() -contains $item.n;$out+=@{name=$item.n;exists=[bool]$exists;value=$(if($exists){$key.GetValue($item.n)}else{$null});kind=$(if($exists){[string]$key.GetValueKind($item.n)}else{$null})}};$out | ConvertTo-Json -Compress`);
  const before=capture();
  try {
-   const result=run('apply',{ids:['game-mode','transparency','animations','advertising-id','explorer-recent','explorer-frequent','edge-background'],ratingPlan:{basis:'profiles-v2',ids:['edge-background']},version,profile:'balanced',power:'keep'});
+   const result=run('apply',{ids:['game-mode','transparency','animations','explorer-recent','explorer-frequent','edge-background'],ratingPlan:{basis:'profiles-v2',ids:['edge-background']},version,profile:'balanced',power:'keep'});
    assert.equal(result.ok,true,JSON.stringify(result));
+   const first=JSON.parse(capture());
+   assert.deepEqual(first.find(v=>v.name==='Enabled'),JSON.parse(before).find(v=>v.name==='Enabled'),'First batch must not apply unselected settings');
+   const appended=run('apply',{ids:['advertising-id'],version,profile:'balanced',power:'keep',ratingPlan:{basis:'profiles-v2',ids:['edge-background']}});
+   assert.equal(appended.ok,true,JSON.stringify(appended));
    const changed=JSON.parse(capture());
    assert.deepEqual(changed.map(v=>({name:v.name,exists:v.exists,value:v.value,kind:v.kind})),[{name:'AutoGameModeEnabled',exists:true,value:1,kind:'DWord'},{name:'EnableTransparency',exists:true,value:0,kind:'DWord'},{name:'MinAnimate',exists:true,value:'0',kind:'String'},...['Enabled','ShowRecent','ShowFrequent','BackgroundModeEnabled'].map(name=>({name,exists:true,value:0,kind:'DWord'}))]);
    const status=run('inspect');
@@ -103,7 +107,8 @@ test('Windows journal: read settings, apply user registry profile, verify, resto
      assert.ok(users&&users.type==='Allow',JSON.stringify(permissions));
      assert.equal(users.rights&(2|4|16|64|256|65536|262144|524288),0,'Journal must not grant ordinary users write/delete/owner/ACL control');
      const duplicate=run('apply',{ids:['game-mode'],version,profile:'basic',power:'keep'});
-     assert.equal(duplicate.ok,false,'Do not overwrite an active journal');
+     assert.equal(duplicate.ok,true,'Already installed settings should be skipped without losing the existing journal');
+     assert.equal(duplicate.noChanges,true);
    }
  } finally {
    const status=run('inspect');

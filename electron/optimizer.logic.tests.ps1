@@ -101,13 +101,56 @@ try {
  $state=@{schema=1;phase='pending';sid=$sid;profile='basic';created='fixture';entries=$entries}
  Save-State $state
  $script:failName='AutoGameModeEnabled'
- $batch=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.TryStatementAst] -and $n.Body.Extent.Text -match 'foreach\(\$entry in \$entries\)' -and $n.Extent.Text -match 'Restore-State \$state'},$false) | Sort-Object {$_.Extent.Text.Length})[0]
+ $batch=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.TryStatementAst] -and $n.Body.Extent.Text -match 'foreach\(\$entry in \$entries\)' -and $n.Extent.Text -match 'Undo-ApplyBatch'},$false) | Sort-Object {$_.Extent.Text.Length})[0]
  Assert ($null -ne $batch) 'Production batch control flow must be located'
  Invoke-Expression $batch.Extent.Text
  Assert (!$result.ok -and $result.restored) 'Failed batch must report failure and successful automatic rollback'
  Assert (Same-Registry (Get-Registry $path 'EnableTransparency') $on) 'Earlier applied values must be restored after later failure'
  Assert (!(Get-Registry $gamePath 'AutoGameModeEnabled').exists) 'Failed write must preserve originally absent value'
  Assert (!(Test-Path -LiteralPath $statePath)) 'Successful automatic rollback must clear active journal'
+ # Append a second successful batch without undoing the first.
+ $previousState=$null
+ Write-Registry $path 'EnableTransparency' $on
+ $entries=@($transparency);$payload=@{profile='basic';ids=@('transparency');ratingPlan=@{basis='profiles-v2';ids=@('transparency')}}
+ $state=New-ApplyState $null $payload $entries;Save-State $state;Invoke-Expression $batch.Extent.Text
+ Assert $result.ok 'First incremental batch should apply'
+ $previousState=Read-State
+ $entries=@($game);$payload=@{profile='balanced';ids=@('game-mode');ratingPlan=@{basis='profiles-v2';ids=@('game-mode')}}
+ $state=New-ApplyState $previousState $payload $entries;Save-State $state;Invoke-Expression $batch.Extent.Text
+ Assert $result.ok 'Second batch should append without restoring the first'
+ Assert (Same-Registry (Get-Registry $path 'EnableTransparency') $off) 'First batch must remain active'
+ Assert (Same-Registry (Get-Registry $gamePath 'AutoGameModeEnabled') $on) 'Second batch must be applied'
+ Assert ((Read-State).entries.Count -eq 2) 'Shared journal must retain both original snapshots'
+ Assert ((Read-State).ratingPlan.ids.Count -eq 2) 'Read-only audit requirements must accumulate'
+ Assert (Restore-State (Read-State)) 'Complete rollback should restore all batches'
+ Assert (Same-Registry (Get-Registry $path 'EnableTransparency') $on) 'Complete rollback must restore state before the first apply'
+ Assert (!(Get-Registry $gamePath 'AutoGameModeEnabled').exists) 'Second originally absent target must be removed'
+ # Failure of an appended batch must not undo a successful earlier batch.
+ Write-Registry $path 'EnableTransparency' $off
+ $previousState=@{schema=1;phase='applied';sid=$sid;profile='deep';created='original';entries=@($transparency);ratingPlan=@{basis='profiles-v2';ids=@('transparency');gamePath='C:Gamesold.exe'}}
+ Save-State $previousState
+ $privacyNew=@{id='advertising-id';kind='registry';path=(Resolve-RegistryPath $registry['advertising-id'][0]);name='Enabled';before=$absent;after=$off}
+ Write-Registry $privacyNew.path $privacyNew.name $absent
+ $entries=@($game,$privacyNew);$payload=@{profile='basic';ids=@('game-mode','advertising-id');ratingPlan=@{basis='profiles-v2';ids=@('game-mode')}}
+ $state=New-ApplyState $previousState $payload $entries
+ Assert ($state.profile -eq 'deep' -and $state.ratingPlan.gamePath -eq 'C:Gamesold.exe') 'Adding basic settings must retain the deeper profile and game metadata'
+ Save-State $state;$script:failName='Enabled';Invoke-Expression $batch.Extent.Text
+ Assert (!$result.ok -and $result.restored) 'Failed appended batch must report rollback of new entries only'
+ Assert (Same-Registry (Get-Registry $path 'EnableTransparency') $off) 'Earlier batch must survive an appended failure'
+ Assert (!(Get-Registry $gamePath 'AutoGameModeEnabled').exists) 'An earlier write in the failed new batch must be rolled back'
+ Assert ((Read-State).entries.Count -eq 1 -and (Read-State).phase -eq 'applied') 'Previous journal must remain usable after new batch rollback'
+ Assert (Restore-State (Read-State)) 'Earlier batch must still be fully restorable after appended failure'
+ # Repeated changes to one target retain chronological originals and retry order.
+ $middle=@{exists=$true;kind='DWord';value=2}
+ $later=@{id='transparency';kind='registry';path=$path;name='EnableTransparency';before=$off;after=$middle}
+ $chain=@{schema=1;phase='applied';sid=$sid;profile='deep';entries=@($transparency,$later)}
+ Write-Registry $path 'EnableTransparency' $on;Save-State $chain
+ Assert (!(Restore-State (Read-State))) 'External conflict must retain the entire dependency chain'
+ Assert ((Read-State).entries.Count -eq 2) 'Conflict must not discard the earliest original value'
+ Write-Registry $path 'EnableTransparency' $middle
+ Assert (Restore-State (Read-State)) 'Ordered retry must unwind repeated writes'
+ Assert (Same-Registry (Get-Registry $path 'EnableTransparency') $on) 'Ordered retry must reach the original state before any batch'
+ $previousState=$null
  # Remove a startup value and restore its exact type/text.
  $runPath="Registry::HKEY_USERS\$sid\Software\Microsoft\Windows\CurrentVersion\Run"
  $runBefore=@{exists=$true;kind='ExpandString';value='"%LOCALAPPDATA%\Microsoft\OneDrive.exe" /background'}
@@ -140,6 +183,26 @@ try {
  Assert (!(Power-Exists $managedPlan)) 'Failed clone should be cleaned up even if never activated'
  Assert (!(Test-Path -LiteralPath $statePath)) 'Clean failed-plan rollback should clear the journal'
  $script:failPowerSetting=$false
+ # Appending a different power plan must keep the original plan and owned clone lifecycle.
+ $previousState=$null;$script:active='381b4222-f694-41f0-9685-ff5bb260df2e'
+ $entries=@($powerEntry);$payload=@{profile='deep';ids=@('power')}
+ $state=New-ApplyState $null $payload $entries;Save-State $state;Invoke-Expression $batch.Extent.Text
+ Assert $result.ok 'Initial owned power plan must apply'
+ $previousState=Read-State
+ $entries=@(@{id='power';kind='power';before=$managedPlan;after='8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'})
+ $payload=@{profile='basic';ids=@('power')};$state=New-ApplyState $previousState $payload $entries;Save-State $state;Invoke-Expression $batch.Extent.Text
+ Assert $result.ok 'Another plan must apply without restoring the previous batches'
+ Assert ((Read-State).entries.Count -eq 2) 'Both power transitions must remain in the rollback chain'
+ $previousState=Read-State
+ $entries=@(@{id='power';kind='power';before='8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';after=$managedPlan;reused=$true})
+ $state=New-ApplyState $previousState $payload $entries;Save-State $state;Invoke-Expression $batch.Extent.Text
+ Assert $result.ok 'An owned plan must be selectable again without recreating it'
+ Assert ((Read-State).entries.Count -eq 3) 'Reactivation must keep the original creator backup'
+
+ Assert (Restore-State (Read-State)) 'Full power rollback must unwind both transitions'
+ Assert ($script:active -eq '381b4222-f694-41f0-9685-ff5bb260df2e') 'Full rollback must return to the very first power plan'
+ Assert (!(Power-Exists $managedPlan)) 'Full rollback must still remove only the owned clone'
+ $previousState=$null
  # Per-game preparation keeps unrelated compatibility flags and GPU preferences.
  $exe=Join-Path $root 'cs2.exe';[IO.File]::WriteAllText($exe,'fixture')
  $payload=@{gamePath=$exe}

@@ -9,7 +9,7 @@ export function optimizationView({status=null,error='',busy='',native=true}={}) 
   else mode='idle';
   return {
     mode,controlsLocked:liveRunning,
-    canApply:!liveRunning&&!status?.active&&(!native||(!error&&status?.ok===true)),
+    canApply:!liveRunning&&!status?.needsRecovery&&(!native||(!error&&status?.ok===true)),
     canRestore:native&&!liveRunning&&(status?.active===true||mode==='error'),
     hasBackup:status?.active===true,
   };

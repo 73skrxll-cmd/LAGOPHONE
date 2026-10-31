@@ -27,7 +27,7 @@ test('a saved journal is distinct from running work and never locks draft contro
  const {optimizationView}=await import('../shared/optimization-view.mjs');
  for(const needsRecovery of [true,false]){
   const view=optimizationView({status:{ok:true,active:true,needsRecovery,running:false}});
-  assert.equal(view.controlsLocked,false);assert.equal(view.canApply,false);assert.equal(view.canRestore,true);
+  assert.equal(view.controlsLocked,false);assert.equal(view.canApply,!needsRecovery);assert.equal(view.canRestore,true);
   assert.equal(view.mode,needsRecovery?'recovery':'applied');
  }
  const live=optimizationView({status:{ok:true,active:true,running:true}});assert.equal(live.controlsLocked,true);assert.equal(live.canRestore,false);

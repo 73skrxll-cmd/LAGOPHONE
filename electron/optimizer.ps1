@@ -97,7 +97,8 @@ function Read-State {
     } elseif($entry.kind -eq 'service'){
       if(!$services.ContainsKey([string]$entry.id) -or $services[[string]$entry.id] -ne $entry.name -or $entry.before.start -notin @(2,3,4)){throw 'Invalid service backup entry'}
     } elseif($entry.kind -eq 'power'){
-      if($entry.id -ne 'power' -or $entry.before -notmatch '^[0-9a-fA-F-]{36}$' -or ($entry.after -notin $plans.Values -and !($entry.managed -eq $true -and $entry.after -eq $managedPlan))){throw 'Invalid power backup entry'}
+      if($entry.id -ne 'power' -or $entry.before -notmatch '^[0-9a-fA-F-]{36}$' -or ($entry.after -notin $plans.Values -and !(($entry.managed -eq $true -or $entry.reused -eq $true) -and $entry.after -eq $managedPlan))){throw 'Invalid power backup entry'}
+      if($entry.reused -eq $true -and !@($state.entries | Where-Object {$_.kind -eq 'power' -and $_.managed -eq $true -and $_.after -eq $managedPlan}).Count){throw 'Missing original owned plan backup'}
     } else {throw 'Invalid backup kind'}
   }
   return $state
@@ -139,15 +140,44 @@ function Restore-Entry($entry) {
 function Restore-State($state) {
   $remaining=New-Object System.Collections.ArrayList
   $items=@($state.entries)
+  $blocked=@{}
   [array]::Reverse($items)
   foreach($entry in $items){
+    $key=Entry-Key $entry
+    if($blocked.ContainsKey($key)){[void]$remaining.Add($entry);continue}
     try {Restore-Entry $entry; Note $entry.id 'restored' 'Исходное значение восстановлено и проверено.'}
-    catch {[void]$remaining.Add($entry); Note $entry.id 'error' $_.Exception.Message}
+    catch {$blocked[$key]=$true;[void]$remaining.Add($entry); Note $entry.id 'error' $_.Exception.Message}
   }
-  if($remaining.Count){$state.entries=@($remaining); if($state -is [Collections.IDictionary]){$state['phase']='recovery'}elseif($state.PSObject.Properties['phase']){$state.phase='recovery'}else{$state | Add-Member -NotePropertyName phase -NotePropertyValue 'recovery'}; Save-State $state; return $false}
+  if($remaining.Count){$retry=@($remaining);[array]::Reverse($retry);$state.entries=$retry; if($state -is [Collections.IDictionary]){$state['phase']='recovery'}elseif($state.PSObject.Properties['phase']){$state.phase='recovery'}else{$state | Add-Member -NotePropertyName phase -NotePropertyValue 'recovery'}; Save-State $state; return $false}
   Remove-Item -LiteralPath $statePath -Force
   return $true
 }
+function New-ApplyState($previous,$payload,$entries) {
+  $oldEntries=@()
+  if($previous){$oldEntries=@($previous.entries)}
+  $profile=$payload.profile
+  $levels=@{basic=0;balanced=1;deep=2}
+  if($previous -and $levels[[string]$previous.profile] -gt $levels[[string]$profile]){$profile=$previous.profile}
+  $state=@{schema=1;phase='pending';sid=$sid;profile=$profile;created=$(if($previous){$previous.created}else{[DateTime]::UtcNow.ToString('o')});entries=@($oldEntries)+@($entries)}
+  $oldRating=if($previous){$previous.ratingPlan}else{$null}
+  if($payload.ratingPlan -or $oldRating){
+    $ids=@();if($oldRating){$ids+=@($oldRating.ids)};if($payload.ratingPlan){$ids+=@($payload.ratingPlan.ids)}
+    $state.ratingPlan=@{basis='profiles-v2';ids=@($ids | Select-Object -Unique);gamePath=$(if($payload.ids -contains 'game-gpu'){$payload.gamePath}elseif($oldRating){$oldRating.gamePath}else{$null})}
+  }
+  return $state
+}
+function Undo-ApplyBatch($entries,$previous,$state) {
+  # Keep the full crash-recovery journal until the new batch has been undone.
+  $items=@($entries);[array]::Reverse($items);$ok=$true
+  foreach($entry in $items){
+    try{Restore-Entry $entry;Note $entry.id 'restored' 'Новое изменение отменено; предыдущие настройки сохранены.'}
+    catch{$ok=$false;Note $entry.id 'error' $_.Exception.Message}
+  }
+  if($ok){if($previous){Save-State $previous}else{Remove-Item -LiteralPath $statePath -Force}}
+  else{$state.phase='recovery';Save-State $state}
+  return $ok
+}
+function Entry-Key($entry){return ([string]$entry.kind+'|'+[string]$entry.path+'|'+[string]$entry.name).ToLowerInvariant()}
 function Registry-Compatible($id,$build) {
   return @($registry[$id] | Where-Object {(!$_.minBuild -or $build -ge $_.minBuild) -and (!$_.maxBuild -or $build -le $_.maxBuild)}).Count -gt 0
 }
@@ -242,13 +272,17 @@ function Inspect {
     $checks+=@{id=$id;enabled=[bool]($service -and $service.start -eq 4 -and !$service.running)}
   }
   $state=Read-State
+  $appliedTargets=@()
   if($state){
-    foreach($entry in @($state.entries)){
+    $latest=@{}
+    foreach($entry in @($state.entries)){$latest[(Entry-Key $entry)]=$entry}
+    foreach($entry in $latest.Values){
       $enabled=$false
       if($entry.kind -eq 'registry'){ $enabled=Same-Registry (Get-Registry $entry.path $entry.name) $entry.after }
       elseif($entry.kind -eq 'service'){ $service=Service-State $entry.name; $enabled=($service -and $service.start -eq 4 -and !$service.running) }
       elseif($entry.kind -eq 'power'){ $enabled=((Active-Plan) -eq $entry.after) }
       $checks+=@{id=$entry.id;enabled=[bool]$enabled}
+      if($entry.id -in @('game-gpu','game-fullscreen','power')){$appliedTargets+=@{id=$entry.id;gamePath=$entry.name;power=$entry.after;enabled=[bool]$enabled}}
     }
   }
   # Windows PowerShell 5.1 does not group hashtable keys as object properties.
@@ -260,7 +294,7 @@ function Inspect {
     if(!$check.enabled){$byId[$checkId]=$false}
   }
   $grouped=@(foreach($checkId in $byId.Keys){@{id=$checkId;enabled=[bool]$byId[$checkId]}})
-  return @{ok=$true;windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build};audit=(Optimization-Audit $build);profileAudit=(Profile-Audit $build $state);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
+  return @{ok=$true;windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build};audit=(Optimization-Audit $build);profileAudit=(Profile-Audit $build $state);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);appliedTargets=@($appliedTargets);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
 }
 $mutex=$null;$locked=$false
 try {
@@ -290,7 +324,8 @@ try {
       $ok=Restore-State $state
       $result=@{ok=$ok;restored=$ok;report=@($script:report)}
     } else {
-      if(Read-State){throw 'Restore the existing optimization before applying a new profile'}
+      $previousState=Read-State
+      if($previousState -and $previousState.phase -ne 'applied'){throw 'Complete recovery before adding more settings'}
       $build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber
       $actual=if($build -ge 22000){'11'}else{'10'}
       if($actual -ne $payload.version){throw 'Selected Windows does not match this computer'}
@@ -346,7 +381,12 @@ try {
           $available=(& powercfg.exe /list) -join ''
           if($LASTEXITCODE -ne 0){throw 'Cannot enumerate power plans'}
           if($payload.power -eq 'lagophone'){
-            if($available -match [regex]::Escape($managedPlan)){Note $id 'skipped' 'План LAGOPHONE уже существует; не перезаписывался.';continue}
+            if($available -match [regex]::Escape($managedPlan)){
+              $owned=$previousState -and @($previousState.entries | Where-Object {$_.kind -eq 'power' -and $_.managed -eq $true -and $_.after -eq $managedPlan}).Count -gt 0
+              if($owned -and (Active-Plan) -ne $managedPlan){[void]$entries.Add(@{id=$id;kind='power';before=(Active-Plan);after=$managedPlan;reused=$true})}
+              else{Note $id 'skipped' 'План LAGOPHONE уже существует; не перезаписывался.'}
+              continue
+            }
             [void]$entries.Add(@{id=$id;kind='power';before=(Active-Plan);after=$managedPlan;managed=$true})
             continue
           }
@@ -359,10 +399,7 @@ try {
       }
       if(!$entries.Count -and !$payload.ratingPlan){$result=@{ok=$true;report=@($script:report);noChanges=$true}}
       else {
-        $state=@{schema=1;phase='pending';sid=$sid;profile=$payload.profile;created=(Get-Date).ToUniversalTime().ToString('o');entries=@($entries)}
-        if($payload.ratingPlan -and $payload.ratingPlan.basis -eq 'profiles-v2'){
-          $state.ratingPlan=@{basis='profiles-v2';ids=@($payload.ratingPlan.ids);gamePath=$(if($payload.ids -contains 'game-gpu'){$payload.gamePath}else{$null})}
-        }
+        $state=New-ApplyState $previousState $payload $entries
         # Persist all original values before the first write. This journal also survives termination.
         Save-State $state
         try {
@@ -401,10 +438,10 @@ try {
             Note $entry.id 'applied' $(if($entry.restart){'Значение записано и проверено. Для вступления в силу нужен повторный вход, перезапуск игры или перезагрузка.'}else{'Применено, проверено. Исходное состояние сохранено.'})
           }
           $state.phase='applied'; Save-State $state
-          $result=@{ok=$true;report=@($script:report);noChanges=($entries.Count -eq 0)}
+          $result=@{ok=$true;profile=$state.profile;report=@($script:report);noChanges=($entries.Count -eq 0)}
         } catch {
           $failure=$_.Exception.Message
-          $restored=Restore-State $state
+          $restored=Undo-ApplyBatch $entries $previousState $state
           $result=@{ok=$false;restored=$restored;error=$failure;report=@($script:report)}
         }
       }
