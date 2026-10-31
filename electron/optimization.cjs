@@ -4,6 +4,7 @@ function buildPlan(input, selected, actual, gamePath = null, actualBuild = undef
   if (!['10','11'].includes(selected) || selected !== actual) throw new Error('Выбранная Windows не совпадает с установленной.');
   if(actualBuild!==undefined&&(!Number.isInteger(actualBuild)||actualBuild<10240||(actualBuild>=22000?'11':'10')!==selected))throw new Error('Сборка Windows не соответствует выбранной системе.');
   if (!input || typeof input !== 'object') throw new Error('Некорректный профиль');
+  if(input.scope!==undefined&&input.scope!=='game')throw new Error('Неизвестный режим оптимизации');
   const profile = catalog.profiles.find(p=>p.id===input.profile);
   if (!profile || !['keep','balanced','high','ultimate','lagophone'].includes(input.power) || !catalog.games.some(g=>g.id===input.game)) throw new Error('Неизвестный профиль, план питания или игра');
   if (input.power==='lagophone' && profile.id!=='deep') throw new Error('План LAGOPHONE доступен только глубокому профилю');
@@ -16,9 +17,10 @@ function buildPlan(input, selected, actual, gamePath = null, actualBuild = undef
     return !s.feature || input.uses[s.feature]===false;
   });
   if (!Array.isArray(input.selected) || new Set(input.selected).size!==input.selected.length || input.selected.some(id=>!steps.some(s=>s.id===id))) throw new Error('Список действий не соответствует вашим ответам');
+  if(input.scope==='game'&&(input.power!=='keep'||input.selected.some(id=>!catalog.steps.some(s=>s.id===id&&s.special==='game'))))throw new Error('Игровой режим принимает только настройки выбранной игры');
   const chosen=steps.filter(s=>input.selected.includes(s.id));
   if(!chosen.length) throw new Error('Выберите хотя бы одно действие');
-  const ratingIds=steps.filter(s=>!s.special&&!s.experimental&&s.defaultSelected!==false&&s.category!=='Экспериментальные').map(s=>s.id);
-  return {ratingPlan:{basis:'profiles-v2',ids:ratingIds},profile:profile.id, version:selected, ids:chosen.map(s=>s.id), power:input.power, gamePath:chosen.some(s=>s.special==='game')?gamePath:null};
+  const ratingIds=input.scope==='game'?[]:steps.filter(s=>!s.special&&!s.experimental&&s.defaultSelected!==false&&s.category!=='Экспериментальные').map(s=>s.id);
+  return {scope:input.scope,game:input.game,ratingPlan:{basis:'profiles-v2',ids:ratingIds},profile:profile.id, version:selected, ids:chosen.map(s=>s.id), power:input.power, gamePath:chosen.some(s=>s.special==='game')?gamePath:null};
 }
 module.exports={catalog, buildPlan};

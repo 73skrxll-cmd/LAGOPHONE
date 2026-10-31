@@ -1146,6 +1146,28 @@
       ],
       "minBuild": 10240,
       "variants": {}
+    },
+    {
+      "id": "game-priority",
+      "name": "Высокий приоритет CPU для игры",
+      "level": 0,
+      "category": "Игры",
+      "special": "game",
+      "defaultSelected": true,
+      "attention": {
+        "label": "Приоритет игры",
+        "consequence": "Фоновые программы могут реагировать медленнее. Игра или античит могут изменить приоритет обратно."
+      },
+      "benefit": "Windows отдаёт выбранной игре высокий, но не реального времени, приоритет CPU.",
+      "tradeoff": "Возможна меньшая отзывчивость фоновых программ; прирост FPS не гарантируется.",
+      "detail": "Сохраняет высокий CPU-приоритет для имени EXE игры и пытается применить его к уже запущенной игре. Игра или античит могут запретить изменение. Другие программы не закрываются.",
+      "restart": "Для новых запусков действует сохранённое правило. После отката перезапустите игру.",
+      "windows": [
+        "10",
+        "11"
+      ],
+      "minBuild": 10240,
+      "variants": {}
     }
   ],
   "games": [
@@ -1188,6 +1210,35 @@
       "executables": [
         "r5apex.exe",
         "r5apex_dx12.exe"
+      ]
+    },
+    {
+      "id": "pubg",
+      "name": "PUBG: BATTLEGROUNDS",
+      "executables": [
+        "tslgame.exe"
+      ]
+    },
+    {
+      "id": "deadlock",
+      "name": "Deadlock",
+      "executables": [
+        "project8.exe"
+      ]
+    },
+    {
+      "id": "gta5",
+      "name": "Grand Theft Auto V",
+      "executables": [
+        "gta5.exe",
+        "gta5_enhanced.exe"
+      ]
+    },
+    {
+      "id": "rocket-league",
+      "name": "Rocket League",
+      "executables": [
+        "rocketleague.exe"
       ]
     }
   ]

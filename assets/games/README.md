@@ -1,0 +1,1 @@
+Dota 2, Counter-Strike, PUBG and VALORANT SVG marks: Simple Icons 11.15.0 (CC0), https://github.com/simple-icons/simple-icons/tree/11.15.0/icons. Trademarks belong to their owners. Other games use local text wordmarks, not publisher artwork. No game images are loaded from a network at runtime.

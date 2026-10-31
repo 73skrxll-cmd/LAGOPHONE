@@ -12,8 +12,9 @@ function ps(script,timeout=600000){
 function registerOptimizer(getWindow,activities,restart){
   const {optimizationEvents}=require('./activity.cjs');
   const session=require('./optimizer-session.cjs').createOptimizerSession();
-  let cachedStatus=null,cachedLast=null,sidRequest=null;
+  let cachedStatus=null,cachedGameStatus=null,cachedLast=null,sidRequest=null;
   const games=new Map();
+  const shaders=require('./shader-preparation.cjs').createShaderPreparation({file:()=>path.join(app.getPath('userData'),'shader-tool.json')});
   const worker=app.isPackaged?path.join(process.resourcesPath,'app.asar.unpacked','electron','optimizer.ps1'):path.join(__dirname,'optimizer.ps1');
   const assertWindows=()=>{if(process.platform!=='win32')throw new Error('Оптимизация выполняется только в настольном приложении Windows.');};
   async function identity(){if(!sidRequest)sidRequest=ps('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value',15000).catch(error=>{sidRequest=null;throw error});return sidRequest;}
@@ -47,6 +48,47 @@ function registerOptimizer(getWindow,activities,restart){
     return {...inspected,running:session.isRunning(),operation:session.current()};
   }
   ipcMain.handle('optimization:status',inspectStatus);
+  ipcMain.handle('optimization:game-status',async()=>{
+    assertWindows();
+    if(session.isRunning())return {...(cachedGameStatus||{ok:true,active:false,remaining:0,checks:[]}),running:true,operation:session.current()};
+    const state=await run('inspect',{scope:'game'},false);
+    cachedGameStatus=state;
+    for(const saved of state.savedGames||[]){
+      const game=catalog.games.find(g=>g.id===saved.id);
+      if(game&&game.executables.includes(path.basename(saved.gamePath).toLowerCase())){
+        try{if((await fs.stat(saved.gamePath)).isFile())games.set(game.id,saved.gamePath)}catch{}
+      }
+    }
+    return {...state,running:session.isRunning(),operation:session.current()};
+  });
+  ipcMain.handle('optimization:game-restore',()=>{assertWindows();return session.exclusive('restore',async setPhase=>{
+    setPhase('confirmation');
+    const answer=await dialog.showMessageBox(getWindow(),{type:'question',message:'Восстановить игровые настройки всех игр?',detail:'Отменятся только игровые изменения. Системные твики и планы питания останутся. После восстановления перезапустите игры.',buttons:['Отмена','Восстановить'],defaultId:0,cancelId:0});
+    if(answer.response!==1)return {ok:true,cancelled:true,report:[]};
+    setPhase('windows');const result=await run('restore',{scope:'game'},true);await activities.add(optimizationEvents('restore',{scope:'game'},result));return result;
+  })});
+
+  ipcMain.handle('game:shader-status',()=>shaders.status());
+  ipcMain.handle('game:shader-connect',async()=>{
+    assertWindows();if(session.isRunning())throw Error('Дождитесь текущей операции.');
+    const choice=await dialog.showOpenDialog(getWindow(),{title:'Выберите SCSKiller.exe официальной установки или cli/scskiller.exe',properties:['openFile'],filters:[{name:'SCSKiller',extensions:['exe']}]});
+    if(choice.canceled)return null;
+    const selected=choice.filePaths[0],candidate=path.join(path.dirname(selected),'cli','scskiller.exe');
+    let executable;try{if((await fs.stat(candidate)).isFile())executable=candidate}catch{}
+    if(!executable&&path.basename(path.dirname(selected)).toLowerCase()==='cli'&&path.basename(selected).toLowerCase()==='scskiller.exe')executable=selected;
+    if(!executable)throw Error('Рядом с выбранным файлом нет cli/scskiller.exe. Укажите CLI из официальной установки SCSKiller.');
+    const answer=await dialog.showMessageBox(getWindow(),{type:'question',message:'Подключить SCSKiller для подготовки шейдеров?',detail:executable+'\nБудут вызваны команды добавления игры, проверки и компиляции шейдеров. Получайте SCSKiller из официального репозитория BlueHeisenberg/SCSKiller.',buttons:['Отмена','Подключить'],defaultId:0,cancelId:0});
+    return answer.response===1?shaders.connect(executable):null;
+  });
+  ipcMain.handle('game:shader-prepare',async(_,id)=>{assertWindows();return session.exclusive('apply',async setPhase=>{
+    const game=catalog.games.find(g=>g.id===id),executable=games.get(id);
+    if(!game||!executable||!game.executables.includes(path.basename(executable).toLowerCase()))throw Error('Сначала выберите EXE игры.');
+    const name=path.basename(executable,path.extname(executable));
+    const count=await ps('@([Diagnostics.Process]::GetProcessesByName('+quote(name)+')).Count',15000);
+    if(Number(count)!==0)throw Error('Закройте игру перед подготовкой шейдеров. Настройки приоритета уже сохранены.');
+    setPhase('windows');
+    return shaders.prepare(executable,message=>{const window=getWindow();if(window&&!window.isDestroyed())window.webContents.send('game:shader-progress',message)});
+  })});
   ipcMain.handle('optimization:game',async(_,id)=>{
     assertWindows();if(session.isRunning())throw new Error('Дождитесь завершения операции.');
     const game=catalog.games.find(g=>g.id===id&&g.id!=='none');
@@ -61,7 +103,7 @@ function registerOptimizer(getWindow,activities,restart){
     try {
     const actual=JSON.parse(await ps("$build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber; @{version=$(if($build -ge 22000){'11'}else{'10'});build=$build} | ConvertTo-Json -Compress",30000));
     const plan=buildPlan(input,version,actual.version,games.get(input?.game),actual.build);
-    const status=await run('inspect',{},false);
+    const status=await run('inspect',plan.scope==='game'?{scope:'game'}:{},false);
     if(!status.ok)throw new Error(status.error||'Не удалось прочитать состояние.');
     if(status.needsRecovery)throw new Error('Сначала завершите восстановление прерванной операции.');
     const unavailable=plan.ids.filter(id=>status.availability?.[id]?.available===false);
@@ -72,7 +114,7 @@ function registerOptimizer(getWindow,activities,restart){
     if(choice.response!==1){const result={ok:true,cancelled:true,report:[]};await activities.add(optimizationEvents('apply',input,result));return result;}
     setPhase('windows');
     const result=await run('apply',plan,true);
-    if(restart)result.restart=await restart.afterApply({...plan,profile:result.profile||plan.profile},result,actual.version);
+    if(restart&&plan.scope!=='game')result.restart=await restart.afterApply({...plan,profile:result.profile||plan.profile},result,actual.version);
     await activities.add(optimizationEvents('apply',plan,result));return result;
     } catch(error){await activities.add([{kind:'apply',status:'error',title:'Ошибка применения настроек',detail:error.message}]);throw error}
   });});

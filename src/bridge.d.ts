@@ -20,6 +20,12 @@ declare global {
    onProgress:(cb:(p:{id:string;percent:number|null;bytes:number})=>void)=>()=>void;
    activities:()=>Promise<{items:ActivityEntry[];warning:string}>;
    clearActivities:()=>Promise<boolean>;
+   gameShaderStatus:()=>Promise<{available:boolean;version:string}>;
+   connectShaderTool:()=>Promise<{available:boolean;version:string}|null>;
+   prepareGameShaders:(game:string)=>Promise<{ok:boolean;alreadyPrepared:boolean;message:string}>;
+   onGameShaderProgress:(cb:(message:string)=>void)=>()=>void;
+   gameOptimizationStatus:()=>Promise<OptimizationStatus>;
+   restoreGameOptimization:()=>Promise<OptimizationResult>;
    optimizationStatus:()=>Promise<OptimizationStatus>;
    optimize:(input:OptimizationInput,version:'10'|'11')=>Promise<OptimizationResult>;
    restoreOptimization:()=>Promise<OptimizationResult>;

@@ -5,7 +5,7 @@ if($errors.Count){throw ($errors | Out-String)}
 # Import actual production definitions, but never execute the Windows mutation entrypoint.
 foreach($node in $ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$false)){Invoke-Expression $node.Extent.Text}
 $script:FixtureRoot=$PSScriptRoot
-foreach($node in $ast.FindAll({param($n) $n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -in @('$registry','$services','$plans','$managedPlan')},$false)){Invoke-Expression ($node.Extent.Text.Replace('$PSScriptRoot','$script:FixtureRoot'))}
+foreach($node in $ast.FindAll({param($n) $n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -in @('$registry','$services','$plans','$managedPlan','$gameExecutables')},$false)){Invoke-Expression ($node.Extent.Text.Replace('$PSScriptRoot','$script:FixtureRoot'))}
 $sid='S-1-5-21-1-2-3-1000'
 $root=Join-Path ([IO.Path]::GetTempPath()) ('lagophone-test-'+[guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Path $root | Out-Null
@@ -345,5 +345,42 @@ try {
  Write-Registry (Resolve-RegistryPath $gameSpec) $gameSpec.name @{exists=$false;kind='DWord';value=$null}
  $audit=Optimization-Audit 26100
  Assert ((@($audit.checks | Where-Object {$_.id -eq 'game-mode'})[0].enabled)) 'Absent Game Mode value retains the known Windows enabled default'
+ # Persistent and live game priority use a separate file and exact process identity.
+ $systemPath=$statePath
+ Save-State @{schema=1;sid=$sid;phase='applied';profile='basic';entries=@()}
+ $systemBytes=[IO.File]::ReadAllText($systemPath)
+ $statePath=Join-Path $root 'game-optimization-state.json'
+ $exe=Join-Path $root 'cs2.exe';[IO.File]::WriteAllText($exe,'fixture')
+ $script:fakeGameProcesses=@(@{processId=123;started='639000000000000000';gamePath=$exe;priority='Normal'})
+ function Get-GameProcesses($gamePath){return @($script:fakeGameProcesses | Where-Object {$_.gamePath -eq $gamePath})}
+ function Set-GamePriority($processId,$started,$gamePath,$priority){
+  $process=Get-GameProcessState $processId $started $gamePath
+  if(!$process){return $false}
+  $process.priority=$priority;return $true
+ }
+ $payload=@{scope='game';game='cs2';profile='basic';gamePath=$exe;ids=@('game-priority');ratingPlan=@{basis='profiles-v2';ids=@()}}
+ $id='game-priority';$build=26100;$previousState=$null;$entries=New-Object Collections.ArrayList
+ $preparePriority=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text.StartsWith("if(`$id -eq 'game-priority')")},$false))[0]
+ Assert ($null -ne $preparePriority) 'Production priority preparation must be located'
+ Invoke-Expression $preparePriority.Extent.Text
+ Invoke-Expression $prepareRegistry.Extent.Text
+ Assert ($entries.Count -eq 2) 'Game optimization should prepare exact live process and persistent priority entries'
+ $state=New-ApplyState $null $payload $entries;Save-State $state;Invoke-Expression $batch.Extent.Text
+ Assert $result.ok 'Standalone game priority should apply'
+ Assert ($script:fakeGameProcesses[0].priority -eq 'High') 'Selected running game must receive High priority'
+ $priorityEntry=@($entries | Where-Object {$_.kind -eq 'registry'})[0]
+ Assert ((Get-Registry $priorityEntry.path 'CpuPriorityClass').value -eq 3) 'Future launches must receive the saved High-priority rule'
+ Assert ((Read-State).games[0].id -eq 'cs2') 'Selected game and path must persist for later use'
+ Assert ([IO.File]::ReadAllText($systemPath) -ceq $systemBytes) 'Game apply must not change the system journal'
+ Assert (Restore-State (Read-State)) 'Emergency game recovery must be exact'
+ Assert ($script:fakeGameProcesses[0].priority -eq 'Normal') 'Live original priority must be recoverable'
+ Assert (!(Get-Registry $priorityEntry.path 'CpuPriorityClass').exists) 'Originally absent priority rules must be removed by emergency recovery'
+ Assert ([IO.File]::ReadAllText($systemPath) -ceq $systemBytes) 'Game recovery must not change system settings'
+ $processEntry=@($entries | Where-Object {$_.kind -eq 'process'})[0]
+ $script:fakeGameProcesses[0].started='different-process';$script:fakeGameProcesses[0].priority='AboveNormal'
+ Restore-Entry $processEntry
+ Assert ($script:fakeGameProcesses[0].priority -eq 'AboveNormal') 'PID reuse must never change a different process'
+ $statePath=$systemPath
+ Assert (Restore-State (Read-State)) 'Fixture system journal remains independently usable'
  Write-Output 'PASS: production rollback logic: absent values, interrupted apply, conflict protection, retry journal, tamper rejection, delayed services, power restore, automatic batch rollback, autorun type, owned scheme lifecycle/failure, per-game flag preservation, optional privacy/Explorer build gating and exact rollback, applied profile audits and game verification'
 } finally {Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue}

@@ -117,3 +117,36 @@ test('Windows journal: read settings, apply user registry profile, verify, resto
  assert.deepEqual(JSON.parse(capture()),JSON.parse(before),'Registry values, absence and types must be restored exactly');
  assert.equal(run('inspect').active,false);
 });
+
+test('standalone game profile sets real High priority now and at next launch without changing the system journal',{skip:skip||process.env.LAGOPHONE_WINDOWS_INTEGRATION!=='1'},()=>{
+ const sid=ps('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value');
+ const version=ps("if([int](Get-CimInstance Win32_OperatingSystem).BuildNumber -ge 22000){'11'}else{'10'}");
+ const run=(mode,payload={})=>{const encoded=Buffer.from(JSON.stringify({sid,...payload})).toString('base64');return JSON.parse(ps(`& ${quote(worker)} -Mode '${mode}' -PayloadBase64 '${encoded}'`))};
+ const folder=ps("$d=Join-Path ([IO.Path]::GetTempPath()) ('lagophone-game-'+[guid]::NewGuid());New-Item -ItemType Directory -Path $d | Out-Null;Copy-Item -LiteralPath (Join-Path $env:SystemRoot 'System32\\cmd.exe') -Destination (Join-Path $d 'cs2.exe');$d");
+ const exe=path.win32.join(folder,'cs2.exe');let firstPid=0,secondPid=0;
+ const start=()=>Number(ps(`$p=Start-Process -FilePath ${quote(exe)} -ArgumentList '/d /c ping -n 300 127.0.0.1 > nul' -WindowStyle Hidden -PassThru;$p.Id`));
+ const priority=pid=>ps(`(Get-Process -Id ${pid}).PriorityClass.ToString()`);
+ const key='Registry::HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\cs2.exe\\PerfOptions';
+ const capture=()=>ps(`$key=Get-Item -LiteralPath ${quote(key)} -ErrorAction SilentlyContinue;$exists=$key -and $key.GetValueNames() -contains 'CpuPriorityClass';@{exists=[bool]$exists;value=$(if($exists){$key.GetValue('CpuPriorityClass')}else{$null});kind=$(if($exists){[string]$key.GetValueKind('CpuPriorityClass')}else{$null})} | ConvertTo-Json -Compress`);
+ const original=capture();
+ try{
+  assert.equal(run('inspect',{scope:'game'}).active,false,'Disposable runner must start without a game journal');
+  assert.equal(run('apply',{ids:['transparency'],profile:'basic',version,power:'keep',ratingPlan:{basis:'profiles-v2',ids:['transparency']}}).ok,true);
+  const systemHash=()=>ps("(Get-FileHash -LiteralPath (Join-Path $env:ProgramData 'LAGOPHONE\\optimization-state.json') -Algorithm SHA256).Hash");
+  const beforeSystem=systemHash();firstPid=start();const beforePriority=priority(firstPid);
+  const result=run('apply',{scope:'game',game:'cs2',gamePath:exe,ids:['game-gpu','game-priority'],profile:'basic',version,power:'keep',ratingPlan:{basis:'profiles-v2',ids:[]}});
+  assert.equal(result.ok,true,JSON.stringify(result));assert.equal(priority(firstPid),'High',JSON.stringify(result));
+  assert.equal(JSON.parse(capture()).value,3);assert.equal(systemHash(),beforeSystem,'Game optimization must not alter system backup');
+  secondPid=start();assert.equal(priority(secondPid),'High','Saved Windows image priority must work on the next launch');
+  const status=run('inspect',{scope:'game'});assert.equal(status.savedGames[0].id,'cs2');
+  assert.ok(status.appliedTargets.filter(row=>row.id==='game-priority').every(row=>row.enabled));
+  assert.equal(run('restore',{scope:'game'}).ok,true);assert.equal(priority(firstPid),beforePriority);
+  assert.deepEqual(JSON.parse(capture()),JSON.parse(original),'Priority registry type, value and absence must remain recoverable');
+  assert.equal(systemHash(),beforeSystem,'Emergency game recovery must leave system tweaks unchanged');
+ }finally{
+  for(const pid of [firstPid,secondPid])if(pid)ps(`& taskkill.exe /PID ${pid} /T /F 2>$null | Out-Null; 'OK'`);
+  if(run('inspect',{scope:'game'}).active)assert.equal(run('restore',{scope:'game'}).ok,true);
+  if(run('inspect').active)assert.equal(run('restore').ok,true);
+  ps(`Remove-Item -LiteralPath ${quote(folder)} -Recurse -Force; 'OK'`);
+ }
+});

@@ -13,7 +13,7 @@ $payload=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($PayloadBas
 $sid=[string]$payload.sid
 if($sid -notmatch '^S-1-(?:5-21|12-1)-\d+-\d+-\d+-\d+$') { throw 'Invalid user SID' }
 $root=Join-Path $env:ProgramData 'LAGOPHONE'
-$statePath=Join-Path $root 'optimization-state.json'
+$statePath=Join-Path $root $(if($payload.scope -eq 'game'){'game-optimization-state.json'}else{'optimization-state.json'})
 $script:report=New-Object System.Collections.ArrayList
 function Load-RegistryCatalog($file) {
   $data=Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -22,6 +22,7 @@ function Load-RegistryCatalog($file) {
   return $map
 }
 $registry=Load-RegistryCatalog (Join-Path $PSScriptRoot 'registry-specs.json')
+$gameExecutables=@(Get-Content -LiteralPath (Join-Path $PSScriptRoot 'game-executables.json') -Raw | ConvertFrom-Json)
 $services=@{spooler='Spooler';bluetooth='bthserv';fax='Fax';search='WSearch';maps='MapsBroker';media='WMPNetworkSvc';'remote-registry'='RemoteRegistry';sysmain='SysMain'}
 $plans=@{balanced='381b4222-f694-41f0-9685-ff5bb260df2e';high='8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';ultimate='e9a42b02-d5df-448d-aa00-03f14749eb61'}
 $managedPlan='b9e86298-7324-4f93-9066-faf25aa1c0a3'
@@ -71,6 +72,31 @@ function Service-State($name) {
   $path="Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\$name"
   return @{start=[int](Get-ItemPropertyValue -LiteralPath $path -Name Start);running=($service.Status -eq 'Running');delayed=(Get-Registry $path 'DelayedAutoStart')}
 }
+function Get-GameProcesses($gamePath) {
+  $result=@()
+  foreach($process in [Diagnostics.Process]::GetProcessesByName([IO.Path]::GetFileNameWithoutExtension($gamePath))){
+    try{if($process.MainModule.FileName -ieq $gamePath){$result+=@{processId=$process.Id;started=$process.StartTime.ToUniversalTime().Ticks.ToString();gamePath=$gamePath;priority=[string]$process.PriorityClass}}}catch{$result+=@{processId=$process.Id;started=$null;gamePath=$gamePath;priority='Unknown'};Note 'game-priority' 'skipped' 'Не удалось проверить запущенный процесс игры. Сохранённое правило будет проверено при следующем запуске.'}
+    finally{$process.Dispose()}
+  }
+  return $result
+}
+function Get-GameProcessState($processId,$started,$gamePath) {
+  $matching=@(Get-GameProcesses $gamePath | Where-Object {$_.processId -eq $processId})
+  if(@($matching | Where-Object {$_.priority -eq 'Unknown'}).Count){throw 'Cannot verify the game process identity or priority'}
+  return @($matching | Where-Object {$_.started -eq $started}) | Select-Object -First 1
+}
+function Set-GamePriority($processId,$started,$gamePath,$priority) {
+  $before=Get-GameProcessState $processId $started $gamePath
+  if(!$before){return $false}
+  $process=[Diagnostics.Process]::GetProcessById([int]$processId)
+  try{
+    if($process.StartTime.ToUniversalTime().Ticks.ToString() -ne $started -or $process.MainModule.FileName -ine $gamePath){throw 'Game process identity changed'}
+    $process.PriorityClass=[Enum]::Parse([Diagnostics.ProcessPriorityClass],$priority)
+    $process.Refresh()
+    if([string]$process.PriorityClass -ne $priority){throw 'Game priority verification failed'}
+    return $true
+  }finally{$process.Dispose()}
+}
 function Save-State($state) {
   $temp=Join-Path $root ([guid]::NewGuid().ToString()+'.tmp')
   [IO.File]::WriteAllText($temp,($state | ConvertTo-Json -Depth 20),[Text.UTF8Encoding]::new($false))
@@ -78,9 +104,9 @@ function Save-State($state) {
   if(Test-Path -LiteralPath $statePath){ [IO.File]::Replace($temp,$statePath,[NullString]::Value) } else { [IO.File]::Move($temp,$statePath) }
   Protect-StateFile $statePath
 }
-function Read-State {
-  if(!(Test-Path -LiteralPath $statePath)){return $null}
-  $state=Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
+function Read-State($file=$statePath) {
+  if(!(Test-Path -LiteralPath $file)){return $null}
+  $state=Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
   if($state.schema -ne 1 -or $state.sid -ne $sid){throw 'Backup belongs to another user or has an unsupported format'}
   foreach($entry in @($state.entries)){
     if($entry.kind -eq 'registry'){
@@ -89,11 +115,16 @@ function Read-State {
         foreach($spec in $registry[[string]$entry.id]){
           if($entry.path -eq (Resolve-RegistryPath $spec) -and $entry.name -eq $spec.name){$valid=$true}
         }
+      } elseif($entry.id -eq 'game-priority'){
+        $exe=[IO.Path]::GetFileName([string]$entry.gamePath)
+        $valid=($exe -in $gameExecutables -and $entry.name -eq 'CpuPriorityClass' -and $entry.path -eq ('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\'+$exe+'\PerfOptions'))
       } elseif($entry.id -in @('game-gpu','game-fullscreen')){
         $expected=if($entry.id -eq 'game-gpu'){"Registry::HKEY_USERS\$sid\Software\Microsoft\DirectX\UserGpuPreferences"}else{"Registry::HKEY_USERS\$sid\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"}
         $valid=($entry.path -eq $expected -and [IO.Path]::IsPathRooted($entry.name) -and [IO.Path]::GetExtension($entry.name) -eq '.exe')
       }
       if(!$valid -or $entry.before.kind -notin @('DWord','String','ExpandString','QWord','MultiString','Binary')){throw 'Invalid registry backup entry'}
+    } elseif($entry.kind -eq 'process'){
+      if($entry.id -ne 'game-priority' -or [int]$entry.processId -le 0 -or !$entry.started -or [IO.Path]::GetFileName([string]$entry.gamePath) -notin $gameExecutables -or $entry.before -notin @('Normal','BelowNormal','AboveNormal','Idle') -or $entry.after -ne 'High'){throw 'Invalid process backup entry'}
     } elseif($entry.kind -eq 'service'){
       if(!$services.ContainsKey([string]$entry.id) -or $services[[string]$entry.id] -ne $entry.name -or $entry.before.start -notin @(2,3,4)){throw 'Invalid service backup entry'}
     } elseif($entry.kind -eq 'power'){
@@ -110,6 +141,11 @@ function Restore-Entry($entry) {
     if(!(Same-Registry $current $entry.after)){throw 'Setting changed outside LAGOPHONE; retained for manual review'}
     Write-Registry $entry.path $entry.name $entry.before
     if(!(Same-Registry (Get-Registry $entry.path $entry.name) $entry.before)){throw 'Registry restore verification failed'}
+  } elseif($entry.kind -eq 'process') {
+    $current=Get-GameProcessState $entry.processId $entry.started $entry.gamePath
+    if(!$current -or $current.priority -eq $entry.before){return}
+    if($current.priority -ne 'High'){throw 'Game priority changed outside LAGOPHONE'}
+    [void](Set-GamePriority $entry.processId $entry.started $entry.gamePath $entry.before)
   } elseif($entry.kind -eq 'service') {
     $current=Service-State $entry.name
     if(!$current){throw 'Service no longer exists'}
@@ -164,6 +200,10 @@ function New-ApplyState($previous,$payload,$entries) {
     $ids=@();if($oldRating){$ids+=@($oldRating.ids)};if($payload.ratingPlan){$ids+=@($payload.ratingPlan.ids)}
     $state.ratingPlan=@{basis='profiles-v2';ids=@($ids | Select-Object -Unique);gamePath=$(if($payload.ids -contains 'game-gpu'){$payload.gamePath}elseif($oldRating){$oldRating.gamePath}else{$null})}
   }
+  if($payload.scope -eq 'game'){
+    $games=@();if($previous){$games=@($previous.games | Where-Object {$_.id -ne $payload.game})}
+    $state.games=@($games)+@(@{id=$payload.game;gamePath=$payload.gamePath})
+  }
   return $state
 }
 function Undo-ApplyBatch($entries,$previous,$state) {
@@ -177,7 +217,7 @@ function Undo-ApplyBatch($entries,$previous,$state) {
   else{$state.phase='recovery';Save-State $state}
   return $ok
 }
-function Entry-Key($entry){return ([string]$entry.kind+'|'+[string]$entry.path+'|'+[string]$entry.name).ToLowerInvariant()}
+function Entry-Key($entry){if($entry.kind -eq 'process'){return 'process|'+$entry.processId+'|'+$entry.started};return ([string]$entry.kind+'|'+[string]$entry.path+'|'+[string]$entry.name).ToLowerInvariant()}
 function Registry-Compatible($id,$build) {
   return @($registry[$id] | Where-Object {(!$_.minBuild -or $build -ge $_.minBuild) -and (!$_.maxBuild -or $build -le $_.maxBuild)}).Count -gt 0
 }
@@ -202,7 +242,7 @@ function Optimization-Audit($build) {
 }
 # Re-read the applied plan, including unchanged targets omitted from the rollback entries.
 # Personal features protected by the user's answers are absent from this plan.
-function Profile-Audit($build,$state) {
+function Profile-Audit($build,$state,$gameState=$null) {
   if(!$state -or $state.phase -ne 'applied' -or !$state.ratingPlan -or $state.ratingPlan.basis -ne 'profiles-v2'){return $null}
   $rows=@()
   foreach($id in @($state.ratingPlan.ids)){
@@ -225,9 +265,15 @@ function Profile-Audit($build,$state) {
   }
   # An actual EXE and verified GPU preference are required; selecting a game name earns nothing.
   $game=$state.ratingPlan.gamePath
+  if($gameState -and $gameState.phase -eq 'applied' -and @($gameState.games).Count){$game=@($gameState.games)[-1].gamePath}
   if($game){
     $value=Get-Registry "Registry::HKEY_USERS\$sid\Software\Microsoft\DirectX\UserGpuPreferences" $game
     $enabled=($build -ge 17134) -and (Test-Path -LiteralPath $game -PathType Leaf) -and $value.exists -and $value.kind -eq 'String' -and [string]$value.value -match '(^|;)GpuPreference=2(;|$)'
+    if($gameState -and $gameState.phase -eq 'applied'){
+      $priority=Get-Registry ('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\'+[IO.Path]::GetFileName($game)+'\PerfOptions') 'CpuPriorityClass'
+      if(!$priority.exists -or $priority.kind -ne 'DWord' -or $priority.value -ne 3){$enabled=$false}
+      foreach($process in @(Get-GameProcesses $game)){if($process.priority -notin @('High','RealTime')){$enabled=$false}}
+    }
     $rows+=@{id='game-gpu';tier=3;available=$true;enabled=[bool]$enabled}
   }
   return @{basis='profiles-v2';profile=$state.profile;expectedIds=@($rows | ForEach-Object {$_.id});checks=@($rows)}
@@ -279,10 +325,22 @@ function Inspect {
     foreach($entry in $latest.Values){
       $enabled=$false
       if($entry.kind -eq 'registry'){ $enabled=Same-Registry (Get-Registry $entry.path $entry.name) $entry.after }
+      elseif($entry.kind -eq 'process'){ $process=Get-GameProcessState $entry.processId $entry.started $entry.gamePath;$enabled=(!$process -or $process.priority -eq 'High') }
       elseif($entry.kind -eq 'service'){ $service=Service-State $entry.name; $enabled=($service -and $service.start -eq 4 -and !$service.running) }
       elseif($entry.kind -eq 'power'){ $enabled=((Active-Plan) -eq $entry.after) }
       $checks+=@{id=$entry.id;enabled=[bool]$enabled}
-      if($entry.id -in @('game-gpu','game-fullscreen','power')){$appliedTargets+=@{id=$entry.id;gamePath=$entry.name;power=$entry.after;enabled=[bool]$enabled}}
+      if($entry.id -in @('game-gpu','game-fullscreen','game-priority','power')){$appliedTargets+=@{id=$entry.id;gamePath=$(if($entry.gamePath){$entry.gamePath}else{$entry.name});power=$entry.after;enabled=[bool]$enabled}}
+    }
+  }
+  if($payload.scope -eq 'game' -and $state){
+    foreach($game in @($state.games)){
+      $gpu=Get-Registry "Registry::HKEY_USERS\$sid\Software\Microsoft\DirectX\UserGpuPreferences" $game.gamePath
+      $gpuEnabled=$gpu.exists -and $gpu.kind -eq 'String' -and [string]$gpu.value -match '(^|;)GpuPreference=2(;|$)'
+      $priority=Get-Registry ('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\'+[IO.Path]::GetFileName($game.gamePath)+'\PerfOptions') 'CpuPriorityClass'
+      $priorityEnabled=$priority.exists -and $priority.kind -eq 'DWord' -and $priority.value -eq 3
+      foreach($process in @(Get-GameProcesses $game.gamePath)){if($process.priority -notin @('High','RealTime')){$priorityEnabled=$false}}
+      $appliedTargets+=@{id='game-gpu';gamePath=$game.gamePath;enabled=[bool]$gpuEnabled}
+      $appliedTargets+=@{id='game-priority';gamePath=$game.gamePath;enabled=[bool]$priorityEnabled}
     }
   }
   # Windows PowerShell 5.1 does not group hashtable keys as object properties.
@@ -293,8 +351,10 @@ function Inspect {
     if(!$byId.ContainsKey($checkId)){$byId[$checkId]=$true}
     if(!$check.enabled){$byId[$checkId]=$false}
   }
+  $gameState=$null
+  if($payload.scope -ne 'game'){try{$gameState=Read-State (Join-Path $root 'game-optimization-state.json')}catch{$gameState=$null}}
   $grouped=@(foreach($checkId in $byId.Keys){@{id=$checkId;enabled=[bool]$byId[$checkId]}})
-  return @{ok=$true;windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build};audit=(Optimization-Audit $build);profileAudit=(Profile-Audit $build $state);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);appliedTargets=@($appliedTargets);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
+  return @{ok=$true;windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build};audit=(Optimization-Audit $build);profileAudit=(Profile-Audit $build $state $gameState);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);appliedTargets=@($appliedTargets);savedGames=$(if($state){@($state.games)}else{@()});active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
 }
 $mutex=$null;$locked=$false
 try {
@@ -330,13 +390,25 @@ try {
       $actual=if($build -ge 22000){'11'}else{'10'}
       if($actual -ne $payload.version){throw 'Selected Windows does not match this computer'}
       $allowed=@($registry.Keys | Where-Object {!$registry[$_][0].legacy -and (Registry-Compatible $_ $build)})+@($services.Keys)+@('power')
+      if($build -ge 10240){$allowed+=,'game-priority'}
       if($build -ge 17134){$allowed+=,'game-gpu'}
       if($build -ge 15063){$allowed+=,'game-fullscreen'}
       if(!$payload.ids.Count -or @($payload.ids | Where-Object {$_ -notin $allowed}).Count -or @($payload.ids | Select-Object -Unique).Count -ne $payload.ids.Count){throw 'Invalid action list'}
+      if($payload.scope -eq 'game' -and @($payload.ids | Where-Object {$_ -notin @('game-gpu','game-priority')}).Count){throw 'Game optimization cannot change system tweaks or power'}
       $entries=New-Object System.Collections.ArrayList
       foreach($id in $payload.ids){
-        if($registry.ContainsKey($id) -or $id -in @('game-gpu','game-fullscreen')){
+        if($registry.ContainsKey($id) -or $id -in @('game-gpu','game-fullscreen','game-priority')){
           $specs=$registry[$id]
+          if($id -eq 'game-priority'){
+            $exe=[IO.Path]::GetFileName([string]$payload.gamePath)
+            if(!$payload.gamePath -or $exe -notin $gameExecutables -or !(Test-Path -LiteralPath $payload.gamePath -PathType Leaf)){throw 'Unsupported game executable'}
+            $specs=@(@{hive='machine';path=('SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\'+$exe+'\PerfOptions');name='CpuPriorityClass';value=3;kind='DWord';minBuild=10240;restart=$false})
+            foreach($process in @(Get-GameProcesses $payload.gamePath)){
+              if($process.priority -in @('High','RealTime')){Note $id 'skipped' 'Запущенная игра уже имеет высокий приоритет.';continue}
+              if($process.priority -notin @('Normal','BelowNormal','AboveNormal','Idle')){Note $id 'skipped' 'Неизвестный приоритет процесса; не изменялся.';continue}
+              [void]$entries.Add(@{id=$id;kind='process';processId=$process.processId;started=$process.started;gamePath=$payload.gamePath;before=$process.priority;after='High'})
+            }
+          }
           if($id -eq 'game-fullscreen'){
             if(!$payload.gamePath -or [IO.Path]::GetExtension($payload.gamePath) -ne '.exe' -or !(Test-Path -LiteralPath $payload.gamePath -PathType Leaf)){throw 'Game executable is unavailable'}
             $layerPath="Registry::HKEY_USERS\$sid\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"
@@ -364,7 +436,7 @@ try {
             $after=@{exists=(!$spec.afterAbsent);value=$spec.value;kind=$spec.kind}
             if($spec.requireExisting -and !$before.exists){Note $id 'skipped' 'Настройка отсутствует на этом ПК; не создавалась принудительно.';continue}
             if(Same-Registry $before $after){Note $id 'skipped' 'Нужное значение уже установлено.';continue}
-            [void]$entries.Add(@{id=$id;kind='registry';path=$path;name=$spec.name;before=$before;after=$after;restart=[bool]$spec.restart})
+            [void]$entries.Add(@{id=$id;kind='registry';path=$path;name=$spec.name;before=$before;after=$after;gamePath=$(if($id -like 'game-*'){$payload.gamePath}else{$null});restart=[bool]$spec.restart})
           }
         } elseif($services.ContainsKey($id)) {
           $name=$services[$id];$service=Get-Service -Name $name -ErrorAction SilentlyContinue
@@ -407,6 +479,11 @@ try {
             if($entry.kind -eq 'registry'){
               Write-Registry $entry.path $entry.name $entry.after
               if(!(Same-Registry (Get-Registry $entry.path $entry.name) $entry.after)){throw 'Registry verification failed'}
+            } elseif($entry.kind -eq 'process'){
+              try{
+                $changed=Set-GamePriority $entry.processId $entry.started $entry.gamePath 'High'
+                if(!$changed){Note $entry.id 'skipped' 'Игра уже завершилась. Сохранённый приоритет действует для следующих запусков.';continue}
+              }catch{Note $entry.id 'skipped' 'Игра или античит не разрешили изменить текущий приоритет. Перезапустите игру для проверки сохранённого правила.';continue}
             } elseif($entry.kind -eq 'service'){
               Set-Service -Name $entry.name -StartupType Disabled
               $service=Get-Service -Name $entry.name

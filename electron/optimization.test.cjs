@@ -92,3 +92,14 @@ test('descriptions explain benefits and costs without registry instructions',()=
  for(const step of catalog.steps){assert.ok(step.benefit&&step.tradeoff);assert.doesNotMatch(step.detail,/HwSchMode|GpuPreference|PowerThrottlingOff|SystemResponsiveness|HKCU|HKLM|=\s*[0-9]/)}
  for(const id of ['hags','power','mmcss','spooler','bluetooth','game-fullscreen'])assert.ok(catalog.steps.find(s=>s.id===id).attention);
 });
+
+test('standalone game optimization accepts only the chosen game actions and no system settings',()=>{
+ const selection=input({scope:'game',game:'cs2',selected:['game-gpu','game-priority']});
+ const plan=buildPlan(selection,'11','11','C:\Games\cs2.exe',26100);
+ assert.equal(plan.scope,'game');assert.equal(plan.game,'cs2');assert.deepEqual(plan.ids,['game-gpu','game-priority']);assert.deepEqual(plan.ratingPlan.ids,[]);
+ for(const selected of [['transparency'],['power'],['game-gpu','transparency']])assert.throws(()=>buildPlan({...selection,selected},'11','11','C:\Games\cs2.exe',26100));
+ assert.throws(()=>buildPlan({...selection,power:'high'},'11','11','C:\Games\cs2.exe',26100));
+ assert.throws(()=>buildPlan(selection,'11','11',null,26100));
+ const whitelist=require('./game-executables.json');assert.deepEqual([...whitelist].sort(),[...new Set(catalog.games.flatMap(g=>g.executables))].sort());
+ for(const game of ['dota2','cs2','pubg','deadlock','fortnite'])assert.ok(catalog.games.find(g=>g.id===game)?.executables.length);
+});
