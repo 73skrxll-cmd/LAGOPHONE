@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const {execFileSync}=require('node:child_process');
 const path=require('node:path');
 const worker=path.join(__dirname,'optimizer.ps1');
-function ps(code){return execFileSync(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8; "+code,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(),encoding:'utf8',timeout:120000,windowsHide:true}).trim()}
+function ps(code){return execFileSync(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from("$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; [Console]::OutputEncoding=[Text.Encoding]::UTF8; "+code,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(),encoding:'utf8',timeout:120000,windowsHide:true}).trim()}
 const quote=x=>"'"+String(x).replaceAll("'","''")+"'";
 const skip=process.platform!=='win32';
 test('Windows PowerShell loads its own security module when launched from a PowerShell 7 environment', {skip},()=>{
@@ -12,7 +12,7 @@ test('Windows PowerShell loads its own security module when launched from a Powe
  // Windows PowerShell can expose built-in commands as snap-ins, so ModuleBase is
  // not a reliable identity check. Verify the command assembly and exercise its ACL API.
  const code=`
- $ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8;
+ $ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; [Console]::OutputEncoding=[Text.Encoding]::UTF8;
  Import-Module Microsoft.PowerShell.Security -ErrorAction Stop;
  $command=Get-Command Set-Acl -CommandType Cmdlet -ErrorAction Stop;
  $assembly=$command.ImplementingType.Assembly.GetName();
