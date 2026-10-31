@@ -138,7 +138,7 @@ test('standalone game profile sets real High priority now and at next launch wit
   assert.equal(result.ok,true,JSON.stringify(result));assert.equal(priority(firstPid),'High',JSON.stringify(result));
   assert.equal(JSON.parse(capture()).value,3);assert.equal(systemHash(),beforeSystem,'Game optimization must not alter system backup');
   secondPid=start();assert.equal(priority(secondPid),'High','Saved Windows image priority must work on the next launch');
-  const status=run('inspect',{scope:'game'});assert.equal(status.savedGames[0].id,'cs2');
+  const status=run('inspect',{scope:'game'});assert.ok(Array.isArray(status.savedGames),JSON.stringify(status.savedGames));assert.equal(status.savedGames[0].id,'cs2');
   assert.ok(status.appliedTargets.filter(row=>row.id==='game-priority').every(row=>row.enabled));
   assert.equal(run('restore',{scope:'game'}).ok,true);assert.equal(priority(firstPid),beforePriority);
   assert.deepEqual(JSON.parse(capture()),JSON.parse(original),'Priority registry type, value and absence must remain recoverable');

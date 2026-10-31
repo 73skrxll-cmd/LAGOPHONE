@@ -355,7 +355,7 @@ function Inspect {
   $gameState=$null
   if($payload.scope -ne 'game'){try{$gameState=Read-State (Join-Path $root 'game-optimization-state.json')}catch{$gameState=$null}}
   $grouped=@(foreach($checkId in $byId.Keys){@{id=$checkId;enabled=[bool]$byId[$checkId]}})
-  return @{ok=$true;windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build};audit=(Optimization-Audit $build);profileAudit=(Profile-Audit $build $state $gameState);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);appliedTargets=@($appliedTargets);savedGames=$(if($state){@($state.games)}else{@()});active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
+  return @{ok=$true;windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build};audit=(Optimization-Audit $build);profileAudit=(Profile-Audit $build $state $gameState);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);appliedTargets=@($appliedTargets);savedGames=@(if($state){$state.games});active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
 }
 $mutex=$null;$locked=$false
 try {
