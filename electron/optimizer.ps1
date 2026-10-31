@@ -513,7 +513,7 @@ try {
               & powercfg.exe /setactive $entry.after | Out-Null
               if($LASTEXITCODE -ne 0 -or (Active-Plan) -ne $entry.after){throw 'Power plan verification failed'}
             }
-            Note $entry.id 'applied' $(if($entry.restart){'Значение записано и проверено. Для вступления в силу нужен повторный вход, перезапуск игры или перезагрузка.'}else{'Применено, проверено. Исходное состояние сохранено.'})
+            Note $entry.id 'applied' $(if($entry.restart){'Значение записано и проверено. Может понадобиться перезагрузка для применения настроек.'}else{'Применено, проверено. Исходное состояние сохранено.'})
           }
           $state.phase='applied'; Save-State $state
           $result=@{ok=$true;profile=$state.profile;report=@($script:report);noChanges=($entries.Count -eq 0)}

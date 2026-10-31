@@ -7,10 +7,24 @@ import type {OptimizationResult,OptimizationStatus} from './Optimization';
 const order=['dota2','cs2','pubg','deadlock','fortnite','valorant','apex','gta5','rocket-league'];
 const games=catalog.games.filter(game=>game.id!=='none').sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id));
 const shortName:Record<string,string>={cs2:'CS2',dota2:'DOTA 2',pubg:'PUBG',deadlock:'DEADLOCK',fortnite:'FORTNITE',valorant:'VALORANT',apex:'APEX',gta5:'GTA V','rocket-league':'ROCKET LEAGUE'};
+// Keep the current view through React remounts; native inspection remains the source
+// of truth for configured settings and paths after a full application restart.
+let lastView:{game:string;gamePath:string;result:OptimizationResult|null;activated:boolean}|null=null;
+function rememberedGame(){try{const id=localStorage.getItem('lagophone-selected-game');return games.some(game=>game.id===id)?id!:''}catch{return ''}}
 export function GameOptimizer({native,active,version,mismatch,motion=true,onCompleted}:{native:boolean;active:boolean;motion?:boolean;version:'10'|'11';mismatch:boolean;onCompleted:()=>void}){
- const [game,setGame]=useState(''),[gamePath,setGamePath]=useState(''),[catalogOpen,setCatalogOpen]=useState(false),[query,setQuery]=useState(''),[busy,setBusy]=useState(false),[status,setStatus]=useState<OptimizationStatus|null>(null),[result,setResult]=useState<OptimizationResult|null>(null),[error,setError]=useState(''),[activated,setActivated]=useState(false),[shaderTool,setShaderTool]=useState<{available:boolean;version:string}>({available:false,version:''}),[useShaders,setUseShaders]=useState(false),[shaderPreparing,setShaderPreparing]=useState(false),[shaderProgress,setShaderProgress]=useState('');
+ const [game,setGame]=useState(()=>lastView?.game||rememberedGame()),[gamePath,setGamePath]=useState(()=>lastView?.gamePath||''),[catalogOpen,setCatalogOpen]=useState(false),[query,setQuery]=useState(''),[busy,setBusy]=useState(false),[status,setStatus]=useState<OptimizationStatus|null>(null),[result,setResult]=useState<OptimizationResult|null>(()=>lastView?.result||null),[error,setError]=useState(''),[activated,setActivated]=useState(()=>lastView?.activated||false),[shaderTool,setShaderTool]=useState<{available:boolean;version:string}>({available:false,version:''}),[useShaders,setUseShaders]=useState(false),[shaderPreparing,setShaderPreparing]=useState(false),[shaderProgress,setShaderProgress]=useState('');
  const modal=useRef<HTMLDivElement>(null),opener=useRef<HTMLButtonElement>(null),reading=useRef<Promise<void>|null>(null);
  const selected=games.find(item=>item.id===game);
+ useEffect(()=>{
+  lastView={game,gamePath,result,activated};
+  if(game){try{localStorage.setItem('lagophone-selected-game',game)}catch{}}
+ },[game,gamePath,result,activated]);
+ useEffect(()=>{
+  if(!status?.ok)return;
+  const saved=(status.savedGames||[]).filter(item=>games.some(game=>game.id===item.id));
+  if(!game){const previous=saved.at(-1);if(previous){setGame(previous.id);setGamePath(previous.gamePath)}}
+  else if(!gamePath){const previous=saved.find(item=>item.id===game);if(previous)setGamePath(previous.gamePath)}
+ },[status,game,gamePath]);
  useEffect(()=>{if(!native)return;void window.lagophone!.gameShaderStatus().then(tool=>{setShaderTool(tool);setUseShaders(tool.available)}).catch(()=>{});return window.lagophone!.onGameShaderProgress(message=>setShaderProgress(message))},[native]);
  async function connectShaders(){try{const tool=await window.lagophone!.connectShaderTool();if(tool){setShaderTool(tool);setUseShaders(tool.available);setError('')}}catch(e){setError((e as Error).message)}}
  async function refresh(){
@@ -64,7 +78,7 @@ export function GameOptimizer({native,active,version,mismatch,motion=true,onComp
  const phase=shaderPreparing?(shaderProgress||'Подготовка шейдеров'):status?.operation?.phase==='confirmation'?'Подтвердите игровые настройки в окне Windows':status?.operation?.phase==='windows'?'Windows применяет и проверяет параметры игры':'Подготавливаем игровые настройки';
  return <div className="game-optimizer">
   <section className="game-launcher" aria-label="Оптимизация выбранной игры">
-   <GameEmblem id={game} name={selected?.name||'LAGOPHONE'} phase={busy?'working':activated&&result?.ok&&!result.cancelled?'ready':activated&&result?.ok===false?'error':'idle'} motion={motion&&active}/>
+   <GameEmblem id={game} name={selected?.name||'LAGOPHONE'} phase={busy?'working':activated&&result?.ok===false?'error':optimized||activated&&result?.ok&&!result.cancelled?'ready':'idle'} motion={motion&&active}/>
    <span className="eyebrow">ИГРА НА ПЕРВОМ МЕСТЕ</span>
    <h2>{selected?selected.name:'Выберите игру'}</h2>
    <p>{selected?'Настройте приоритет и видеокарту для этой игры. Системные твики и питание не изменятся.':'Выберите игру из каталога, укажите её EXE и примените игровой профиль своей кнопкой.'}</p>
@@ -74,7 +88,7 @@ export function GameOptimizer({native,active,version,mismatch,motion=true,onComp
     <div className="game-plan"><div><Check size={16}/><span><b>Высокий приоритет CPU</b><small>Для запущенной игры и следующих запусков этого имени EXE. Без приоритета реального времени.</small></span></div><div><Check size={16}/><span><b>Производительная видеокарта</b><small>Предпочтение GPU для выбранного EXE, если это поддерживают Windows и драйвер.</small></span></div></div>
     <details className="game-shader-options"><summary>Меньше фризов: подготовка шейдеров</summary><p>Прогрев кеша через официальный SCSKiller может уменьшить фризы компиляции шейдеров в поддерживаемых играх. Игра должна быть закрыта. Кеш не очищается; запись через DLL и внедрение в игру не включаются.</p>{shaderTool.available?<><label><input type="checkbox" disabled={busy} checked={useShaders} onChange={event=>setUseShaders(event.target.checked)}/>Подготовить шейдеры при оптимизации</label><small>SCSKiller {shaderTool.version} · поддержка зависит от игры, DirectX и GPU.</small></>:<div><button className="button secondary" disabled={!native||busy} onClick={()=>void window.lagophone?.open('scskiller')}>Официальный SCSKiller</button><button className="button secondary" disabled={!native||busy} onClick={()=>void connectShaders()}>Подключить установленный SCSKiller</button></div>}</details>
     <p className="game-plan-note"><Info size={15}/> Фоновые программы могут реагировать медленнее. Игра или античит могут запретить либо сбросить приоритет. Прирост FPS не гарантируется.</p>
-    {busy?<div className="game-progress" role="status"><LoaderCircle className="spin" size={22}/><span>{phase}</span></div>:<button className="button primary game-optimize" disabled={!native||!status?.ok||!gamePath||mismatch||!!status?.needsRecovery||!!status?.running} onClick={()=>void optimize()}>{optimized?<CheckCircle2 size={20}/>:<Sparkles size={20}/>} Оптимизировать</button>}
+    {busy?<div className="game-progress" role="status"><LoaderCircle className="spin" size={22}/><span><b>Оптимизация выполняется</b><small>{phase}</small></span></div>:<button className="button primary game-optimize" disabled={!native||!status?.ok||!gamePath||mismatch||!!status?.needsRecovery||!!status?.running} onClick={()=>void optimize()}>{optimized?<CheckCircle2 size={20}/>:<Sparkles size={20}/>} Оптимизировать</button>}
     {optimized&&!busy&&<p className="game-configured"><CheckCircle2 size={14}/>Настройки действуют. Можно повторно проверить или подготовить шейдеры.</p>}
     {mismatch&&<p role="alert">Выберите установленную Windows для применения настроек.</p>}
    </div>}

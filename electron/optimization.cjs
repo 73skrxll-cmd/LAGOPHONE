@@ -7,7 +7,6 @@ function buildPlan(input, selected, actual, gamePath = null, actualBuild = undef
   if(input.scope!==undefined&&input.scope!=='game')throw new Error('Неизвестный режим оптимизации');
   const profile = catalog.profiles.find(p=>p.id===input.profile);
   if (!profile || !['keep','balanced','high','ultimate','lagophone'].includes(input.power) || !catalog.games.some(g=>g.id===input.game)) throw new Error('Неизвестный профиль, план питания или игра');
-  if (input.power==='lagophone' && profile.id!=='deep') throw new Error('План LAGOPHONE доступен только глубокому профилю');
   if (!input.uses || catalog.features.some(f=>typeof input.uses[f.id] !== 'boolean') || typeof input.sysmain !== 'boolean') throw new Error('Ответьте на вопросы об использовании функций');
   const steps=catalog.steps.filter(s=>{
     if(s.level>profile.level||!supportsWindows(s,selected,actualBuild)) return false;

@@ -52,7 +52,7 @@ test('basic has 18 choices without disabling services, user functions or machine
  const specs=require('./registry-specs.json');
  for(const step of basic){assert.ok(specs[step.id]?.length);for(const spec of specs[step.id]){assert.notEqual(spec.hive,'machine');assert.notEqual(spec.afterAbsent,true);}}
 });
-test('recommendations materially differ and a dedicated power scheme is restricted to deep',()=>{
+test('recommendations materially differ and a dedicated power scheme is independent of system profile',()=>{
  const basic=['animations','transparency','menu-delay','hover-delay','taskbar-animation','selection-effects','icon-shadows','drag-content','startup-delay','explorer-promos','windows-tips','welcome-promos','lockscreen-facts','start-promos','settings-promos','suggested-installs','search-highlights','game-mode'];
  const medium=[...basic,'fax','edge-startup','edge-background','widgets','restart-apps','delivery-p2p','desktop-peek','power'];
  const deep=[...medium,'maps','media','remote-registry','activity-sync','mmcss'];
@@ -60,8 +60,7 @@ test('recommendations materially differ and a dedicated power scheme is restrict
  for(const [profile,power,selected] of [['basic','keep',basic],['balanced','high',medium],['deep','lagophone',deep]]){
    assert.deepEqual(new Set(buildPlan(input({profile,power,selected,uses}),'10','10').ids),new Set(selected));
  }
- assert.throws(()=>buildPlan(input({power:'lagophone',selected:['power']}),'11','11'));
- assert.throws(()=>buildPlan(input({profile:'balanced',power:'lagophone',selected:['power']}),'11','11'));
+ for(const profile of ['basic','balanced','deep'])assert.deepEqual(buildPlan(input({profile,power:'lagophone',selected:['power']}),'11','11').ids,['power']);
 });
 test('every registry tweak is scoped and independently reversible without duplicate targets',()=>{
  const specs=require('./registry-specs.json'),targets=new Set();
