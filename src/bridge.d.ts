@@ -7,6 +7,7 @@ import type { OptimizationInput, OptimizationStatus, OptimizationResult } from '
 declare global {
  interface Window {
   lagophone?: {
+   restartAcknowledge:()=>Promise<{ok:boolean}>;
    restartStatus:()=>Promise<RestartState>;
    restartLater:()=>Promise<{ok:boolean}>;
    restartNow:()=>Promise<{ok:boolean;cancelled?:boolean}>;

@@ -248,6 +248,20 @@ try {
  Assert ($null -eq (Profile-Audit 26100 @{phase='applied';profile='deep';entries=@()})) 'Legacy journal profile names cannot produce advanced points'
  Assert (Restore-State (Read-State)) 'A plan with no writes must still have a valid restorable session'
  Assert ($null -eq (Profile-Audit 26100 (Read-State))) 'Restore must revoke applied profile evidence'
+ # The UI must get a fresh verification for every registry action after restart.
+ function Get-CimInstance($ClassName){return @{BuildNumber='26100'}}
+ $script:values=@{}
+ $trans=$registry['transparency'][0];$transPath=Resolve-RegistryPath $trans
+ Write-Registry $transPath $trans.name @{exists=$true;kind='DWord';value=0}
+ $live=Inspect
+ Assert ((@($live.checks | Where-Object {$_.id -eq 'transparency'})[0].enabled)) 'Live status must mark an installed tweak as applied'
+ $privacy=$registry['advertising-id'][0]
+ Write-Registry (Resolve-RegistryPath $privacy) $privacy.name @{exists=$true;kind='DWord';value=0}
+ $live=Inspect
+ Assert ((@($live.checks | Where-Object {$_.id -eq 'advertising-id'})[0].enabled)) 'Live status must include optional tweaks outside the old two-item summary'
+ Write-Registry $transPath $trans.name @{exists=$true;kind='DWord';value=1}
+ $live=Inspect
+ Assert (!(@($live.checks | Where-Object {$_.id -eq 'transparency'})[0].enabled)) 'An external change must clear the applied marker'
  # A full read-only baseline audit must inspect all targets of all 18 basic actions.
  $script:values=@{}
  foreach($auditId in @($registry.Keys | Where-Object {$registry[$_][0].audit})){

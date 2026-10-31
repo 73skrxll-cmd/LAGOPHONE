@@ -98,3 +98,7 @@ body{background:var(--page)}.app-shell,.welcome{position:relative;z-index:1;back
  .section-stage[data-transitions=true]{animation:section-reveal 100ms ease-out!important}
  .section-stage[data-transitions=true]>.page-title{animation:none!important}
 }
+
+[hidden]{display:none!important}
+
+.changes-list label.is-applied{opacity:1;border-color:var(--accent-border)}.changes-list label.is-applied .choice-title em{color:var(--accent)}

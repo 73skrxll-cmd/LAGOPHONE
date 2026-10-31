@@ -1,3 +1,5 @@
+import catalog from './optimization.json' with {type:'json'};
+import {forWindows} from './windows-compatibility.mjs';
 import {optimizationView} from './optimization-view.mjs';
 export const baselineIds=['transparency','animations','menu-delay','hover-delay','taskbar-animation','selection-effects','icon-shadows','drag-content','explorer-promos','windows-tips','welcome-promos','lockscreen-facts','start-promos','settings-promos','suggested-installs','search-highlights','startup-delay','game-mode'];
 export const ratingLevels=[
@@ -38,6 +40,9 @@ export function optimizationRating({status=null,native=true,error=''}={}){
  const percent=ideal?100:Math.min(99,Math.floor(score));
  const level=ideal?'ideal':percent>=70?'good':percent>=40?'medium':percent>=20?'weak':'poor';
  const allRows=[...base.rows,...(valid?advancedRows:[])];
- const summary=ideal?'Глубокий и игровой профили проверены':valid?`Проверено: базовый ${Math.floor(30*matched/available.length)}/30 · средний ${Math.floor(30*medium)}/30 · глубокий ${Math.floor(30*deep)}/30 · игра ${10*game}/10`:base.summary;
+ const live=new Map([...(status.checks||[]),...(valid?advancedRows:[])].map(row=>[row.id,row.enabled===true]));
+ const compatible=forWindows(catalog.steps,status.windows?.version||'11',status.windows?.build).filter(step=>!step.special&&status.availability?.[step.id]?.available!==false);
+ const count=tier=>{const items=compatible.filter(step=>step.level===tier);return `${items.filter(step=>live.get(step.id)).length}/${items.length}`};
+ const summary=`Базовые: ${matched}/${available.length} · дополнительные среднего: ${count(1)} · дополнительные глубокого: ${count(2)} · игра: ${game===1?'проверена':'не настроена'}`;
  return {...base,rows:allRows,mode:'rated',level,percent,summary};
 }

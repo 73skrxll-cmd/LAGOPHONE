@@ -26,11 +26,12 @@ function createRestartManager({file,getBootId,arm,disarm,inspect,enabled=true}){
    if(bootId===state.bootId)return {pending:true,offer:!state.notified,scheduled:state.scheduled,warning:state.warning||''};
    const audit=await inspect();
    if(!audit.ok)throw Error('Не удалось проверить настройки после перезагрузки. Повторите проверку.');
-   await remove();
-   if(!audit.active||audit.needsRecovery)return {pending:false};
-   if(audit.profile!==state.profile||!Array.isArray(state.ids)||!state.ids.length||!state.ids.every(id=>(audit.checks||[]).some(check=>check.id===id&&check.enabled)))return {pending:false,warning:'После перезагрузки часть настроек отличается от сохранённого профиля. Проверьте раздел «Твики».'};
+   if(!audit.active||audit.needsRecovery){await remove();return {pending:false}};
+   if(audit.profile!==state.profile||!Array.isArray(state.ids)||!state.ids.length||!state.ids.every(id=>(audit.checks||[]).some(check=>check.id===id&&check.enabled))){await remove();return {pending:false,warning:'После перезагрузки часть настроек отличается от сохранённого профиля. Проверьте раздел «Твики».'}};
+   await disarm().catch(()=>{});
    return {pending:false,celebration:{profile:state.profile,count:state.count,version:state.version}};
   })},
+  acknowledge(){return exclusive(async()=>{if(!enabled)return {ok:true};const state=await read(),bootId=await getBootId();if(state&&bootId&&bootId!==state.bootId)await remove();return {ok:true}})},
   defer(){return exclusive(async()=>{const state=await read();if(state){state.notified=true;await write(state)}return {ok:true}})},
   async startup(){
    // RunOnce also fires after sign-out. Keep the one-time launch for the next real reboot.

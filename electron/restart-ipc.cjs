@@ -19,6 +19,7 @@ function createWindowsRestart({inspect}){
  return {...manager,register(getWindow,optimizer){
   let restarting=false;
   ipcMain.handle('restart:status',()=>manager.status());
+  ipcMain.handle('restart:acknowledge',()=>manager.acknowledge());
   ipcMain.handle('restart:later',()=>manager.defer());
   ipcMain.handle('restart:now',async()=>{
    if(!enabled)throw Error('Перезагрузка доступна в установленной или portable-версии Windows.');

@@ -43,3 +43,5 @@ test('rating plan respects protected functions, build compatibility and optional
 });
 
 test('registry tier metadata matches the catalog used to build persisted plans',()=>{for(const step of catalog.steps){if(specs[step.id])assert.equal(specs[step.id][0].tier,step.level,step.id)}});
+
+test('visible summary uses actual tweak counts rather than weighted score denominators',async()=>{const f=await fixture();const s=f.status();s.windows={version:'10',build:19045};s.checks=[{id:'edge-background',enabled:true}];const r=f.optimizationRating({status:s});assert.match(r.summary,/Базовые: 18\/18/);assert.match(r.summary,/среднего: 1\/16/);assert.match(r.summary,/глубокого: 0\/8/);assert.doesNotMatch(r.summary,/\/30|\/10/)});

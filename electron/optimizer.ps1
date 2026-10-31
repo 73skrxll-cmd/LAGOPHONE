@@ -224,6 +224,23 @@ function Inspect {
     $value=Get-Registry "Registry::HKEY_USERS\$sid\$($spec.path)" $spec.name
     $checks+=@{id=$id;enabled=(($id -eq 'game-mode' -and !$value.exists) -or ($value.exists -and [string]$value.value -eq [string]$spec.value))}
   }
+  # Read every compatible registry action, not only the two old summary checks.
+  foreach($id in $registry.Keys){
+    if($registry[$id][0].legacy){continue}
+    $supported=@($registry[$id] | Where-Object {(!$_.minBuild -or $build -ge $_.minBuild) -and (!$_.maxBuild -or $build -le $_.maxBuild)})
+    if(!$supported.Count){continue}
+    $enabled=$true
+    foreach($spec in $supported){
+      $actualValue=Get-Registry (Resolve-RegistryPath $spec) $spec.name
+      if($id -eq 'game-mode' -and !$actualValue.exists){continue}
+      if(!(Same-Registry $actualValue @{exists=(!$spec.afterAbsent);value=$spec.value;kind=$spec.kind})){$enabled=$false}
+    }
+    $checks+=@{id=$id;enabled=[bool]$enabled}
+  }
+  foreach($id in $services.Keys){
+    $service=Service-State $services[$id]
+    $checks+=@{id=$id;enabled=[bool]($service -and $service.start -eq 4 -and !$service.running)}
+  }
   $state=Read-State
   if($state){
     foreach($entry in @($state.entries)){
