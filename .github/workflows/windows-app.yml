@@ -38,9 +38,14 @@ jobs:
       - name: Test validation, PowerShell and real registry rollback on disposable runner
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $false
           & npm.cmd test 2>&1 | Tee-Object -FilePath test-output.log
           $testExit = $LASTEXITCODE
           if ($testExit -ne 0) {
+            $failure = ((Get-Content test-output.log -Tail 160) -join "`n")
+            if ($failure.Length -gt 20000) { $failure = $failure.Substring($failure.Length - 20000) }
+            $failure = $failure.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Windows assertion details::$failure"
             '### Windows test failure' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
             '```text' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
             Get-Content test-output.log -Tail 180 | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
