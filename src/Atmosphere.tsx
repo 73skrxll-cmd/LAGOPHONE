@@ -1,0 +1,19 @@
+import {useEffect,useState} from 'react';
+import type {CSSProperties} from 'react';
+export function useVisualEffects(){
+ const [enabled,setEnabled]=useState(()=>{try{return localStorage.getItem('lagophone-effects')!=='off'}catch{return true}}),[visible,setVisible]=useState(!document.hidden),[reduced,setReduced]=useState(()=>matchMedia('(prefers-reduced-motion: reduce)').matches);
+ useEffect(()=>{try{localStorage.setItem('lagophone-effects',enabled?'on':'off')}catch{}},[enabled]);
+ useEffect(()=>{const media=matchMedia('(prefers-reduced-motion: reduce)'),motion=()=>setReduced(media.matches),visibility=()=>setVisible(!document.hidden),blur=()=>setVisible(false),focus=()=>setVisible(!document.hidden);media.addEventListener('change',motion);document.addEventListener('visibilitychange',visibility);window.addEventListener('blur',blur);window.addEventListener('focus',focus);return()=>{media.removeEventListener('change',motion);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('blur',blur);window.removeEventListener('focus',focus)}},[]);
+ return {enabled,setEnabled,running:enabled&&visible&&!reduced,reduced};
+}
+const stars=Array.from({length:76},(_,i)=>({x:(i*317+83)%1600,y:(i*i*23+73)%900,r:.8+(i%4)*.42}));
+function Lotus({x,y,scale=1}:{x:number;y:number;scale?:number}){return <g transform={`translate(${x} ${y}) scale(${scale})`} className="ambient-lotus"><path d="M0 0C-36-21-35-62 0-105C35-62 36-21 0 0ZM0 0C-57-1-91-39-89-78C-38-76-3-44 0 0ZM0 0C57-1 91-39 89-78C38-76 3-44 0 0ZM0 0C-67 19-113-3-130-38C-78-57-29-38 0 0ZM0 0C67 19 113-3 130-38C78-57 29-38 0 0Z"/><path d="M-135 18Q0 52 135 18" fill="none"/></g>}
+export function Atmosphere({theme,running}:{theme:string;running:boolean}){
+ return <div className={'theme-atmosphere atmosphere-'+theme} data-motion={running} aria-hidden="true"><div className="ambient-glow ambient-glow-one"/><div className="ambient-glow ambient-glow-two"/><svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+ {theme==='black'&&<g className="ambient-stars">{stars.map((s,i)=><circle key={i} cx={s.x} cy={s.y} r={s.r} style={{'--delay':`${i%11*-1.3}s`,'--duration':`${5+i%6}s`} as CSSProperties}/>)}{[6,25,49,67].map(i=><path key={i} className="ambient-star-cross" d={`M${stars[i].x-5} ${stars[i].y}h10m-5-5v10`}/>)}</g>}
+ {theme==='purple'&&<g className="ambient-neon"><path className="neon-trace neon-one" d="M1050-80 1510 180V480L1650 560M250 690 470 810H890L1100 930"/><path className="neon-trace neon-two" d="M1100-100 1550 160V440M210 740 430 860H830"/>{Array.from({length:9},(_,i)=><path key={i} d={`M${350+i*150} 900 ${790+(i-4)*48} 560`}/>)}{[610,660,720,790,875].map(y=><path key={y} d={`M240 ${y}H1560`}/>)}</g>}
+ {theme==='green'&&<g className="ambient-garden"><g className="ambient-branch"><path d="M1620 85Q1430 160 1470 430" fill="none"/>{[0,1,2,3,4].map(i=><g key={i} transform={`translate(${1544-i*18} ${145+i*48}) rotate(${i%2?-30:28})`}><path d="M0 0Q-61-42-95-11Q-59 31 0 0Z"/><path d="M0 0-71-9" fill="none"/></g>)}</g><g className="ambient-branch branch-low"><path d="M215 980Q245 760 432 670" fill="none"/>{[0,1,2,3].map(i=><path key={i} transform={`translate(${270+i*40} ${820-i*41}) rotate(${i%2?160:210})`} d="M0 0Q-25-65-88-43Q-65 9 0 0Z"/>)}</g><Lotus x={1265} y={835} scale={1.3}/><Lotus x={410} y={360} scale={.55}/></g>}
+ {theme==='blue'&&<g className="ambient-ocean">{[0,1,2,3,4].map(i=><path key={i} d={`M180 ${760+i*30}Q550 ${540+i*30} 920 ${760+i*30}T1700 ${710+i*30}`} fill="none"/>)}{stars.slice(0,15).map((s,i)=><circle key={i} cx={s.x} cy={s.y} r={5+i%4*5}/>)}</g>}
+ {theme==='red'&&<g className="ambient-embers">{stars.slice(0,30).map((s,i)=><circle key={i} cx={s.x} cy={s.y} r={1.2+i%3*.7} style={{'--delay':`${i%9*-1.7}s`} as CSSProperties}/>)}<path d="M-80 800 380 340M-50 880 480 350M1240-40 1660 380" fill="none"/></g>}
+ </svg></div>;
+}

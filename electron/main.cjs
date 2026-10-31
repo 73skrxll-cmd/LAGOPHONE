@@ -9,7 +9,6 @@ const activities=require('./activity.cjs').createActivityStore(()=>path.join(app
 const restart=require('./restart-ipc.cjs').createWindowsRestart({inspect:()=>optimizer.status()});
 const optimizer = require('./optimizer-ipc.cjs').registerOptimizer(() => win,activities,restart);
 restart.register(()=>win,optimizer);
-require('./monitor-ipc.cjs').registerMonitor(optimizer);
 ipcMain.handle('activity:list',()=>activities.list());
 ipcMain.handle('activity:clear',()=>activities.clear());
 function powershell(script) {

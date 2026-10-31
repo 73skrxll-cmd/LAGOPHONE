@@ -4,7 +4,8 @@
       "path": "Software\\Microsoft\\GameBar",
       "name": "AutoGameModeEnabled",
       "value": 1,
-      "kind": "DWord"
+      "kind": "DWord",
+      "audit": true
     }
   ],
   "transparency": [
@@ -12,7 +13,8 @@
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
       "name": "EnableTransparency",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "audit": true
     }
   ],
   "animations": [
@@ -20,7 +22,8 @@
       "path": "Control Panel\\Desktop\\WindowMetrics",
       "name": "MinAnimate",
       "value": "0",
-      "kind": "String"
+      "kind": "String",
+      "audit": true
     }
   ],
   "capture": [
@@ -43,7 +46,8 @@
       "name": "MenuShowDelay",
       "value": "200",
       "kind": "String",
-      "restart": true
+      "restart": true,
+      "audit": true
     }
   ],
   "hover-delay": [
@@ -52,7 +56,8 @@
       "name": "MouseHoverTime",
       "value": "200",
       "kind": "String",
-      "restart": true
+      "restart": true,
+      "audit": true
     }
   ],
   "taskbar-animation": [
@@ -61,7 +66,8 @@
       "name": "TaskbarAnimations",
       "value": 0,
       "kind": "DWord",
-      "restart": true
+      "restart": true,
+      "audit": true
     }
   ],
   "selection-effects": [
@@ -70,7 +76,8 @@
       "name": "ListviewAlphaSelect",
       "value": 0,
       "kind": "DWord",
-      "restart": true
+      "restart": true,
+      "audit": true
     }
   ],
   "icon-shadows": [
@@ -79,7 +86,8 @@
       "name": "ListviewShadow",
       "value": 0,
       "kind": "DWord",
-      "restart": true
+      "restart": true,
+      "audit": true
     }
   ],
   "drag-content": [
@@ -88,7 +96,8 @@
       "name": "DragFullWindows",
       "value": "0",
       "kind": "String",
-      "restart": true
+      "restart": true,
+      "audit": true
     }
   ],
   "startup-delay": [
@@ -97,7 +106,8 @@
       "name": "StartupDelayInMSec",
       "value": 0,
       "kind": "DWord",
-      "restart": true
+      "restart": true,
+      "audit": true
     }
   ],
   "explorer-promos": [
@@ -105,7 +115,8 @@
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
       "name": "ShowSyncProviderNotifications",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "audit": true
     }
   ],
   "windows-tips": [
@@ -113,7 +124,8 @@
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
       "name": "SubscribedContent-338389Enabled",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "audit": true
     }
   ],
   "welcome-promos": [
@@ -121,7 +133,8 @@
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
       "name": "SubscribedContent-310093Enabled",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "audit": true
     }
   ],
   "lockscreen-facts": [
@@ -129,7 +142,8 @@
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
       "name": "RotatingLockScreenOverlayEnabled",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "audit": true
     }
   ],
   "start-promos": [
@@ -137,7 +151,8 @@
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
       "name": "SystemPaneSuggestionsEnabled",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "audit": true
     },
     {
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
@@ -151,7 +166,8 @@
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
       "name": "SubscribedContent-353694Enabled",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "audit": true
     },
     {
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
@@ -165,7 +181,8 @@
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
       "name": "SilentInstalledAppsEnabled",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "audit": true
     }
   ],
   "search-highlights": [
@@ -174,7 +191,8 @@
       "name": "IsDynamicSearchBoxEnabled",
       "value": 0,
       "kind": "DWord",
-      "minBuild": 19044
+      "minBuild": 19044,
+      "audit": true
     }
   ],
   "edge-startup": [

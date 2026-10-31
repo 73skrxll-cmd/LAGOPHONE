@@ -55,18 +55,6 @@ test('Windows PowerShell loads its own security module when launched from a Powe
 test('Windows PowerShell 5.1 parses production worker', {skip},()=>{
  assert.equal(ps(`$tokens=$null;$errors=$null;[Management.Automation.Language.Parser]::ParseFile(${quote(worker)},[ref]$tokens,[ref]$errors) | Out-Null;if($errors.Count){throw ($errors | Out-String)}; 'OK'`),'OK');
 });
-test('Windows PowerShell 5.1 parses the read-only monitoring worker', {skip},()=>{
- const monitor=path.join(__dirname,'monitor.ps1');
- assert.equal(ps(`$tokens=$null;$errors=$null;[Management.Automation.Language.Parser]::ParseFile(${quote(monitor)},[ref]$tokens,[ref]$errors) | Out-Null;if($errors.Count){throw ($errors | Out-String)}; 'OK'`),'OK');
-});
-test('Windows monitoring reads actual RAM without requiring GPU sensors', {skip},()=>{
- const monitor=path.join(__dirname,'monitor.ps1');
- const result=JSON.parse(ps(`& ${quote(monitor)}`));
- assert.ok(result.memory.totalBytes>0,JSON.stringify(result.memory));
- assert.ok(result.memory.freeBytes>=0&&result.memory.freeBytes<=result.memory.totalBytes,JSON.stringify(result.memory));
- assert.ok(result.cpu.usagePercent===null||Number.isFinite(result.cpu.usagePercent));
- assert.ok(Array.isArray(result.adapters));
-});
 test('PowerShell production rollback logic with in-memory providers', {skip},()=>{
  const script=path.join(__dirname,'optimizer.logic.tests.ps1');
  const result=execFileSync(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script],{env:windowsPowerShellEnvironment(),encoding:'utf8',timeout:30000,windowsHide:true});
@@ -82,6 +70,9 @@ test('Windows journal: read settings, apply user registry profile, verify, resto
  };
  const initial=run('inspect');
  assert.equal(initial.ok,true,JSON.stringify(initial));
+ assert.equal(initial.audit.basis,'baseline-v1');
+ assert.equal(initial.audit.checks.length,18);
+ assert.ok(initial.audit.checks.every(check=>typeof check.available==='boolean'&&(check.enabled===null||typeof check.enabled==='boolean')));
  assert.equal(initial.active,false,'Disposable runner must not have an active profile');
  const locations=[
    {p:['Registry::HKEY_USERS',sid,'Software','Microsoft','GameBar'].join('\\'),n:'AutoGameModeEnabled'},

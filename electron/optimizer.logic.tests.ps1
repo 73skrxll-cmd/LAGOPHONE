@@ -158,5 +158,23 @@ try {
  $prepare=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text.StartsWith("if(`$id -eq 'game-gpu')")},$false))[0]
  Invoke-Expression $prepare.Extent.Text
  Assert ($specs[0].value -eq 'GpuPreference=2;SwapEffectUpgradeEnable=1;') 'GPU choice must not erase unrelated game preferences'
+ # A full read-only baseline audit must inspect all targets of all 18 basic actions.
+ $script:values=@{}
+ foreach($auditId in @($registry.Keys | Where-Object {$registry[$_][0].audit})){
+  foreach($auditSpec in $registry[$auditId]){Write-Registry (Resolve-RegistryPath $auditSpec) $auditSpec.name @{exists=(!$auditSpec.afterAbsent);value=$auditSpec.value;kind=$auditSpec.kind}}
+ }
+ $beforeAudit=$script:values | ConvertTo-Json -Depth 12 -Compress
+ $audit=Optimization-Audit 26100
+ Assert ($audit.basis -eq 'baseline-v1' -and $audit.checks.Count -eq 18) 'Audit must cover the complete fixed baseline'
+ Assert (@($audit.checks | Where-Object {!$_.enabled}).Count -eq 0) 'Exact targets must pass the audit'
+ Assert (($script:values | ConvertTo-Json -Depth 12 -Compress) -ceq $beforeAudit) 'Audit must not mutate settings'
+ $wrong=$registry['animations'][0]
+ Write-Registry (Resolve-RegistryPath $wrong) $wrong.name @{exists=$true;kind=$wrong.kind;value='1'}
+ $audit=Optimization-Audit 26100
+ Assert (!(@($audit.checks | Where-Object {$_.id -eq 'animations'})[0].enabled)) 'A changed target must lower the measured match count'
+ $gameSpec=$registry['game-mode'][0]
+ Write-Registry (Resolve-RegistryPath $gameSpec) $gameSpec.name @{exists=$false;kind='DWord';value=$null}
+ $audit=Optimization-Audit 26100
+ Assert ((@($audit.checks | Where-Object {$_.id -eq 'game-mode'})[0].enabled)) 'Absent Game Mode value retains the known Windows enabled default'
  Write-Output 'PASS: production rollback logic: absent values, interrupted apply, conflict protection, retry journal, tamper rejection, delayed services, power restore, automatic batch rollback, autorun type, owned scheme lifecycle/failure, per-game flag preservation'
 } finally {Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue}

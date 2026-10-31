@@ -148,6 +148,25 @@ function Restore-State($state) {
   Remove-Item -LiteralPath $statePath -Force
   return $true
 }
+function Optimization-Audit($build) {
+  $rows=@()
+  foreach($id in @($registry.Keys | Where-Object {$registry[$_][0].audit} | Sort-Object)){
+    $supported=@();$enabled=$true
+    foreach($spec in $registry[$id]){
+      if(($spec.minBuild -and $build -lt $spec.minBuild) -or ($spec.maxBuild -and $build -gt $spec.maxBuild)){continue}
+      $actual=Get-Registry (Resolve-RegistryPath $spec) $spec.name
+      if($spec.requireExisting -and !$actual.exists){continue}
+      $supported+=,$spec
+      $expected=@{exists=(!$spec.afterAbsent);value=$spec.value;kind=$spec.kind}
+      $matchesTarget=Same-Registry $actual $expected
+      if($id -eq 'game-mode' -and !$actual.exists){$matchesTarget=$true}
+      if(!$matchesTarget){$enabled=$false}
+    }
+    $available=$supported.Count -gt 0
+    $rows+=@{id=$id;available=$available;enabled=$(if($available){[bool]$enabled}else{$null});reason=$(if(!$available){'Не поддерживается этой сборкой Windows.'}else{$null})}
+  }
+  return @{basis='baseline-v1';checks=@($rows);checkedAt=[DateTime]::UtcNow.ToString('o')}
+}
 function Inspect {
   $build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber
   $availability=@{}
@@ -181,7 +200,7 @@ function Inspect {
     }
   }
   $grouped=@($checks | Group-Object id | ForEach-Object { @{id=$_.Name;enabled=(@($_.Group | Where-Object {!$_.enabled}).Count -eq 0)} })
-  return @{ok=$true;availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
+  return @{ok=$true;audit=(Optimization-Audit $build);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
 }
 $mutex=$null;$locked=$false
 try {
