@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, ArrowDown, Check, CheckCircle2, ChevronDown, Cpu, Gamepad2, Info, LoaderCircle, RotateCcw, ShieldCheck, Sparkles, Zap, X } from 'lucide-react';
 import {forWindows} from '../shared/windows-compatibility.mjs';
-import {optimizationRating,ratingLevels,type OptimizationAudit} from '../shared/optimization-rating.mjs';
+import {optimizationRating,ratingLevels,type OptimizationAudit,type ProfileAudit} from '../shared/optimization-rating.mjs';
 import {optimizationView} from '../shared/optimization-view.mjs';
 import catalog from '../shared/optimization.json';
 import type {RestartRequest} from './bridge';
 
 export type OptimizationResult={restart?:RestartRequest|null;ok:boolean;error?:string;cancelled?:boolean;restored?:boolean;noChanges?:boolean;report:{id:string;status:string;message:string}[]};
-export type OptimizationStatus={windows?:{version:'10'|'11';build:number};audit?:OptimizationAudit;ok:boolean;error?:string;active:boolean;needsRecovery?:boolean;profile?:string;remaining:number;availability?:Record<string,{available:boolean;reason?:string}>;created?:string;power?:string;checks:{id:string;enabled:boolean}[];last?:OptimizationResult & {date:string;mode:string};running?:boolean;operation?:{mode:string;phase:string;startedAt:number}|null};
+export type OptimizationStatus={windows?:{version:'10'|'11';build:number};audit?:OptimizationAudit;profileAudit?:ProfileAudit;ok:boolean;error?:string;active:boolean;needsRecovery?:boolean;profile?:string;remaining:number;availability?:Record<string,{available:boolean;reason?:string}>;created?:string;power?:string;checks:{id:string;enabled:boolean}[];last?:OptimizationResult & {date:string;mode:string};running?:boolean;operation?:{mode:string;phase:string;startedAt:number}|null};
 export type OptimizationInput={profile:string;uses:Record<string,boolean>;power:string;game:string;sysmain:boolean;selected:string[]};
 export function OptimizationMeter({status,native,error=''}:{status:OptimizationStatus|null;native:boolean;error?:string}){
  const rating=optimizationRating({status,native,error}),recovery=rating.mode==='recovery';
  const labels:Record<string,string>={demo:'Предпросмотр',checking:'Проверка состояния…',running:'Выполняется…',error:'Не проверено',recovery:'Нужен откат',limited:'Нужна полная проверка'};
  const label=rating.mode==='rated'?ratingLevels.find(level=>level.id===rating.level)?.short:labels[rating.mode]||'Не проверено';
- const description=rating.mode==='rated'?`${rating.matched} из ${rating.available} базовых параметров соответствуют рекомендациям LAGOPHONE. Это не оценка FPS.`:error||status?.error||(rating.mode==='demo'?'Оценка доступна в приложении Windows.':rating.mode==='recovery'?'Завершите откат незавершённого сеанса.':'Откройте мониторинг оптимизации для подробной проверки.');
- return <section className={'optimization-meter '+(recovery?'needs-recovery':'')} aria-label="Уровень оптимизации"><div className="meter-symbol"><Activity size={25}/></div><div className="meter-description"><span className="eyebrow">УРОВЕНЬ НАСТРОЙКИ СИСТЕМЫ</span><h3>{label}<span>Базовый набор Windows</span></h3><p>{description}</p></div><div className="meter-bars" aria-hidden="true">{[0,1,2,3,4,5,6,7,8,9].map(i=><i key={i} className={rating.mode==='rated'&&i<Math.round((rating.percent||0)/10)?'lit':''}/>)}</div></section>;
+ const description=rating.mode==='rated'?`${rating.summary}. Базовые настройки: ${rating.matched} из ${rating.available}. Это не оценка FPS.`:error||status?.error||(rating.mode==='demo'?'Оценка доступна в приложении Windows.':rating.mode==='recovery'?'Завершите откат незавершённого сеанса.':'Откройте мониторинг оптимизации для подробной проверки.');
+ return <section className={'optimization-meter '+(recovery?'needs-recovery':'')} aria-label="Уровень оптимизации"><div className="meter-symbol"><Activity size={25}/></div><div className="meter-description"><span className="eyebrow">УРОВЕНЬ НАСТРОЙКИ СИСТЕМЫ</span><h3>{label}<span>Профили Windows и игры</span></h3><p>{description}</p></div><div className="meter-bars" aria-hidden="true">{[0,1,2,3,4,5,6,7,8,9].map(i=><i key={i} className={rating.mode==='rated'&&i<Math.round((rating.percent||0)/10)?'lit':''}/>)}</div></section>;
 
 }
 function preferences(){

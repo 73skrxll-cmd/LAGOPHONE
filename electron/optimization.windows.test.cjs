@@ -79,17 +79,20 @@ test('Windows journal: read settings, apply user registry profile, verify, resto
    {p:['Registry::HKEY_USERS',sid,'Software','Microsoft','Windows','CurrentVersion','Themes','Personalize'].join('\\'),n:'EnableTransparency'},
    {p:['Registry::HKEY_USERS',sid,'Control Panel','Desktop','WindowMetrics'].join('\\'),n:'MinAnimate'},
  ];
- for(const id of ['advertising-id','explorer-recent','explorer-frequent']){const spec=require('./registry-specs.json')[id][0];locations.push({p:'Registry::HKEY_USERS\\'+sid+'\\'+spec.path,n:spec.name})}
+ for(const id of ['advertising-id','explorer-recent','explorer-frequent','edge-background']){const spec=require('./registry-specs.json')[id][0];locations.push({p:'Registry::HKEY_USERS\\'+sid+'\\'+spec.path,n:spec.name})}
  const encodedLocations=Buffer.from(JSON.stringify(locations)).toString('base64');
  const capture=()=>ps(`$paths=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encodedLocations}')) | ConvertFrom-Json;$out=@();foreach($item in $paths){$key=Get-Item -LiteralPath $item.p -ErrorAction SilentlyContinue;$exists=$key -and $key.GetValueNames() -contains $item.n;$out+=@{name=$item.n;exists=[bool]$exists;value=$(if($exists){$key.GetValue($item.n)}else{$null});kind=$(if($exists){[string]$key.GetValueKind($item.n)}else{$null})}};$out | ConvertTo-Json -Compress`);
  const before=capture();
  try {
-   const result=run('apply',{ids:['game-mode','transparency','animations','advertising-id','explorer-recent','explorer-frequent'],version,profile:'balanced',power:'keep'});
+   const result=run('apply',{ids:['game-mode','transparency','animations','advertising-id','explorer-recent','explorer-frequent','edge-background'],ratingPlan:{basis:'profiles-v2',ids:['edge-background']},version,profile:'balanced',power:'keep'});
    assert.equal(result.ok,true,JSON.stringify(result));
    const changed=JSON.parse(capture());
-   assert.deepEqual(changed.map(v=>({name:v.name,exists:v.exists,value:v.value,kind:v.kind})),[{name:'AutoGameModeEnabled',exists:true,value:1,kind:'DWord'},{name:'EnableTransparency',exists:true,value:0,kind:'DWord'},{name:'MinAnimate',exists:true,value:'0',kind:'String'},...['Enabled','ShowRecent','ShowFrequent'].map(name=>({name,exists:true,value:0,kind:'DWord'}))]);
+   assert.deepEqual(changed.map(v=>({name:v.name,exists:v.exists,value:v.value,kind:v.kind})),[{name:'AutoGameModeEnabled',exists:true,value:1,kind:'DWord'},{name:'EnableTransparency',exists:true,value:0,kind:'DWord'},{name:'MinAnimate',exists:true,value:'0',kind:'String'},...['Enabled','ShowRecent','ShowFrequent','BackgroundModeEnabled'].map(name=>({name,exists:true,value:0,kind:'DWord'}))]);
    const status=run('inspect');
    assert.equal(status.ok,true,JSON.stringify(status));
+   assert.equal(status.profileAudit.basis,'profiles-v2');
+   assert.deepEqual(status.profileAudit.expectedIds,['edge-background']);
+   assert.equal(status.profileAudit.checks[0].enabled,true);
    assert.ok(status.checks.filter(c=>['game-mode','transparency'].includes(c.id)).every(c=>c.enabled));
    if(status.active){
      const permissions=JSON.parse(ps("$file=[IO.Path]::Combine($env:ProgramData,'LAGOPHONE','optimization-state.json');$acl=Get-Acl -LiteralPath $file;$rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]) | ForEach-Object {@{sid=$_.IdentityReference.Value;rights=[int]$_.FileSystemRights;type=[string]$_.AccessControlType}});@{owner=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value;protected=$acl.AreAccessRulesProtected;rules=$rules} | ConvertTo-Json -Depth 5 -Compress"));

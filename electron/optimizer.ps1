@@ -170,6 +170,38 @@ function Optimization-Audit($build) {
   }
   return @{basis='baseline-v1';checks=@($rows);checkedAt=[DateTime]::UtcNow.ToString('o')}
 }
+# Re-read the applied plan, including unchanged targets omitted from the rollback entries.
+# Personal features protected by the user's answers are absent from this plan.
+function Profile-Audit($build,$state) {
+  if(!$state -or $state.phase -ne 'applied' -or !$state.ratingPlan -or $state.ratingPlan.basis -ne 'profiles-v2'){return $null}
+  $rows=@()
+  foreach($id in @($state.ratingPlan.ids)){
+    if($registry.ContainsKey($id)){
+      $tier=$registry[$id][0].tier
+      if($tier -notin @(1,2)){continue}
+      $supported=@($registry[$id] | Where-Object {(!$_.minBuild -or $build -ge $_.minBuild) -and (!$_.maxBuild -or $build -le $_.maxBuild)})
+      $enabled=$true;$available=$supported.Count -gt 0
+      foreach($spec in $supported){
+        $actual=Get-Registry (Resolve-RegistryPath $spec) $spec.name
+        if($spec.requireExisting -and !$actual.exists){$available=$false;continue}
+        if(!(Same-Registry $actual @{exists=(!$spec.afterAbsent);value=$spec.value;kind=$spec.kind})){$enabled=$false}
+      }
+    } elseif($services.ContainsKey($id)) {
+      $tier=if($id -in @('search','maps','media','remote-registry','sysmain')){2}else{1}
+      $service=Service-State $services[$id];$available=$null -ne $service
+      $enabled=$available -and $service.start -eq 4 -and !$service.running
+    } else {continue}
+    $rows+=@{id=$id;tier=$tier;available=[bool]$available;enabled=$(if($available){[bool]$enabled}else{$null})}
+  }
+  # An actual EXE and verified GPU preference are required; selecting a game name earns nothing.
+  $game=$state.ratingPlan.gamePath
+  if($game){
+    $value=Get-Registry "Registry::HKEY_USERS\$sid\Software\Microsoft\DirectX\UserGpuPreferences" $game
+    $enabled=($build -ge 17134) -and (Test-Path -LiteralPath $game -PathType Leaf) -and $value.exists -and $value.kind -eq 'String' -and [string]$value.value -match '(^|;)GpuPreference=2(;|$)'
+    $rows+=@{id='game-gpu';tier=3;available=$true;enabled=[bool]$enabled}
+  }
+  return @{basis='profiles-v2';profile=$state.profile;expectedIds=@($rows | ForEach-Object {$_.id});checks=@($rows)}
+}
 function Inspect {
   $build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber
   $availability=@{}
@@ -203,7 +235,7 @@ function Inspect {
     }
   }
   $grouped=@($checks | Group-Object id | ForEach-Object { @{id=$_.Name;enabled=(@($_.Group | Where-Object {!$_.enabled}).Count -eq 0)} })
-  return @{ok=$true;windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build};audit=(Optimization-Audit $build);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
+  return @{ok=$true;windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build};audit=(Optimization-Audit $build);profileAudit=(Profile-Audit $build $state);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
 }
 $mutex=$null;$locked=$false
 try {
@@ -300,9 +332,12 @@ try {
           [void]$entries.Add(@{id=$id;kind='power';before=$before;after=$target})
         }
       }
-      if(!$entries.Count){$result=@{ok=$true;report=@($script:report);noChanges=$true}}
+      if(!$entries.Count -and !$payload.ratingPlan){$result=@{ok=$true;report=@($script:report);noChanges=$true}}
       else {
         $state=@{schema=1;phase='pending';sid=$sid;profile=$payload.profile;created=(Get-Date).ToUniversalTime().ToString('o');entries=@($entries)}
+        if($payload.ratingPlan -and $payload.ratingPlan.basis -eq 'profiles-v2'){
+          $state.ratingPlan=@{basis='profiles-v2';ids=@($payload.ratingPlan.ids);gamePath=$(if($payload.ids -contains 'game-gpu'){$payload.gamePath}else{$null})}
+        }
         # Persist all original values before the first write. This journal also survives termination.
         Save-State $state
         try {
@@ -341,7 +376,7 @@ try {
             Note $entry.id 'applied' $(if($entry.restart){'Значение записано и проверено. Для вступления в силу нужен повторный вход, перезапуск игры или перезагрузка.'}else{'Применено, проверено. Исходное состояние сохранено.'})
           }
           $state.phase='applied'; Save-State $state
-          $result=@{ok=$true;report=@($script:report)}
+          $result=@{ok=$true;report=@($script:report);noChanges=($entries.Count -eq 0)}
         } catch {
           $failure=$_.Exception.Message
           $restored=Restore-State $state

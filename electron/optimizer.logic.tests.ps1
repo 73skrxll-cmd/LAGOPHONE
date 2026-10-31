@@ -217,6 +217,37 @@ try {
  $elevenTargets=@($registry['widgets'] | Where-Object {(!$_.minBuild -or 26100 -ge $_.minBuild) -and (!$_.maxBuild -or 26100 -le $_.maxBuild)})
  Assert ($tenTargets.Count -eq 1 -and $tenTargets[0].name -eq 'ShellFeedsTaskbarViewMode') 'Windows 10 must use the actual taskbar feed setting'
  Assert ($elevenTargets.Count -eq 1 -and $elevenTargets[0].name -eq 'AllowNewsAndInterests') 'Windows 11 must use its widgets policy'
+ # Advanced rating re-reads expected settings, including values already correct before apply.
+ $script:values=@{}
+ $edge=$registry['edge-background'][0]
+ Write-Registry (Resolve-RegistryPath $edge) $edge.name @{exists=$true;kind='DWord';value=0}
+ $script:fakeServices['MapsBroker']=@{start=4;running=$false;delayed=$absent}
+ Write-Registry $gpuPath $exe @{exists=$true;kind='String';value='GpuPreference=2;SwapEffectUpgradeEnable=1;'}
+ $ratedState=@{schema=1;sid=$sid;phase='applied';profile='deep';entries=@();ratingPlan=@{basis='profiles-v2';ids=@('transparency','edge-background','maps');gamePath=$exe}}
+ Save-State $ratedState
+ $profileAudit=Profile-Audit 26100 (Read-State)
+ Assert ($profileAudit.checks.Count -eq 3 -and $profileAudit.expectedIds.Count -eq 3) 'Advanced audit must include required medium/deep/game targets without rollback entries'
+ Assert (@($profileAudit.checks | Where-Object {!$_.enabled}).Count -eq 0) 'Already correct targets must count after a real read'
+ $unsupportedGame=Profile-Audit 10240 (Read-State)
+ Assert (!(@($unsupportedGame.checks | Where-Object {$_.id -eq 'game-gpu'})[0].enabled)) 'GPU rating must respect the target minimum Windows build'
+ Write-Registry (Resolve-RegistryPath $edge) $edge.name @{exists=$true;kind='DWord';value=1}
+ $profileAudit=Profile-Audit 26100 (Read-State)
+ Assert (!(@($profileAudit.checks | Where-Object {$_.id -eq 'edge-background'})[0].enabled)) 'External registry changes must lower the rating'
+ $script:fakeServices['MapsBroker'].running=$true
+ $profileAudit=Profile-Audit 26100 (Read-State)
+ Assert (!(@($profileAudit.checks | Where-Object {$_.id -eq 'maps'})[0].enabled)) 'Running service must not count as disabled'
+ Write-Registry $gpuPath $exe @{exists=$true;kind='String';value='GpuPreference=1;'}
+ $profileAudit=Profile-Audit 26100 (Read-State)
+ Assert (!(@($profileAudit.checks | Where-Object {$_.id -eq 'game-gpu'})[0].enabled)) 'Changing GPU preference must revoke game points'
+ Write-Registry $gpuPath $exe @{exists=$true;kind='String';value='GpuPreference=2;'}
+ Remove-Item -LiteralPath $exe
+ $profileAudit=Profile-Audit 26100 (Read-State)
+ Assert (!(@($profileAudit.checks | Where-Object {$_.id -eq 'game-gpu'})[0].enabled)) 'A removed EXE must revoke game points'
+ $ratedState.phase='pending'
+ Assert ($null -eq (Profile-Audit 26100 $ratedState)) 'Incomplete apply must never produce advanced points'
+ Assert ($null -eq (Profile-Audit 26100 @{phase='applied';profile='deep';entries=@()})) 'Legacy journal profile names cannot produce advanced points'
+ Assert (Restore-State (Read-State)) 'A plan with no writes must still have a valid restorable session'
+ Assert ($null -eq (Profile-Audit 26100 (Read-State))) 'Restore must revoke applied profile evidence'
  # A full read-only baseline audit must inspect all targets of all 18 basic actions.
  $script:values=@{}
  foreach($auditId in @($registry.Keys | Where-Object {$registry[$_][0].audit})){
@@ -235,5 +266,5 @@ try {
  Write-Registry (Resolve-RegistryPath $gameSpec) $gameSpec.name @{exists=$false;kind='DWord';value=$null}
  $audit=Optimization-Audit 26100
  Assert ((@($audit.checks | Where-Object {$_.id -eq 'game-mode'})[0].enabled)) 'Absent Game Mode value retains the known Windows enabled default'
- Write-Output 'PASS: production rollback logic: absent values, interrupted apply, conflict protection, retry journal, tamper rejection, delayed services, power restore, automatic batch rollback, autorun type, owned scheme lifecycle/failure, per-game flag preservation, optional privacy/Explorer build gating and exact rollback'
+ Write-Output 'PASS: production rollback logic: absent values, interrupted apply, conflict protection, retry journal, tamper rejection, delayed services, power restore, automatic batch rollback, autorun type, owned scheme lifecycle/failure, per-game flag preservation, optional privacy/Explorer build gating and exact rollback, applied profile audits and game verification'
 } finally {Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue}

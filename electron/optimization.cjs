@@ -18,6 +18,7 @@ function buildPlan(input, selected, actual, gamePath = null, actualBuild = undef
   if (!Array.isArray(input.selected) || new Set(input.selected).size!==input.selected.length || input.selected.some(id=>!steps.some(s=>s.id===id))) throw new Error('Список действий не соответствует вашим ответам');
   const chosen=steps.filter(s=>input.selected.includes(s.id));
   if(!chosen.length) throw new Error('Выберите хотя бы одно действие');
-  return {profile:profile.id, version:selected, ids:chosen.map(s=>s.id), power:input.power, gamePath:chosen.some(s=>s.special==='game')?gamePath:null};
+  const ratingIds=steps.filter(s=>!s.special&&!s.experimental&&s.defaultSelected!==false&&s.category!=='Экспериментальные').map(s=>s.id);
+  return {ratingPlan:{basis:'profiles-v2',ids:ratingIds},profile:profile.id, version:selected, ids:chosen.map(s=>s.id), power:input.power, gamePath:chosen.some(s=>s.special==='game')?gamePath:null};
 }
 module.exports={catalog, buildPlan};

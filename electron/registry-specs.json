@@ -6,7 +6,8 @@
       "value": 1,
       "kind": "DWord",
       "audit": true,
-      "minBuild": 15063
+      "minBuild": 15063,
+      "tier": 0
     }
   ],
   "transparency": [
@@ -15,7 +16,8 @@
       "name": "EnableTransparency",
       "value": 0,
       "kind": "DWord",
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "animations": [
@@ -24,7 +26,8 @@
       "name": "MinAnimate",
       "value": "0",
       "kind": "String",
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "capture": [
@@ -32,7 +35,8 @@
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR",
       "name": "AppCaptureEnabled",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "tier": 1
     },
     {
       "path": "System\\GameConfigStore",
@@ -48,7 +52,8 @@
       "value": "200",
       "kind": "String",
       "restart": true,
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "hover-delay": [
@@ -58,7 +63,8 @@
       "value": "200",
       "kind": "String",
       "restart": true,
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "taskbar-animation": [
@@ -68,7 +74,8 @@
       "value": 0,
       "kind": "DWord",
       "restart": true,
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "selection-effects": [
@@ -78,7 +85,8 @@
       "value": 0,
       "kind": "DWord",
       "restart": true,
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "icon-shadows": [
@@ -88,7 +96,8 @@
       "value": 0,
       "kind": "DWord",
       "restart": true,
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "drag-content": [
@@ -98,7 +107,8 @@
       "value": "0",
       "kind": "String",
       "restart": true,
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "startup-delay": [
@@ -108,7 +118,8 @@
       "value": 0,
       "kind": "DWord",
       "restart": true,
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "explorer-promos": [
@@ -117,7 +128,8 @@
       "name": "ShowSyncProviderNotifications",
       "value": 0,
       "kind": "DWord",
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "windows-tips": [
@@ -126,7 +138,8 @@
       "name": "SubscribedContent-338389Enabled",
       "value": 0,
       "kind": "DWord",
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "welcome-promos": [
@@ -135,7 +148,8 @@
       "name": "SubscribedContent-310093Enabled",
       "value": 0,
       "kind": "DWord",
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "lockscreen-facts": [
@@ -144,7 +158,8 @@
       "name": "RotatingLockScreenOverlayEnabled",
       "value": 0,
       "kind": "DWord",
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "start-promos": [
@@ -153,7 +168,8 @@
       "name": "SystemPaneSuggestionsEnabled",
       "value": 0,
       "kind": "DWord",
-      "audit": true
+      "audit": true,
+      "tier": 0
     },
     {
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
@@ -168,7 +184,8 @@
       "name": "SubscribedContent-353694Enabled",
       "value": 0,
       "kind": "DWord",
-      "audit": true
+      "audit": true,
+      "tier": 0
     },
     {
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
@@ -183,7 +200,8 @@
       "name": "SilentInstalledAppsEnabled",
       "value": 0,
       "kind": "DWord",
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "search-highlights": [
@@ -193,7 +211,8 @@
       "value": 0,
       "kind": "DWord",
       "minBuild": 19044,
-      "audit": true
+      "audit": true,
+      "tier": 0
     }
   ],
   "edge-startup": [
@@ -201,7 +220,8 @@
       "path": "Software\\Policies\\Microsoft\\Edge",
       "name": "StartupBoostEnabled",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "tier": 1
     }
   ],
   "edge-background": [
@@ -209,7 +229,8 @@
       "path": "Software\\Policies\\Microsoft\\Edge",
       "name": "BackgroundModeEnabled",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "tier": 1
     }
   ],
   "widgets": [
@@ -219,7 +240,8 @@
       "value": 0,
       "kind": "DWord",
       "hive": "machine",
-      "minBuild": 22000
+      "minBuild": 22000,
+      "tier": 1
     },
     {
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Feeds",
@@ -237,7 +259,8 @@
       "name": "DisableSearchBoxSuggestions",
       "value": 1,
       "kind": "DWord",
-      "restart": true
+      "restart": true,
+      "tier": 1
     }
   ],
   "cloud-search": [
@@ -245,7 +268,8 @@
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings",
       "name": "IsMSACloudSearchEnabled",
       "value": 0,
-      "kind": "DWord"
+      "kind": "DWord",
+      "tier": 1
     },
     {
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings",
@@ -262,7 +286,8 @@
       "kind": "String",
       "requireExisting": true,
       "afterAbsent": true,
-      "restart": true
+      "restart": true,
+      "tier": 1
     }
   ],
   "restart-apps": [
@@ -272,7 +297,8 @@
       "value": 0,
       "kind": "DWord",
       "restart": true,
-      "minBuild": 19041
+      "minBuild": 19041,
+      "tier": 1
     }
   ],
   "delivery-p2p": [
@@ -281,7 +307,8 @@
       "name": "DODownloadMode",
       "value": 0,
       "kind": "DWord",
-      "hive": "machine"
+      "hive": "machine",
+      "tier": 1
     }
   ],
   "desktop-peek": [
@@ -291,7 +318,8 @@
       "value": 0,
       "kind": "DWord",
       "restart": true,
-      "maxBuild": 21999
+      "maxBuild": 21999,
+      "tier": 1
     }
   ],
   "activity-sync": [
@@ -302,7 +330,8 @@
       "kind": "DWord",
       "hive": "machine",
       "maxBuild": 21999,
-      "minBuild": 17134
+      "minBuild": 17134,
+      "tier": 2
     },
     {
       "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\System",
@@ -322,7 +351,8 @@
       "kind": "DWord",
       "hive": "machine",
       "restart": true,
-      "requireExisting": true
+      "requireExisting": true,
+      "tier": 2
     }
   ],
   "power-throttling": [
@@ -346,7 +376,8 @@
       "hive": "machine",
       "minBuild": 19041,
       "requireExisting": true,
-      "restart": true
+      "restart": true,
+      "tier": 2
     }
   ],
   "advertising-id": [
@@ -356,7 +387,8 @@
       "value": 0,
       "kind": "DWord",
       "minBuild": 10240,
-      "restart": true
+      "restart": true,
+      "tier": 1
     }
   ],
   "explorer-recent": [
@@ -366,7 +398,8 @@
       "value": 0,
       "kind": "DWord",
       "minBuild": 10240,
-      "restart": true
+      "restart": true,
+      "tier": 1
     }
   ],
   "explorer-frequent": [
@@ -376,7 +409,8 @@
       "value": 0,
       "kind": "DWord",
       "minBuild": 10240,
-      "restart": true
+      "restart": true,
+      "tier": 1
     }
   ]
 }
