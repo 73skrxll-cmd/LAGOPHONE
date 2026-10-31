@@ -348,5 +348,35 @@
       "requireExisting": true,
       "restart": true
     }
+  ],
+  "advertising-id": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
+      "name": "Enabled",
+      "value": 0,
+      "kind": "DWord",
+      "minBuild": 10240,
+      "restart": true
+    }
+  ],
+  "explorer-recent": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer",
+      "name": "ShowRecent",
+      "value": 0,
+      "kind": "DWord",
+      "minBuild": 10240,
+      "restart": true
+    }
+  ],
+  "explorer-frequent": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer",
+      "name": "ShowFrequent",
+      "value": 0,
+      "kind": "DWord",
+      "minBuild": 10240,
+      "restart": true
+    }
   ]
 }

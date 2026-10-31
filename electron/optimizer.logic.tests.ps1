@@ -158,6 +158,54 @@ try {
  $prepare=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text.StartsWith("if(`$id -eq 'game-gpu')")},$false))[0]
  Invoke-Expression $prepare.Extent.Text
  Assert ($specs[0].value -eq 'GpuPreference=2;SwapEffectUpgradeEnable=1;') 'GPU choice must not erase unrelated game preferences'
+ # New optional settings exercise production preparation, journal validation and apply/rollback.
+ $prepareRegistry=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.ForEachStatementAst] -and $n.Extent.Text.StartsWith('foreach($spec in $specs)')},$false))[0]
+ Assert ($null -ne $prepareRegistry) 'Production registry preparation must be located'
+ foreach($newId in @('advertising-id','explorer-recent','explorer-frequent')){
+  Assert (!(Registry-Compatible $newId 10239)) 'New settings must reject pre-Windows-10 builds'
+  foreach($newBuild in @(10240,19045,22000,26100)){
+   Assert (Registry-Compatible $newId $newBuild) 'New settings must support Windows 10 and 11'
+   $newSpec=$registry[$newId][0];$newPath=Resolve-RegistryPath $newSpec
+   foreach($original in @($absent,@{exists=$true;kind='DWord';value=1},@{exists=$true;kind='String';value='previous'})){
+    $script:values=@{};Write-Registry $newPath $newSpec.name $original
+    $build=$newBuild;$id=$newId;$specs=$registry[$id];$entries=New-Object Collections.ArrayList
+    Invoke-Expression $prepareRegistry.Extent.Text
+    Assert ($entries.Count -eq 1) 'Explicit selection must prepare exactly one registry value'
+    $state=@{schema=1;phase='pending';sid=$sid;profile='balanced';entries=@($entries)};Save-State $state
+    Invoke-Expression $batch.Extent.Text
+    Assert $result.ok 'New selected setting must apply successfully'
+    Assert (Same-Registry (Get-Registry $newPath $newSpec.name) @{exists=$true;kind='DWord';value=0}) 'New target must be verified'
+    Assert (Restore-State (Read-State)) 'New setting journal must be accepted and restored'
+    Assert (Same-Registry (Get-Registry $newPath $newSpec.name) $original) 'Rollback must restore exact absence/type/value'
+    Restore-Entry $entries[0]
+    Assert (Same-Registry (Get-Registry $newPath $newSpec.name) $original) 'Repeated rollback must be harmless'
+   }
+  }
+  # Unsupported builds and already configured values must not produce writes.
+  $script:values=@{};$id=$newId;$specs=$registry[$id];$build=10239;$entries=New-Object Collections.ArrayList
+  Invoke-Expression $prepareRegistry.Extent.Text
+  Assert ($entries.Count -eq 0) 'Unsupported build must be skipped by production preparation'
+  $build=26100;Write-Registry $newPath $newSpec.name @{exists=$true;kind='DWord';value=0}
+  Invoke-Expression $prepareRegistry.Extent.Text
+  Assert ($entries.Count -eq 0) 'Already configured settings must be skipped'
+ }
+ # A failure in the second new setting rolls back the first, preserving absent values.
+ $script:values=@{};$entries=New-Object Collections.ArrayList;$build=26100
+ foreach($id in @('explorer-recent','explorer-frequent')){$specs=$registry[$id];Invoke-Expression $prepareRegistry.Extent.Text}
+ $state=@{schema=1;phase='pending';sid=$sid;profile='balanced';entries=@($entries)};Save-State $state
+ $script:failName='ShowFrequent';Invoke-Expression $batch.Extent.Text
+ Assert (!$result.ok -and $result.restored) 'Failure in new settings must trigger automatic batch rollback'
+ Assert ($script:values.Count -eq 0) 'Failed optional batch must restore originally absent values'
+ # External changes remain untouched, and the new setting journal remains retryable.
+ $newSpec=$registry['advertising-id'][0];$newPath=Resolve-RegistryPath $newSpec
+ $entry=@{id='advertising-id';kind='registry';path=$newPath;name=$newSpec.name;before=$absent;after=$off}
+ Write-Registry $newPath $newSpec.name $external
+ Save-State @{schema=1;phase='applied';sid=$sid;profile='balanced';entries=@($entry)}
+ Assert (!(Restore-State (Read-State))) 'Conflicting new settings must retain recovery journal'
+ Assert (Same-Registry (Get-Registry $newPath $newSpec.name) $external) 'New settings must preserve external changes'
+ Write-Registry $newPath $newSpec.name $off
+ Assert (Restore-State (Read-State)) 'New setting rollback can be retried after conflict resolution'
+ Assert (!(Get-Registry $newPath $newSpec.name).exists) 'Retry must restore original absence'
  # Windows-specific target selection is checked again in the production worker.
  Assert (Registry-Compatible 'widgets' 19045) 'Windows 10 feed setting must have a concrete compatible target'
  Assert (Registry-Compatible 'widgets' 26100) 'Windows 11 widgets must have a concrete compatible target'
@@ -187,5 +235,5 @@ try {
  Write-Registry (Resolve-RegistryPath $gameSpec) $gameSpec.name @{exists=$false;kind='DWord';value=$null}
  $audit=Optimization-Audit 26100
  Assert ((@($audit.checks | Where-Object {$_.id -eq 'game-mode'})[0].enabled)) 'Absent Game Mode value retains the known Windows enabled default'
- Write-Output 'PASS: production rollback logic: absent values, interrupted apply, conflict protection, retry journal, tamper rejection, delayed services, power restore, automatic batch rollback, autorun type, owned scheme lifecycle/failure, per-game flag preservation'
+ Write-Output 'PASS: production rollback logic: absent values, interrupted apply, conflict protection, retry journal, tamper rejection, delayed services, power restore, automatic batch rollback, autorun type, owned scheme lifecycle/failure, per-game flag preservation, optional privacy/Explorer build gating and exact rollback'
 } finally {Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue}
