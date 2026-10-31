@@ -5,7 +5,8 @@
       "name": "AutoGameModeEnabled",
       "value": 1,
       "kind": "DWord",
-      "audit": true
+      "audit": true,
+      "minBuild": 15063
     }
   ],
   "transparency": [
@@ -226,7 +227,8 @@
       "value": 2,
       "kind": "DWord",
       "minBuild": 19041,
-      "maxBuild": 21999
+      "maxBuild": 21999,
+      "requireExisting": true
     }
   ],
   "web-search": [
@@ -269,7 +271,8 @@
       "name": "RestartApps",
       "value": 0,
       "kind": "DWord",
-      "restart": true
+      "restart": true,
+      "minBuild": 19041
     }
   ],
   "delivery-p2p": [
@@ -287,7 +290,8 @@
       "name": "EnableAeroPeek",
       "value": 0,
       "kind": "DWord",
-      "restart": true
+      "restart": true,
+      "maxBuild": 21999
     }
   ],
   "activity-sync": [
@@ -297,7 +301,8 @@
       "value": 0,
       "kind": "DWord",
       "hive": "machine",
-      "maxBuild": 21999
+      "maxBuild": 21999,
+      "minBuild": 17134
     },
     {
       "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\System",
@@ -305,7 +310,8 @@
       "value": 0,
       "kind": "DWord",
       "hive": "machine",
-      "maxBuild": 21999
+      "maxBuild": 21999,
+      "minBuild": 17134
     }
   ],
   "mmcss": [

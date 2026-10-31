@@ -9,11 +9,11 @@ test('basic preset never disables services; all features are preserved by defaul
 });
 test('service changes require matching feature answers and profile level',()=>{
  for(const step of catalog.steps.filter(s=>s.feature)){
-   const profile=catalog.profiles.find(p=>p.level===step.level).id;
-   assert.throws(()=>buildPlan(input({profile,selected:[step.id]}),'11','11'));
-   const plan=buildPlan(input({profile,uses:{...input().uses,[step.feature]:false},selected:[step.id]}),'11','11');
+   const profile=catalog.profiles.find(p=>p.level===step.level).id,version=step.windows[0];
+   assert.throws(()=>buildPlan(input({profile,selected:[step.id]}),version,version));
+   const plan=buildPlan(input({profile,uses:{...input().uses,[step.feature]:false},selected:[step.id]}),version,version);
    assert.deepEqual(plan.ids,[step.id]);
-   assert.throws(()=>buildPlan(input({uses:{...input().uses,[step.feature]:false},selected:[step.id]}),'11','11'));
+   assert.throws(()=>buildPlan(input({uses:{...input().uses,[step.feature]:false},selected:[step.id]}),version,version));
  }
 });
 test('SysMain is opt-in and only available in deep profile',()=>{
@@ -58,7 +58,7 @@ test('recommendations materially differ and a dedicated power scheme is restrict
  const deep=[...medium,'maps','media','remote-registry','activity-sync','mmcss'];
  const uses=Object.fromEntries(catalog.features.map(f=>[f.id,f.defaultUse]));
  for(const [profile,power,selected] of [['basic','keep',basic],['balanced','high',medium],['deep','lagophone',deep]]){
-   assert.deepEqual(new Set(buildPlan(input({profile,power,selected,uses}),'11','11').ids),new Set(selected));
+   assert.deepEqual(new Set(buildPlan(input({profile,power,selected,uses}),'10','10').ids),new Set(selected));
  }
  assert.throws(()=>buildPlan(input({power:'lagophone',selected:['power']}),'11','11'));
  assert.throws(()=>buildPlan(input({profile:'balanced',power:'lagophone',selected:['power']}),'11','11'));

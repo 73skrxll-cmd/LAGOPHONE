@@ -75,3 +75,26 @@ body{background:var(--page)}.app-shell,.welcome{position:relative;z-index:1;back
 @media(max-width:800px){.rating-hero{grid-template-columns:minmax(0,1fr) 210px;padding:25px}.rating-story h2{font-size:22px}.rating-count>strong{font-size:32px}.rating-levels{grid-template-columns:repeat(3,minmax(0,1fr))}.ambient-glow{filter:blur(45px)}}
 @media(max-width:620px){.rating-hero{grid-template-columns:1fr;padding:22px 18px;gap:8px}.optimization-core{grid-row:1;max-width:205px}.rating-story h2{font-size:23px}.rating-count{margin:20px 0}.rating-levels{grid-template-columns:repeat(2,minmax(0,1fr))}.rating-levels>div:last-child{grid-column:1/-1}.rating-levels small{font-size:9px}.rating-checks article{padding:15px;gap:10px;flex-wrap:wrap}.rating-checks article>div{flex-basis:calc(100% - 35px)}.rating-checks article>small{margin-left:29px}.effects-toggle{width:26px;height:28px}.theme-picker{gap:5px}.rating-actions .button{padding:10px;font-size:9px}.rating-story>p{font-size:11px}.rating-complete{align-items:flex-start;font-size:11px;padding:18px}.rating-complete svg{flex-shrink:0}.ambient-garden{opacity:.17}}
 @media(prefers-reduced-motion:reduce){.theme-atmosphere *,.optimization-monitor *{animation:none!important;transition:none!important}}
+/* Brief screen and section transitions. No transforms on parents of fixed controls. */
+.screen-stage{--screen-enter-duration:240ms;--screen-exit-duration:140ms}
+.screen-stage[data-transitions=true]{animation:screen-reveal var(--screen-enter-duration) ease-out}
+.screen-stage[data-transitions=true][data-screen-phase=leaving]{animation:screen-dismiss var(--screen-exit-duration) ease-in both;pointer-events:none}
+.screen-stage[data-reduced-motion=true]{--screen-enter-duration:110ms;--screen-exit-duration:80ms}
+.section-stage{--section-enter-duration:180ms}
+.section-stage[data-transitions=true]{animation:section-reveal var(--section-enter-duration) ease-out}
+.section-stage[data-transitions=true]>.page-title{animation:section-heading-reveal var(--section-enter-duration) ease-out}
+.section-stage[data-reduced-motion=true]{--section-enter-duration:100ms}
+.section-stage[data-reduced-motion=true]>.page-title{animation:none}
+.screen-stage[data-transitions=false],.section-stage[data-transitions=false],.section-stage[data-transitions=false]>.page-title{animation:none!important}
+@keyframes screen-reveal{from{opacity:0}to{opacity:1}}
+@keyframes screen-dismiss{from{opacity:1}to{opacity:0}}
+@keyframes section-reveal{from{opacity:.15}to{opacity:1}}
+@keyframes section-heading-reveal{from{opacity:.35;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.windows-scope{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--accent-border);border-radius:8px;padding:17px 19px;margin:0 0 22px;background:var(--accent-panel);color:var(--accent-muted)}.windows-scope>svg{flex-shrink:0;margin-top:2px}.windows-scope b{font-size:12px;color:var(--accent-soft)}.windows-scope p{font-size:10px;line-height:1.9;margin-top:6px}
+/* Reduced motion keeps only a short, non-spatial fade; all decorative motion stays off. */
+@media(prefers-reduced-motion:reduce){
+ .screen-stage[data-transitions=true]{animation:screen-reveal 110ms ease-out!important}
+ .screen-stage[data-transitions=true][data-screen-phase=leaving]{animation:screen-dismiss 80ms ease-in both!important}
+ .section-stage[data-transitions=true]{animation:section-reveal 100ms ease-out!important}
+ .section-stage[data-transitions=true]>.page-title{animation:none!important}
+}

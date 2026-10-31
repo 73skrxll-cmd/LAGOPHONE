@@ -158,6 +158,17 @@ try {
  $prepare=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text.StartsWith("if(`$id -eq 'game-gpu')")},$false))[0]
  Invoke-Expression $prepare.Extent.Text
  Assert ($specs[0].value -eq 'GpuPreference=2;SwapEffectUpgradeEnable=1;') 'GPU choice must not erase unrelated game preferences'
+ # Windows-specific target selection is checked again in the production worker.
+ Assert (Registry-Compatible 'widgets' 19045) 'Windows 10 feed setting must have a concrete compatible target'
+ Assert (Registry-Compatible 'widgets' 26100) 'Windows 11 widgets must have a concrete compatible target'
+ Assert (!(Registry-Compatible 'activity-sync' 26100)) 'Timeline must not be applied on Windows 11'
+ Assert (!(Registry-Compatible 'desktop-peek' 26100)) 'Legacy desktop Peek must not be proposed on Windows 11'
+ Assert (!(Registry-Compatible 'game-mode' 14393)) 'Game Mode must not be applied before its Windows release'
+ Assert (!(Registry-Compatible 'hags' 18363)) 'HAGS must not be applied before Windows 10 2004'
+ $tenTargets=@($registry['widgets'] | Where-Object {(!$_.minBuild -or 19045 -ge $_.minBuild) -and (!$_.maxBuild -or 19045 -le $_.maxBuild)})
+ $elevenTargets=@($registry['widgets'] | Where-Object {(!$_.minBuild -or 26100 -ge $_.minBuild) -and (!$_.maxBuild -or 26100 -le $_.maxBuild)})
+ Assert ($tenTargets.Count -eq 1 -and $tenTargets[0].name -eq 'ShellFeedsTaskbarViewMode') 'Windows 10 must use the actual taskbar feed setting'
+ Assert ($elevenTargets.Count -eq 1 -and $elevenTargets[0].name -eq 'AllowNewsAndInterests') 'Windows 11 must use its widgets policy'
  # A full read-only baseline audit must inspect all targets of all 18 basic actions.
  $script:values=@{}
  foreach($auditId in @($registry.Keys | Where-Object {$registry[$_][0].audit})){

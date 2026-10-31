@@ -59,17 +59,19 @@ function registerOptimizer(getWindow,activities,restart){
   });
   ipcMain.handle('optimization:apply',(_,input,version)=>{assertWindows();return session.exclusive('apply',async setPhase=>{
     try {
-    const actual=await ps("$build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber; if($build -ge 22000){'11'}else{'10'}",30000);
-    const plan=buildPlan(input,version,actual,games.get(input?.game));
+    const actual=JSON.parse(await ps("$build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber; @{version=$(if($build -ge 22000){'11'}else{'10'});build=$build} | ConvertTo-Json -Compress",30000));
+    const plan=buildPlan(input,version,actual.version,games.get(input?.game),actual.build);
     const status=await run('inspect',{},false);
     if(!status.ok)throw new Error(status.error||'Не удалось прочитать состояние.');
     if(status.active)throw new Error('Сначала восстановите предыдущие настройки.');
+    const unavailable=plan.ids.filter(id=>status.availability?.[id]?.available===false);
+    if(unavailable.length)throw new Error('Выбранные пункты недоступны на этом ПК. Обновите список настроек: '+unavailable.map(id=>catalog.steps.find(step=>step.id===id)?.name||id).join(', '));
     setPhase('confirmation');
-    const choice=await dialog.showMessageBox(getWindow(),{type:'warning',title:'Применить профиль?',message:'Изменений: '+plan.ids.length,detail:plan.ids.map(id=>{const step=catalog.steps.find(s=>s.id===id);return step.attention?'⚠ '+step.name+' — '+step.attention.consequence:step.name}).join('\n')+'\n\nИсходные значения будут сохранены до изменений. Windows запросит права администратора. При ошибке программа попытается выполнить откат; результат будет показан в отчёте.',buttons:['Отмена','Применить'],defaultId:0,cancelId:0});
+    const choice=await dialog.showMessageBox(getWindow(),{type:'warning',title:'Применить профиль?',message:'Изменений: '+plan.ids.length,detail:plan.ids.map(id=>{const step=catalog.steps.find(s=>s.id===id);const description={...step,...step.variants?.[actual.version]};return description.attention?'⚠ '+description.name+' — '+description.attention.consequence:description.name}).join('\n')+'\n\nИсходные значения будут сохранены до изменений. Windows запросит права администратора. При ошибке программа попытается выполнить откат; результат будет показан в отчёте.',buttons:['Отмена','Применить'],defaultId:0,cancelId:0});
     if(choice.response!==1){const result={ok:true,cancelled:true,report:[]};await activities.add(optimizationEvents('apply',input,result));return result;}
     setPhase('windows');
     const result=await run('apply',plan,true);
-    if(restart)result.restart=await restart.afterApply(plan,result,actual);
+    if(restart)result.restart=await restart.afterApply(plan,result,actual.version);
     await activities.add(optimizationEvents('apply',plan,result));return result;
     } catch(error){await activities.add([{kind:'apply',status:'error',title:'Ошибка применения настроек',detail:error.message}]);throw error}
   });});

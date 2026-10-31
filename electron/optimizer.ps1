@@ -148,6 +148,9 @@ function Restore-State($state) {
   Remove-Item -LiteralPath $statePath -Force
   return $true
 }
+function Registry-Compatible($id,$build) {
+  return @($registry[$id] | Where-Object {(!$_.minBuild -or $build -ge $_.minBuild) -and (!$_.maxBuild -or $build -le $_.maxBuild)}).Count -gt 0
+}
 function Optimization-Audit($build) {
   $rows=@()
   foreach($id in @($registry.Keys | Where-Object {$registry[$_][0].audit} | Sort-Object)){
@@ -200,7 +203,7 @@ function Inspect {
     }
   }
   $grouped=@($checks | Group-Object id | ForEach-Object { @{id=$_.Name;enabled=(@($_.Group | Where-Object {!$_.enabled}).Count -eq 0)} })
-  return @{ok=$true;audit=(Optimization-Audit $build);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
+  return @{ok=$true;windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build};audit=(Optimization-Audit $build);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
 }
 $mutex=$null;$locked=$false
 try {
@@ -234,7 +237,9 @@ try {
       $build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber
       $actual=if($build -ge 22000){'11'}else{'10'}
       if($actual -ne $payload.version){throw 'Selected Windows does not match this computer'}
-      $allowed=@($registry.Keys | Where-Object {!$registry[$_][0].legacy})+@($services.Keys)+@('power','game-gpu','game-fullscreen')
+      $allowed=@($registry.Keys | Where-Object {!$registry[$_][0].legacy -and (Registry-Compatible $_ $build)})+@($services.Keys)+@('power')
+      if($build -ge 17134){$allowed+=,'game-gpu'}
+      if($build -ge 15063){$allowed+=,'game-fullscreen'}
       if(!$payload.ids.Count -or @($payload.ids | Where-Object {$_ -notin $allowed}).Count -or @($payload.ids | Select-Object -Unique).Count -ne $payload.ids.Count){throw 'Invalid action list'}
       $entries=New-Object System.Collections.ArrayList
       foreach($id in $payload.ids){
@@ -258,7 +263,7 @@ try {
             $parts=@(([string]$existing.value -split ';') | Where-Object {$_ -and $_ -notmatch '^GpuPreference='})
             $value='GpuPreference=2;'
             if($parts.Count){$value+=($parts -join ';')+';'}
-            $specs=@(@{path='Software\Microsoft\DirectX\UserGpuPreferences';name=[string]$payload.gamePath;value=$value;kind='String'})
+            $specs=@(@{path='Software\Microsoft\DirectX\UserGpuPreferences';name=[string]$payload.gamePath;value=$value;kind='String';minBuild=17134})
           }
           foreach($spec in $specs){
             $path=Resolve-RegistryPath $spec

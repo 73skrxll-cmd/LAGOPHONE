@@ -1,13 +1,15 @@
 const catalog = require('../shared/optimization.json');
-function buildPlan(input, selected, actual, gamePath = null) {
+const {supportsWindows}=require('../shared/windows-compatibility.mjs');
+function buildPlan(input, selected, actual, gamePath = null, actualBuild = undefined) {
   if (!['10','11'].includes(selected) || selected !== actual) throw new Error('Выбранная Windows не совпадает с установленной.');
+  if(actualBuild!==undefined&&(!Number.isInteger(actualBuild)||actualBuild<10240||(actualBuild>=22000?'11':'10')!==selected))throw new Error('Сборка Windows не соответствует выбранной системе.');
   if (!input || typeof input !== 'object') throw new Error('Некорректный профиль');
   const profile = catalog.profiles.find(p=>p.id===input.profile);
   if (!profile || !['keep','balanced','high','ultimate','lagophone'].includes(input.power) || !catalog.games.some(g=>g.id===input.game)) throw new Error('Неизвестный профиль, план питания или игра');
   if (input.power==='lagophone' && profile.id!=='deep') throw new Error('План LAGOPHONE доступен только глубокому профилю');
   if (!input.uses || catalog.features.some(f=>typeof input.uses[f.id] !== 'boolean') || typeof input.sysmain !== 'boolean') throw new Error('Ответьте на вопросы об использовании функций');
   const steps=catalog.steps.filter(s=>{
-    if(s.level>profile.level) return false;
+    if(s.level>profile.level||!supportsWindows(s,selected,actualBuild)) return false;
     if(s.special==='power') return input.power!=='keep';
     if(s.special==='game') return input.game!=='none' && !!gamePath;
     if(s.id==='sysmain') return input.sysmain===true;
