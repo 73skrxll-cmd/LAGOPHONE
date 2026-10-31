@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowDown, Check, CheckCircle2, ChevronDown, Cpu, Gamepad2, Info, LoaderCircle, ShieldCheck, Sparkles, Zap, X } from 'lucide-react';
+import { Activity, ArrowDown, Check, CheckCircle2, ChevronDown, Cpu, Gamepad2, Info, LoaderCircle, ShieldCheck, Sparkles, Star, Zap, X } from 'lucide-react';
 import {forWindows} from '../shared/windows-compatibility.mjs';
 import {optimizationRating,ratingLevels,type OptimizationAudit,type ProfileAudit} from '../shared/optimization-rating.mjs';
 import {optimizationView} from '../shared/optimization-view.mjs';
@@ -12,9 +12,10 @@ export type OptimizationInput={scope?:'game';profile:string;uses:Record<string,b
 export function OptimizationMeter({status,native,error=''}:{status:OptimizationStatus|null;native:boolean;error?:string}){
  const rating=optimizationRating({status,native,error}),recovery=rating.mode==='recovery';
  const labels:Record<string,string>={demo:'Предпросмотр',checking:'Проверка состояния…',running:'Выполняется…',error:'Не проверено',recovery:'Нужен откат',limited:'Нужна полная проверка'};
+ const filledStars=rating.mode==='rated'?ratingLevels.findIndex(level=>level.id===rating.level)+1:0;
  const label=rating.mode==='rated'?ratingLevels.find(level=>level.id===rating.level)?.short:labels[rating.mode]||'Не проверено';
  const description=rating.mode==='rated'?`${rating.summary}. Базовые настройки: ${rating.matched} из ${rating.available}. Это не оценка FPS.`:error||status?.error||(rating.mode==='demo'?'Оценка доступна в приложении Windows.':rating.mode==='recovery'?'Завершите откат незавершённого сеанса.':'Откройте мониторинг оптимизации для подробной проверки.');
- return <section className={'optimization-meter '+(recovery?'needs-recovery':'')} aria-label="Уровень оптимизации"><div className="meter-symbol"><Activity size={25}/></div><div className="meter-description"><span className="eyebrow">УРОВЕНЬ НАСТРОЙКИ СИСТЕМЫ</span><h3>{label}<span>Профили Windows и игры</span></h3><p>{description}</p></div><div className="meter-bars" aria-hidden="true">{[0,1,2,3,4,5,6,7,8,9].map(i=><i key={i} className={rating.mode==='rated'&&i<Math.round((rating.percent||0)/10)?'lit':''}/>)}</div></section>;
+ return <section className={'optimization-meter '+(recovery?'needs-recovery':'')} aria-label="Уровень оптимизации"><div className="meter-symbol"><Activity size={25}/></div><div className="meter-description"><span className="eyebrow">УРОВЕНЬ НАСТРОЙКИ СИСТЕМЫ</span><h3>{label}<span>Профили Windows и игры</span></h3><p>{description}</p></div><div className="meter-stars" role="img" aria-label={rating.mode==='rated'?`Уровень настройки: ${filledStars} из 5 — ${label}`:'Уровень настройки пока не определён'} title={rating.mode==='rated'?`${label} · ${filledStars} из 5`:'Ожидание проверки настроек'}>{[1,2,3,4,5].map(star=><Star key={star} size={23} strokeWidth={1.5} className={star<=filledStars?'is-filled':''} aria-hidden="true"/>)}</div></section>;
 
 }
 function preferences(){
