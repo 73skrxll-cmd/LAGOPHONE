@@ -33,7 +33,7 @@ $script:active='381b4222-f694-41f0-9685-ff5bb260df2e'
 function Active-Plan{return $script:active}
 $script:existingPlans=@{'381b4222-f694-41f0-9685-ff5bb260df2e'=$true;'8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'=$true}
 $script:acValues=@{}
-function powercfg.exe {
+function Invoke-PowerCfg {
  param($op,$guid,$arg2,$arg3,$arg4)
  $global:LASTEXITCODE=0
  switch($op){

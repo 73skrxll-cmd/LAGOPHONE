@@ -31,8 +31,29 @@ function Resolve-RegistryPath($spec) {
   if($spec.hive -eq 'machine'){return "Registry::HKEY_LOCAL_MACHINE\$($spec.path)"}
   return "Registry::HKEY_USERS\$sid\$($spec.path)"
 }
+function Invoke-PowerCfg {
+  param([Parameter(ValueFromRemainingArguments=$true)][string[]]$PowerArguments)
+  if(@($PowerArguments | Where-Object {$_ -match '["\\\r\n]'}).Count){throw 'Invalid power command argument'}
+  $info=[Diagnostics.ProcessStartInfo]::new()
+  $info.FileName=Join-Path ([Environment]::SystemDirectory) 'powercfg.exe'
+  $info.Arguments=($PowerArguments | ForEach-Object {'"'+$_+'"'}) -join ' '
+  $info.UseShellExecute=$false;$info.CreateNoWindow=$true
+  $info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+  $process=[Diagnostics.Process]::new();$process.StartInfo=$info
+  try{
+    [void]$process.Start()
+    $output=$process.StandardOutput.ReadToEndAsync();$errors=$process.StandardError.ReadToEndAsync()
+    if(!$process.WaitForExit(15000)){
+      try{$process.Kill();[void]$process.WaitForExit(1000)}catch{}
+      throw 'Windows не ответила на команду питания за 15 секунд. Операция остановлена; проверьте результат.'
+    }
+    $global:LASTEXITCODE=$process.ExitCode
+    $text=$output.GetAwaiter().GetResult();[void]$errors.GetAwaiter().GetResult()
+    return $text
+  }finally{$process.Dispose()}
+}
 function Power-Exists($guid) {
-  $list=(& powercfg.exe /list) -join ''
+  $list=(Invoke-PowerCfg /list) -join ''
   if($LASTEXITCODE -ne 0){throw 'Cannot enumerate power plans'}
   return ($list -match [regex]::Escape($guid))
 }
@@ -61,7 +82,7 @@ function Write-Registry($path,$name,$value) {
   } else { Remove-ItemProperty -LiteralPath $path -Name $name -ErrorAction SilentlyContinue }
 }
 function Active-Plan {
-  $text=& powercfg.exe /getactivescheme
+  $text=Invoke-PowerCfg /getactivescheme
   if($LASTEXITCODE -ne 0){throw 'Cannot read active power plan'}
   $match=[regex]::Match(($text -join ''),'[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}')
   if(!$match.Success){throw 'Cannot parse active power plan'}
@@ -166,11 +187,11 @@ function Restore-Entry($entry) {
     $current=Active-Plan
     if($current -ne $entry.before){
       if($current -ne $entry.after){throw 'Power plan changed outside LAGOPHONE'}
-      & powercfg.exe /setactive $entry.before | Out-Null
+      Invoke-PowerCfg /setactive $entry.before | Out-Null
       if($LASTEXITCODE -ne 0 -or (Active-Plan) -ne $entry.before){throw 'Power plan restore failed'}
     }
     if($entry.managed -eq $true -and $entry.after -eq $managedPlan -and (Power-Exists $entry.after)){
-      & powercfg.exe /delete $entry.after | Out-Null
+      Invoke-PowerCfg /delete $entry.after | Out-Null
       if($LASTEXITCODE -ne 0 -or (Power-Exists $entry.after)){throw 'Cannot remove the plan created by LAGOPHONE'}
     }
   } else {throw 'Unknown backup entry'}
@@ -284,7 +305,7 @@ function Power-Inspect {
   $state=Read-State
   $build=[int](Get-ItemPropertyValue -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name CurrentBuildNumber)
   $active=Active-Plan
-  $list=(& powercfg.exe /list) -join ''
+  $list=(Invoke-PowerCfg /list) -join ''
   if($LASTEXITCODE -ne 0){throw 'Cannot enumerate power plans'}
   $available=@{}
   foreach($id in $plans.Keys){$available[$id]=[bool]($list -match [regex]::Escape($plans[$id]))}
@@ -464,7 +485,7 @@ try {
           [void]$entries.Add(@{id=$id;kind='service';name=$name;before=$before})
         } elseif($id -eq 'power') {
           if($payload.power -ne 'lagophone' -and !$plans.ContainsKey([string]$payload.power)){throw 'Invalid power plan'}
-          $available=(& powercfg.exe /list) -join ''
+          $available=(Invoke-PowerCfg /list) -join ''
           if($LASTEXITCODE -ne 0){throw 'Cannot enumerate power plans'}
           if($payload.power -eq 'lagophone'){
             if($available -match [regex]::Escape($managedPlan)){
@@ -507,9 +528,9 @@ try {
               if($verified.start -ne 4 -or $verified.running){throw 'Service verification failed'}
             } else {
               if($entry.managed -eq $true){
-                & powercfg.exe /duplicatescheme $entry.before $entry.after | Out-Null
+                Invoke-PowerCfg /duplicatescheme $entry.before $entry.after | Out-Null
                 if($LASTEXITCODE -ne 0){throw 'This PC cannot create the LAGOPHONE plan. Select an existing plan instead.'}
-                & powercfg.exe /changename $entry.after 'LAGOPHONE Performance' | Out-Null
+                Invoke-PowerCfg /changename $entry.after 'LAGOPHONE Performance' | Out-Null
                 if($LASTEXITCODE -ne 0){throw 'Cannot name the LAGOPHONE plan'}
                 $settings=@(
                   @{sub='54533251-82be-4824-96c1-47b60b740d00';setting='893dee8e-2bef-41e0-89c6-b55d0929964c';value=100},
@@ -518,13 +539,13 @@ try {
                   @{sub='501a4d13-42af-4429-9fd1-a8218c268e20';setting='ee12f906-d277-404b-b6da-e5fa1a576df5';value=0}
                 )
                 foreach($setting in $settings){
-                  & powercfg.exe /setacvalueindex $entry.after $setting.sub $setting.setting $setting.value | Out-Null
+                  Invoke-PowerCfg /setacvalueindex $entry.after $setting.sub $setting.setting $setting.value | Out-Null
                   if($LASTEXITCODE -ne 0){throw 'A requested AC power setting is unavailable on this PC'}
                   $key="Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\$($entry.after)\$($setting.sub)\$($setting.setting)"
                   if([int](Get-ItemPropertyValue -LiteralPath $key -Name ACSettingIndex) -ne $setting.value){throw 'Power setting verification failed'}
                 }
               }
-              & powercfg.exe /setactive $entry.after | Out-Null
+              Invoke-PowerCfg /setactive $entry.after | Out-Null
               if($LASTEXITCODE -ne 0 -or (Active-Plan) -ne $entry.after){throw 'Power plan verification failed'}
             }
             Note $entry.id 'applied' $(if($entry.restart){'Значение записано и проверено. Может понадобиться перезагрузка для применения настроек.'}else{'Применено, проверено. Исходное состояние сохранено.'})

@@ -18,7 +18,7 @@ export function PowerPlan({native,version,mismatch,value,onChange,onCompleted}:{
   reading.current=task;return task;
  }
  useEffect(()=>{void refresh();const check=()=>{if(!document.hidden)void refresh()};window.addEventListener('focus',check);document.addEventListener('visibilitychange',check);return()=>{window.removeEventListener('focus',check);document.removeEventListener('visibilitychange',check)}},[native]);
- useEffect(()=>{if(!busy&&!status?.running)return;const timer=setInterval(()=>void refresh(),2000);return()=>clearInterval(timer)},[busy,status?.running]);
+ useEffect(()=>{if(error||(!busy&&!status?.running))return;const timer=setInterval(()=>void refresh(),2000);return()=>clearInterval(timer)},[busy,status?.running,error]);
  const selected=plans.find(plan=>plan.id===value)!;
  const alreadyActive=!!selected?.guid&&status?.power?.toLowerCase()===selected.guid;
  const running=busy||!!status?.running&&!error;
