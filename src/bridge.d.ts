@@ -26,6 +26,8 @@ declare global {
    onGameShaderProgress:(cb:(message:string)=>void)=>()=>void;
    gameOptimizationStatus:()=>Promise<OptimizationStatus>;
    restoreGameOptimization:()=>Promise<OptimizationResult>;
+   powerOptimizationStatus:()=>Promise<OptimizationStatus & {plans?:Record<string,boolean>}>;
+   restorePowerOptimization:()=>Promise<OptimizationResult>;
    optimizationStatus:()=>Promise<OptimizationStatus>;
    optimize:(input:OptimizationInput,version:'10'|'11')=>Promise<OptimizationResult>;
    restoreOptimization:()=>Promise<OptimizationResult>;

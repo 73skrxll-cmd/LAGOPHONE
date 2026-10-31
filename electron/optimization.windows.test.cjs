@@ -150,3 +150,31 @@ test('standalone game profile sets real High priority now and at next launch wit
   ps(`Remove-Item -LiteralPath ${quote(folder)} -Recurse -Force; 'OK'`);
  }
 });
+
+test('standalone LAGOPHONE power plan applies while system journal needs recovery and leaves it unchanged',{skip:skip||process.env.LAGOPHONE_WINDOWS_INTEGRATION!=='1'},()=>{
+ const sid=ps('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value');
+ const version=ps("if([int](Get-ItemPropertyValue -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion' -Name CurrentBuildNumber) -ge 22000){'11'}else{'10'}");
+ const run=(mode,payload={})=>JSON.parse(ps(`& ${quote(worker)} -Mode '${mode}' -PayloadBase64 '${Buffer.from(JSON.stringify({sid,...payload})).toString('base64')}'`));
+ const guid='b9e86298-7324-4f93-9066-faf25aa1c0a3';
+ const systemFile="(Join-Path $env:ProgramData 'LAGOPHONE\\optimization-state.json')";
+ const systemHash=()=>ps(`(Get-FileHash -LiteralPath ${systemFile} -Algorithm SHA256).Hash`);
+ const power=()=>run('inspect',{scope:'power'});
+ const apply=plan=>run('apply',{scope:'power',power:plan,ids:['power'],profile:'basic',version,ratingPlan:{basis:'profiles-v2',ids:[]}});
+ const before=power();assert.equal(before.active,false,'Disposable runner starts without a separate power journal');
+ try{
+  assert.equal(run('apply',{ids:['transparency'],profile:'basic',version,power:'keep',ratingPlan:{basis:'profiles-v2',ids:['transparency']}}).ok,true);
+  ps(`$file=${systemFile};$state=Get-Content -LiteralPath $file -Raw | ConvertFrom-Json;$state.phase='pending';[IO.File]::WriteAllText($file,($state | ConvertTo-Json -Depth 20));'OK'`);
+  assert.equal(run('inspect').needsRecovery,true);
+  const hash=systemHash();const result=apply('lagophone');assert.equal(result.ok,true,JSON.stringify(result));
+  assert.equal(power().power,guid,'Own plan must actually become active');assert.equal(systemHash(),hash,'Do not touch the pending system journal');
+  const alternate=Object.entries(power().plans).find(([id,available])=>available&&id!=='lagophone')[0];
+  assert.equal(apply(alternate).ok,true);assert.notEqual(power().power,guid);
+  assert.equal(apply('lagophone').ok,true,'Return to an already created owned scheme without restoring anything first');
+  assert.equal(power().power,guid);assert.equal(systemHash(),hash);
+  assert.equal(run('restore',{scope:'power'}).ok,true);assert.equal(power().power,before.power);
+  assert.equal(systemHash(),hash,'Power recovery must leave system recovery history untouched');
+ }finally{
+  if(power().active)assert.equal(run('restore',{scope:'power'}).ok,true);
+  if(run('inspect').active)assert.equal(run('restore').ok,true);
+ }
+});

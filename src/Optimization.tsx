@@ -1,3 +1,4 @@
+import {PowerPlan} from './PowerPlan';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, ArrowDown, Check, CheckCircle2, ChevronDown, Cpu, Gamepad2, Info, LoaderCircle, ShieldCheck, Sparkles, Star, Zap, X } from 'lucide-react';
 import {forWindows} from '../shared/windows-compatibility.mjs';
@@ -8,7 +9,7 @@ import type {RestartRequest} from './bridge';
 
 export type OptimizationResult={restart?:RestartRequest|null;ok:boolean;error?:string;cancelled?:boolean;restored?:boolean;noChanges?:boolean;report:{id:string;status:string;message:string}[]};
 export type OptimizationStatus={savedGames?:{id:string;gamePath:string}[];appliedTargets?:{id:string;gamePath?:string;power?:string;enabled:boolean}[];windows?:{version:'10'|'11';build:number};audit?:OptimizationAudit;profileAudit?:ProfileAudit;ok:boolean;error?:string;active:boolean;needsRecovery?:boolean;profile?:string;remaining:number;availability?:Record<string,{available:boolean;reason?:string}>;created?:string;power?:string;checks:{id:string;enabled:boolean}[];last?:OptimizationResult & {date:string;mode:string};running?:boolean;operation?:{mode:string;phase:string;startedAt:number}|null};
-export type OptimizationInput={scope?:'game';profile:string;uses:Record<string,boolean>;power:string;game:string;sysmain:boolean;selected:string[]};
+export type OptimizationInput={scope?:'game'|'power';profile:string;uses:Record<string,boolean>;power:string;game:string;sysmain:boolean;selected:string[]};
 export function OptimizationMeter({status,native,error=''}:{status:OptimizationStatus|null;native:boolean;error?:string}){
  const rating=optimizationRating({status,native,error}),recovery=rating.mode==='recovery';
  const labels:Record<string,string>={demo:'Предпросмотр',checking:'Проверка состояния…',running:'Выполняется…',error:'Не проверено',recovery:'Нужен откат',limited:'Нужна полная проверка'};
@@ -97,11 +98,11 @@ export function OptimizationPanel({gamingOnly=false,native,version,mismatch,stat
  const attentionSteps=chosen.filter(step=>!!step.attention);
  const reviewKey=chosen.map(s=>s.id).join('|');
  useEffect(()=>{setRiskAcknowledged(false)},[review,reviewKey]);
- async function execute(mode:'apply'|'restore',powerOnly=false){
+ async function execute(mode:'apply'|'restore'){
    if(!native){setMessage('Настройки не изменены: выполнение доступно только в Windows.');setReview(false);return}
    setBusy(mode);setMessage('');setReview(false);
    try{
-     const pending=mode==='apply'?window.lagophone!.optimize({profile,uses,power,game:'none',sysmain,selected:powerOnly?['power']:chosen.map(s=>s.id)},version):window.lagophone!.restoreOptimization();
+     const pending=mode==='apply'?window.lagophone!.optimize({profile,uses,power,game:'none',sysmain,selected:chosen.map(s=>s.id)},version):window.lagophone!.restoreOptimization();
      void onRefresh().catch(()=>{});
      const response=await pending;
      onOperationFinished(response,mode);
@@ -114,7 +115,7 @@ export function OptimizationPanel({gamingOnly=false,native,version,mismatch,stat
    try{const value=await window.lagophone!.chooseGame(game);if(value)setGamePath(value)}catch(e){setMessage((e as Error).message)}
  }
  return <div className="optimizer">
-  <section className="power-first" aria-label="План питания"><div><span className="eyebrow">РЕЖИМ РАБОТЫ ПК</span><h2><Zap size={22}/>План питания</h2><p>Выберите и примените план отдельно от остальных твиков.</p></div><div><select aria-label="План питания" value={power} disabled={view.controlsLocked} onChange={event=>setPower(event.target.value)}><option value="keep">Оставить текущий</option><option value="balanced">Сбалансированный</option><option value="high">Высокая производительность</option><option value="ultimate">Максимальная производительность</option><option value="lagophone">LAGOPHONE Performance — агрессивный</option></select><button className="button primary" disabled={!native||!view.canApply||power==='keep'||appliedIds.has('power')||mismatch} onClick={()=>void execute('apply',true)}><Zap size={16}/>Применить только питание</button><small>{power==='lagophone'?'От сети: минимум/максимум CPU 100%, агрессивный Boost, PCIe ASPM выключен. Выше нагрев и расход энергии; преимущество над максимальной производительностью зависит от ПК.':'Производительный план может увеличить нагрев и расход энергии.'}</small></div></section>
+  <PowerPlan native={native} version={version} mismatch={mismatch} value={power} onChange={setPower} onCompleted={()=>void onRefresh()}/>
   <OptimizationMeter status={status} native={native} error={error}/>
   {(view.hasBackup||view.mode==='error'||view.mode==='checking'||view.mode==='running')&&<section ref={restoreRef} className={'optimization-session-notice '+view.mode} aria-live="polite">
    <div><h3>{view.mode==='running'?(status?.operation?.phase==='confirmation'?'Ожидается подтверждение в окне Windows':busy==='restore'||status?.operation?.mode==='restore'?'Восстановление настроек Windows':'Windows выполняет выбранную операцию'):view.mode==='recovery'?'Найдена копия незавершённого сеанса':view.mode==='applied'?'Найдена резервная копия предыдущего применения':view.mode==='error'?'Не удалось подтвердить текущее состояние':'Проверяем состояние Windows'}</h3>

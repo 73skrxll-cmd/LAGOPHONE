@@ -102,3 +102,10 @@ test('standalone game optimization accepts only the chosen game actions and no s
  const whitelist=require('./game-executables.json');assert.deepEqual([...whitelist].sort(),[...new Set(catalog.games.flatMap(g=>g.executables))].sort());
  for(const game of ['dota2','cs2','pubg','deadlock','fortnite'])assert.ok(catalog.games.find(g=>g.id===game)?.executables.length);
 });
+
+test('standalone power accepts only one power action and carries no system rating plan',()=>{
+ const plan=buildPlan({...input({power:'lagophone',selected:['power']}),scope:'power'},'11','11');
+ assert.deepEqual(plan.ids,['power']);assert.deepEqual(plan.ratingPlan.ids,[]);assert.equal(plan.scope,'power');
+ for(const selected of [['transparency'],['power','transparency'],[]])assert.throws(()=>buildPlan({...input({power:'lagophone',selected}),scope:'power'},'11','11'));
+ assert.throws(()=>buildPlan({...input({power:'lagophone',selected:['power'],game:'cs2'}),scope:'power'},'11','11'));
+});

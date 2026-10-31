@@ -7,12 +7,12 @@ const os=require('node:os');
 const {catalog,buildPlan}=require('./optimization.cjs');
 const quote=value=>"'"+String(value).replaceAll("'","''")+"'";
 function ps(script,timeout=600000){
-  return new Promise((resolve,reject)=>execFile(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8; "+script,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(),windowsHide:true,timeout,maxBuffer:4*1024*1024},(e,out)=>e?reject(new Error('Windows не выполнила операцию. Возможно, отменён запрос администратора. Если выполнение было прервано, проверьте состояние и используйте откат.')):resolve(out.trim())));
+  return new Promise((resolve,reject)=>execFile(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8; "+script,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(),windowsHide:true,timeout,maxBuffer:4*1024*1024},(e,out)=>e?reject(new Error(e.killed||e.code==='ETIMEDOUT'?`Windows не ответила за ${Math.round(timeout/1000)} секунд. Повторите проверку состояния.`:'Windows не выполнила запрос. Если появлялся запрос прав администратора, он мог быть отменён. Повторите проверку состояния.')):resolve(out.trim())));
 }
 function registerOptimizer(getWindow,activities,restart){
   const {optimizationEvents}=require('./activity.cjs');
   const session=require('./optimizer-session.cjs').createOptimizerSession();
-  let cachedStatus=null,cachedGameStatus=null,cachedLast=null,sidRequest=null;
+  let cachedStatus=null,cachedGameStatus=null,cachedPowerStatus=null,cachedLast=null,sidRequest=null;
   const games=new Map();
   const shaders=require('./shader-preparation.cjs').createShaderPreparation({file:()=>path.join(app.getPath('userData'),'shader-tool.json')});
   const worker=app.isPackaged?path.join(process.resourcesPath,'app.asar.unpacked','electron','optimizer.ps1'):path.join(__dirname,'optimizer.ps1');
@@ -30,7 +30,7 @@ function registerOptimizer(getWindow,activities,restart){
       const command=Buffer.from(script,'utf16le').toString('base64');
       await ps(`$p=Start-Process -FilePath "$env:SystemRoot\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Verb RunAs -Wait -PassThru -ArgumentList '-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ${command}'; if($p.ExitCode -ne 0){throw 'Optimization worker failed'}`);
       const result=JSON.parse(await fs.readFile(output,'utf8'));
-      await fs.writeFile(path.join(app.getPath('userData'),'last-optimization.json'),JSON.stringify({date:new Date().toISOString(),mode,...result},null,2));
+      await fs.writeFile(path.join(app.getPath('userData'),payload.scope==='power'?'last-power-optimization.json':'last-optimization.json'),JSON.stringify({date:new Date().toISOString(),mode,...result},null,2));
       return result;
     }finally{await fs.rm(directory,{recursive:true,force:true});}
   }
@@ -48,6 +48,18 @@ function registerOptimizer(getWindow,activities,restart){
     return {...inspected,running:session.isRunning(),operation:session.current()};
   }
   ipcMain.handle('optimization:status',inspectStatus);
+  ipcMain.handle('optimization:power-status',async()=>{
+    assertWindows();
+    if(!session.isRunning())cachedPowerStatus=await run('inspect',{scope:'power'},false);
+    return {...(cachedPowerStatus||{ok:true,active:false,remaining:0,checks:[]}),running:session.isRunning(),operation:session.current()};
+  });
+  ipcMain.handle('optimization:power-restore',()=>{assertWindows();return session.exclusive('power',async setPhase=>{
+    setPhase('confirmation');
+    const choice=await dialog.showMessageBox(getWindow(),{type:'question',message:'Завершить прерванную настройку питания?',detail:'Восстановятся только параметры отдельной операции питания. Системные твики не изменятся.',buttons:['Отмена','Восстановить питание'],defaultId:0,cancelId:0});
+    if(choice.response!==1)return {ok:true,cancelled:true,report:[]};
+    setPhase('windows');const result=await run('restore',{scope:'power'},true);await activities.add(optimizationEvents('restore',{scope:'power'},result));return result;
+  })});
+
   ipcMain.handle('optimization:game-status',async()=>{
     assertWindows();
     if(session.isRunning())return {...(cachedGameStatus||{ok:true,active:false,remaining:0,checks:[]}),running:true,operation:session.current()};
@@ -99,13 +111,15 @@ function registerOptimizer(getWindow,activities,restart){
     if(!game.executables.includes(path.basename(executable).toLowerCase()))throw new Error('Нужен основной EXE игры: '+game.executables.join(' или '));
     games.set(id,executable);return executable;
   });
-  ipcMain.handle('optimization:apply',(_,input,version)=>{assertWindows();return session.exclusive('apply',async setPhase=>{
+  ipcMain.handle('optimization:apply',(_,input,version)=>{assertWindows();return session.exclusive(input?.scope==='power'?'power':'apply',async setPhase=>{
     try {
-    const actual=JSON.parse(await ps("$build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber; @{version=$(if($build -ge 22000){'11'}else{'10'});build=$build} | ConvertTo-Json -Compress",30000));
+    let status=input?.scope==='power'?await run('inspect',{scope:'power'},false):null;
+    if(status&&!status.ok)throw new Error(status.error||'Не удалось проверить питание.');
+    const actual=status?.windows||JSON.parse(await ps("$build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber; @{version=$(if($build -ge 22000){'11'}else{'10'});build=$build} | ConvertTo-Json -Compress",30000));
     const plan=buildPlan(input,version,actual.version,games.get(input?.game),actual.build);
-    const status=await run('inspect',plan.scope==='game'?{scope:'game'}:{},false);
+    status=status||await run('inspect',plan.scope==='game'?{scope:'game'}:{},false);
     if(!status.ok)throw new Error(status.error||'Не удалось прочитать состояние.');
-    if(status.needsRecovery)throw new Error('Сначала завершите восстановление прерванной операции.');
+    if(status.needsRecovery)throw new Error(plan.scope==='power'?'Прервана отдельная операция питания. Системные твики восстанавливать не нужно.':'Сначала завершите восстановление прерванной операции.');
     const unavailable=plan.ids.filter(id=>status.availability?.[id]?.available===false);
     if(unavailable.length)throw new Error('Выбранные пункты недоступны на этом ПК. Обновите список настроек: '+unavailable.map(id=>catalog.steps.find(step=>step.id===id)?.name||id).join(', '));
     plan.ratingPlan.ids=plan.ratingPlan.ids.filter(id=>status.availability?.[id]?.available!==false);
@@ -114,7 +128,7 @@ function registerOptimizer(getWindow,activities,restart){
     if(choice.response!==1){const result={ok:true,cancelled:true,report:[]};await activities.add(optimizationEvents('apply',input,result));return result;}
     setPhase('windows');
     const result=await run('apply',plan,true);
-    if(restart&&plan.scope!=='game')result.restart=await restart.afterApply({...plan,profile:result.profile||plan.profile},result,actual.version);
+    if(restart&&!plan.scope)result.restart=await restart.afterApply({...plan,profile:result.profile||plan.profile},result,actual.version);
     await activities.add(optimizationEvents('apply',plan,result));return result;
     } catch(error){await activities.add([{kind:'apply',status:'error',title:'Ошибка применения настроек',detail:error.message}]);throw error}
   });});

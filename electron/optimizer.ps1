@@ -13,7 +13,7 @@ $payload=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($PayloadBas
 $sid=[string]$payload.sid
 if($sid -notmatch '^S-1-(?:5-21|12-1)-\d+-\d+-\d+-\d+$') { throw 'Invalid user SID' }
 $root=Join-Path $env:ProgramData 'LAGOPHONE'
-$statePath=Join-Path $root $(if($payload.scope -eq 'game'){'game-optimization-state.json'}else{'optimization-state.json'})
+$statePath=Join-Path $root $(if($payload.scope -eq 'game'){'game-optimization-state.json'}elseif($payload.scope -eq 'power'){'power-optimization-state.json'}else{'optimization-state.json'})
 $script:report=New-Object System.Collections.ArrayList
 function Load-RegistryCatalog($file) {
   $data=Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -109,6 +109,7 @@ function Read-State($file=$statePath) {
   if(!(Test-Path -LiteralPath $file)){return $null}
   $state=Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
   if($state.schema -ne 1 -or $state.sid -ne $sid){throw 'Backup belongs to another user or has an unsupported format'}
+  if($payload.scope -eq 'power' -and @($state.entries | Where-Object {$_.kind -ne 'power'}).Count){throw 'Power backup contains unrelated settings'}
   foreach($entry in @($state.entries)){
     if($entry.kind -eq 'registry'){
       $valid=$false
@@ -129,7 +130,7 @@ function Read-State($file=$statePath) {
     } elseif($entry.kind -eq 'service'){
       if(!$services.ContainsKey([string]$entry.id) -or $services[[string]$entry.id] -ne $entry.name -or $entry.before.start -notin @(2,3,4)){throw 'Invalid service backup entry'}
     } elseif($entry.kind -eq 'power'){
-      if($entry.id -ne 'power' -or $entry.before -notmatch '^[0-9a-fA-F-]{36}$' -or ($entry.after -notin $plans.Values -and !(($entry.managed -eq $true -or $entry.reused -eq $true) -and $entry.after -eq $managedPlan))){throw 'Invalid power backup entry'}
+      if($entry.id -ne 'power' -or $entry.before -notmatch '^[0-9a-fA-F-]{36}$' -or ($entry.after -notin $plans.Values -and !(($entry.managed -eq $true -or $entry.reused -eq $true -or $entry.existing -eq $true) -and $entry.after -eq $managedPlan))){throw 'Invalid power backup entry'}
       if($entry.reused -eq $true -and !@($state.entries | Where-Object {$_.kind -eq 'power' -and $_.managed -eq $true -and $_.after -eq $managedPlan}).Count){throw 'Missing original owned plan backup'}
     } else {throw 'Invalid backup kind'}
   }
@@ -279,6 +280,17 @@ function Profile-Audit($build,$state,$gameState=$null) {
   }
   return @{basis='profiles-v2';profile=$state.profile;expectedIds=@($rows | ForEach-Object {$_.id});checks=@($rows)}
 }
+function Power-Inspect {
+  $state=Read-State
+  $build=[int](Get-ItemPropertyValue -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name CurrentBuildNumber)
+  $active=Active-Plan
+  $list=(& powercfg.exe /list) -join ''
+  if($LASTEXITCODE -ne 0){throw 'Cannot enumerate power plans'}
+  $available=@{}
+  foreach($id in $plans.Keys){$available[$id]=[bool]($list -match [regex]::Escape($plans[$id]))}
+  $available.lagophone=$true
+  return @{ok=$true;active=($null -ne $state);needsRecovery=($state -and $state.phase -ne 'applied');remaining=$(if($state){@($state.entries).Count}else{0});checks=@();power=$active;plans=$available;windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build}}
+}
 function Inspect {
   $build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber
   $availability=@{}
@@ -359,7 +371,7 @@ function Inspect {
 }
 $mutex=$null;$locked=$false
 try {
-  if($Mode -eq 'inspect') { $result=Inspect }
+  if($Mode -eq 'inspect') { $result=if($payload.scope -eq 'power'){Power-Inspect}else{Inspect} }
   else {
     Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
     $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
@@ -387,7 +399,7 @@ try {
     } else {
       $previousState=Read-State
       if($previousState -and $previousState.phase -ne 'applied'){throw 'Complete recovery before adding more settings'}
-      $build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber
+      $build=if($payload.scope -eq 'power'){[int](Get-ItemPropertyValue -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name CurrentBuildNumber)}else{[int](Get-CimInstance Win32_OperatingSystem).BuildNumber}
       $actual=if($build -ge 22000){'11'}else{'10'}
       if($actual -ne $payload.version){throw 'Selected Windows does not match this computer'}
       $allowed=@($registry.Keys | Where-Object {!$registry[$_][0].legacy -and (Registry-Compatible $_ $build)})+@($services.Keys)+@('power')
@@ -395,6 +407,7 @@ try {
       if($build -ge 17134){$allowed+=,'game-gpu'}
       if($build -ge 15063){$allowed+=,'game-fullscreen'}
       if(!$payload.ids.Count -or @($payload.ids | Where-Object {$_ -notin $allowed}).Count -or @($payload.ids | Select-Object -Unique).Count -ne $payload.ids.Count){throw 'Invalid action list'}
+      if($payload.scope -eq 'power' -and ($payload.ids.Count -ne 1 -or $payload.ids[0] -ne 'power')){throw 'Power optimization cannot change system tweaks'}
       if($payload.scope -eq 'game' -and @($payload.ids | Where-Object {$_ -notin @('game-gpu','game-priority')}).Count){throw 'Game optimization cannot change system tweaks or power'}
       $entries=New-Object System.Collections.ArrayList
       foreach($id in $payload.ids){
@@ -457,7 +470,8 @@ try {
             if($available -match [regex]::Escape($managedPlan)){
               $owned=$previousState -and @($previousState.entries | Where-Object {$_.kind -eq 'power' -and $_.managed -eq $true -and $_.after -eq $managedPlan}).Count -gt 0
               if($owned -and (Active-Plan) -ne $managedPlan){[void]$entries.Add(@{id=$id;kind='power';before=(Active-Plan);after=$managedPlan;reused=$true})}
-              else{Note $id 'skipped' 'План LAGOPHONE уже существует; не перезаписывался.'}
+              elseif($payload.scope -eq 'power' -and (Active-Plan) -ne $managedPlan){[void]$entries.Add(@{id=$id;kind='power';before=(Active-Plan);after=$managedPlan;existing=$true})}
+              else{Note $id 'skipped' 'План LAGOPHONE уже активен или существует; не перезаписывался.'}
               continue
             }
             [void]$entries.Add(@{id=$id;kind='power';before=(Active-Plan);after=$managedPlan;managed=$true})

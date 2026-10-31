@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('lagophone', {
   onGameShaderProgress: callback => {const listener=(_,message)=>callback(message);ipcRenderer.on('game:shader-progress',listener);return()=>ipcRenderer.removeListener('game:shader-progress',listener)},
   gameOptimizationStatus: () => ipcRenderer.invoke('optimization:game-status'),
   restoreGameOptimization: () => ipcRenderer.invoke('optimization:game-restore'),
+  powerOptimizationStatus: () => ipcRenderer.invoke('optimization:power-status'),
+  restorePowerOptimization: () => ipcRenderer.invoke('optimization:power-restore'),
   optimizationStatus: () => ipcRenderer.invoke('optimization:status'),
   optimize: (input, version) => ipcRenderer.invoke('optimization:apply', input, version),
   restoreOptimization: () => ipcRenderer.invoke('optimization:restore'),

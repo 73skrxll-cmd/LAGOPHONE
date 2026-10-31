@@ -203,6 +203,24 @@ try {
  Assert ($script:active -eq '381b4222-f694-41f0-9685-ff5bb260df2e') 'Full rollback must return to the very first power plan'
  Assert (!(Power-Exists $managedPlan)) 'Full rollback must still remove only the owned clone'
  $previousState=$null
+ # A standalone journal may activate a scheme owned by the legacy system journal,
+ # but must never edit or delete it, or alter the legacy pending journal.
+ $legacyPath=$statePath;$payload=@{profile='deep';ids=@('power')}
+ $entries=@($powerEntry);$state=New-ApplyState $null $payload $entries;Save-State $state;Invoke-Expression $batch.Extent.Text
+ $legacyBytes=[IO.File]::ReadAllText($legacyPath);$settingsBefore=$script:acValues.Count
+ $script:active='381b4222-f694-41f0-9685-ff5bb260df2e'
+ $statePath=Join-Path $root 'power-optimization-state.json';$payload=@{scope='power';profile='basic';ids=@('power')}
+ $entries=@(@{id='power';kind='power';before=$script:active;after=$managedPlan;existing=$true})
+ $state=New-ApplyState $null $payload $entries;Save-State $state;Invoke-Expression $batch.Extent.Text
+ Assert $result.ok 'Standalone activation of a pre-existing scheme must succeed'
+ Assert ($script:active -eq $managedPlan) 'Pre-existing scheme must become active'
+ Assert ($script:acValues.Count -eq $settingsBefore) 'Do not edit the settings of a scheme owned by another journal'
+ Assert (Restore-State (Read-State)) 'Standalone power activation must remain reversible'
+ Assert (Power-Exists $managedPlan) 'A scheme owned by the legacy journal must not be deleted'
+ Assert ([IO.File]::ReadAllText($legacyPath) -ceq $legacyBytes) 'Legacy system journal must remain byte-for-byte unchanged'
+ $payload=@{profile='deep'};$statePath=$legacyPath
+ Assert (Restore-State (Read-State)) 'The original owner can still restore and remove its own scheme'
+ $previousState=$null
  # Per-game preparation keeps unrelated compatibility flags and GPU preferences.
  $exe=Join-Path $root 'cs2.exe';[IO.File]::WriteAllText($exe,'fixture')
  $payload=@{gamePath=$exe}
