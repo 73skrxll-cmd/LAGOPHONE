@@ -1,8 +1,11 @@
+import type { DriverCategory } from '../shared/drivers.mjs';
 import type { System } from './main';
 import type { OptimizationInput, OptimizationStatus, OptimizationResult } from './Optimization';
 declare global {
  interface Window {
   lagophone?: {
+   driverCatalog:(version:'10'|'11')=>Promise<DriverCategory[]>;
+   openDriver:(id:string,version:'10'|'11')=>Promise<void>;
    system:()=>Promise<System>;
    action:(id:string,version:'10'|'11')=>Promise<string>;
    download:(id:string)=>Promise<string>;

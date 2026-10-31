@@ -15,14 +15,35 @@ if($sid -notmatch '^S-1-(?:5-21|12-1)-\d+-\d+-\d+-\d+$') { throw 'Invalid user S
 $root=Join-Path $env:ProgramData 'LAGOPHONE'
 $statePath=Join-Path $root 'optimization-state.json'
 $script:report=New-Object System.Collections.ArrayList
-$registry=@{
- 'game-mode'=@(@{path='Software\Microsoft\GameBar';name='AutoGameModeEnabled';value=1;kind='DWord'})
- 'transparency'=@(@{path='Software\Microsoft\Windows\CurrentVersion\Themes\Personalize';name='EnableTransparency';value=0;kind='DWord'})
- 'animations'=@(@{path='Control Panel\Desktop\WindowMetrics';name='MinAnimate';value='0';kind='String'})
- 'capture'=@(@{path='Software\Microsoft\Windows\CurrentVersion\GameDVR';name='AppCaptureEnabled';value=0;kind='DWord'},@{path='System\GameConfigStore';name='GameDVR_Enabled';value=0;kind='DWord'})
+function Load-RegistryCatalog($file) {
+  $data=Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
+  $map=@{}
+  foreach($property in $data.PSObject.Properties){$map[$property.Name]=@($property.Value)}
+  return $map
 }
+$registry=Load-RegistryCatalog (Join-Path $PSScriptRoot 'registry-specs.json')
 $services=@{spooler='Spooler';bluetooth='bthserv';fax='Fax';search='WSearch';maps='MapsBroker';media='WMPNetworkSvc';'remote-registry'='RemoteRegistry';sysmain='SysMain'}
 $plans=@{balanced='381b4222-f694-41f0-9685-ff5bb260df2e';high='8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';ultimate='e9a42b02-d5df-448d-aa00-03f14749eb61'}
+$managedPlan='b9e86298-7324-4f93-9066-faf25aa1c0a3'
+function Resolve-RegistryPath($spec) {
+  if($spec.hive -eq 'machine'){return "Registry::HKEY_LOCAL_MACHINE\$($spec.path)"}
+  return "Registry::HKEY_USERS\$sid\$($spec.path)"
+}
+function Power-Exists($guid) {
+  $list=(& powercfg.exe /list) -join ''
+  if($LASTEXITCODE -ne 0){throw 'Cannot enumerate power plans'}
+  return ($list -match [regex]::Escape($guid))
+}
+function Protect-StateFile($file) {
+  $security=[Security.AccessControl.FileSecurity]::new()
+  $security.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))
+  $security.SetAccessRuleProtection($true,$false)
+  foreach($principal in @('S-1-5-18','S-1-5-32-544','S-1-5-32-545')){
+    $rights=if($principal -eq 'S-1-5-32-545'){'Read'}else{'FullControl'}
+    $security.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($principal),$rights,'Allow'))
+  }
+  Set-Acl -LiteralPath $file -AclObject $security
+}
 function Note($id,$status,$message) { [void]$script:report.Add(@{id=$id;status=$status;message=$message}) }
 function Get-Registry($path,$name) {
   $key=Get-Item -LiteralPath $path -ErrorAction SilentlyContinue
@@ -53,7 +74,9 @@ function Service-State($name) {
 function Save-State($state) {
   $temp=Join-Path $root ([guid]::NewGuid().ToString()+'.tmp')
   [IO.File]::WriteAllText($temp,($state | ConvertTo-Json -Depth 20),[Text.UTF8Encoding]::new($false))
+  Protect-StateFile $temp
   if(Test-Path -LiteralPath $statePath){ [IO.File]::Replace($temp,$statePath,[NullString]::Value) } else { [IO.File]::Move($temp,$statePath) }
+  Protect-StateFile $statePath
 }
 function Read-State {
   if(!(Test-Path -LiteralPath $statePath)){return $null}
@@ -64,16 +87,17 @@ function Read-State {
       $valid=$false
       if($registry.ContainsKey([string]$entry.id)){
         foreach($spec in $registry[[string]$entry.id]){
-          if($entry.path -eq "Registry::HKEY_USERS\$sid\$($spec.path)" -and $entry.name -eq $spec.name){$valid=$true}
+          if($entry.path -eq (Resolve-RegistryPath $spec) -and $entry.name -eq $spec.name){$valid=$true}
         }
-      } elseif($entry.id -eq 'game-gpu'){
-        $valid=($entry.path -eq "Registry::HKEY_USERS\$sid\Software\Microsoft\DirectX\UserGpuPreferences" -and [IO.Path]::IsPathRooted($entry.name) -and [IO.Path]::GetExtension($entry.name) -eq '.exe')
+      } elseif($entry.id -in @('game-gpu','game-fullscreen')){
+        $expected=if($entry.id -eq 'game-gpu'){"Registry::HKEY_USERS\$sid\Software\Microsoft\DirectX\UserGpuPreferences"}else{"Registry::HKEY_USERS\$sid\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"}
+        $valid=($entry.path -eq $expected -and [IO.Path]::IsPathRooted($entry.name) -and [IO.Path]::GetExtension($entry.name) -eq '.exe')
       }
       if(!$valid -or $entry.before.kind -notin @('DWord','String','ExpandString','QWord','MultiString','Binary')){throw 'Invalid registry backup entry'}
     } elseif($entry.kind -eq 'service'){
       if(!$services.ContainsKey([string]$entry.id) -or $services[[string]$entry.id] -ne $entry.name -or $entry.before.start -notin @(2,3,4)){throw 'Invalid service backup entry'}
     } elseif($entry.kind -eq 'power'){
-      if($entry.id -ne 'power' -or $entry.before -notmatch '^[0-9a-fA-F-]{36}$' -or $entry.after -notin $plans.Values){throw 'Invalid power backup entry'}
+      if($entry.id -ne 'power' -or $entry.before -notmatch '^[0-9a-fA-F-]{36}$' -or ($entry.after -notin $plans.Values -and !($entry.managed -eq $true -and $entry.after -eq $managedPlan))){throw 'Invalid power backup entry'}
     } else {throw 'Invalid backup kind'}
   }
   return $state
@@ -101,10 +125,15 @@ function Restore-Entry($entry) {
     if($verified.start -ne $entry.before.start -or $verified.running -ne $entry.before.running -or !(Same-Registry $verified.delayed $entry.before.delayed)){throw 'Service restore verification failed'}
   } elseif($entry.kind -eq 'power') {
     $current=Active-Plan
-    if($current -eq $entry.before){return}
-    if($current -ne $entry.after){throw 'Power plan changed outside LAGOPHONE'}
-    & powercfg.exe /setactive $entry.before | Out-Null
-    if($LASTEXITCODE -ne 0 -or (Active-Plan) -ne $entry.before){throw 'Power plan restore failed'}
+    if($current -ne $entry.before){
+      if($current -ne $entry.after){throw 'Power plan changed outside LAGOPHONE'}
+      & powercfg.exe /setactive $entry.before | Out-Null
+      if($LASTEXITCODE -ne 0 -or (Active-Plan) -ne $entry.before){throw 'Power plan restore failed'}
+    }
+    if($entry.managed -eq $true -and $entry.after -eq $managedPlan -and (Power-Exists $entry.after)){
+      & powercfg.exe /delete $entry.after | Out-Null
+      if($LASTEXITCODE -ne 0 -or (Power-Exists $entry.after)){throw 'Cannot remove the plan created by LAGOPHONE'}
+    }
   } else {throw 'Unknown backup entry'}
 }
 function Restore-State($state) {
@@ -120,6 +149,21 @@ function Restore-State($state) {
   return $true
 }
 function Inspect {
+  $build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber
+  $availability=@{}
+  foreach($id in $registry.Keys){
+    $available=$false
+    foreach($spec in $registry[$id]){
+      if(($spec.minBuild -and $build -lt $spec.minBuild) -or ($spec.maxBuild -and $build -gt $spec.maxBuild)){continue}
+      if($spec.requireExisting -and !(Get-Registry (Resolve-RegistryPath $spec) $spec.name).exists){continue}
+      $available=$true
+    }
+    $availability[$id]=@{available=$available;reason=$(if(!$available){'Не поддерживается сборкой Windows или нужная настройка отсутствует.'}else{$null})}
+  }
+  foreach($id in $services.Keys){
+    $service=Get-Service -Name $services[$id] -ErrorAction SilentlyContinue
+    $availability[$id]=@{available=($null -ne $service);reason=$(if(!$service){'Служба отсутствует на этом ПК.'}else{$null})}
+  }
   $checks=@()
   foreach($id in @('game-mode','transparency')){
     $spec=$registry[$id][0]
@@ -137,7 +181,7 @@ function Inspect {
     }
   }
   $grouped=@($checks | Group-Object id | ForEach-Object { @{id=$_.Name;enabled=(@($_.Group | Where-Object {!$_.enabled}).Count -eq 0)} })
-  return @{ok=$true;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
+  return @{ok=$true;availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
 }
 $mutex=$null;$locked=$false
 try {
@@ -171,12 +215,22 @@ try {
       $build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber
       $actual=if($build -ge 22000){'11'}else{'10'}
       if($actual -ne $payload.version){throw 'Selected Windows does not match this computer'}
-      $allowed=@($registry.Keys)+@($services.Keys)+@('power','game-gpu')
+      $allowed=@($registry.Keys)+@($services.Keys)+@('power','game-gpu','game-fullscreen')
       if(!$payload.ids.Count -or @($payload.ids | Where-Object {$_ -notin $allowed}).Count -or @($payload.ids | Select-Object -Unique).Count -ne $payload.ids.Count){throw 'Invalid action list'}
       $entries=New-Object System.Collections.ArrayList
       foreach($id in $payload.ids){
-        if($registry.ContainsKey($id) -or $id -eq 'game-gpu'){
+        if($registry.ContainsKey($id) -or $id -in @('game-gpu','game-fullscreen')){
           $specs=$registry[$id]
+          if($id -eq 'game-fullscreen'){
+            if(!$payload.gamePath -or [IO.Path]::GetExtension($payload.gamePath) -ne '.exe' -or !(Test-Path -LiteralPath $payload.gamePath -PathType Leaf)){throw 'Game executable is unavailable'}
+            $layerPath="Registry::HKEY_USERS\$sid\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"
+            $existing=Get-Registry $layerPath ([string]$payload.gamePath)
+            if($existing.exists -and $existing.kind -notin @('String','ExpandString')){Note $id 'skipped' 'Неизвестный формат параметров совместимости игры.';continue}
+            $value=[string]$existing.value
+            if(!$value){$value='~ DISABLEDXMAXIMIZEDWINDOWEDMODE'}elseif($value -notmatch '(?i)(^|\s)DISABLEDXMAXIMIZEDWINDOWEDMODE(\s|$)'){$value=$value.TrimEnd()+' DISABLEDXMAXIMIZEDWINDOWEDMODE'}
+            $kind=if($existing.exists){$existing.kind}else{'String'}
+            $specs=@(@{path='Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers';name=[string]$payload.gamePath;value=$value;kind=$kind;minBuild=15063;restart=$true})
+          }
           if($id -eq 'game-gpu'){
             if(!$payload.gamePath -or [IO.Path]::GetExtension($payload.gamePath) -ne '.exe' -or !(Test-Path -LiteralPath $payload.gamePath -PathType Leaf)){throw 'Game executable is unavailable'}
             $gpuPath="Registry::HKEY_USERS\$sid\Software\Microsoft\DirectX\UserGpuPreferences"
@@ -188,11 +242,13 @@ try {
             $specs=@(@{path='Software\Microsoft\DirectX\UserGpuPreferences';name=[string]$payload.gamePath;value=$value;kind='String'})
           }
           foreach($spec in $specs){
-            $path="Registry::HKEY_USERS\$sid\$($spec.path)"
+            $path=Resolve-RegistryPath $spec
+            if(($spec.minBuild -and $build -lt $spec.minBuild) -or ($spec.maxBuild -and $build -gt $spec.maxBuild)){Note $id 'skipped' 'Настройка не поддерживается этой сборкой Windows.';continue}
             $before=Get-Registry $path $spec.name
-            $after=@{exists=$true;value=$spec.value;kind=$spec.kind}
+            $after=@{exists=(!$spec.afterAbsent);value=$spec.value;kind=$spec.kind}
+            if($spec.requireExisting -and !$before.exists){Note $id 'skipped' 'Настройка отсутствует на этом ПК; не создавалась принудительно.';continue}
             if(Same-Registry $before $after){Note $id 'skipped' 'Нужное значение уже установлено.';continue}
-            [void]$entries.Add(@{id=$id;kind='registry';path=$path;name=$spec.name;before=$before;after=$after})
+            [void]$entries.Add(@{id=$id;kind='registry';path=$path;name=$spec.name;before=$before;after=$after;restart=[bool]$spec.restart})
           }
         } elseif($services.ContainsKey($id)) {
           $name=$services[$id];$service=Get-Service -Name $name -ErrorAction SilentlyContinue
@@ -205,9 +261,14 @@ try {
           if($before.start -eq 4 -and !$before.running){Note $id 'skipped' 'Служба уже отключена.';continue}
           [void]$entries.Add(@{id=$id;kind='service';name=$name;before=$before})
         } elseif($id -eq 'power') {
-          if(!$plans.ContainsKey([string]$payload.power)){throw 'Invalid power plan'}
+          if($payload.power -ne 'lagophone' -and !$plans.ContainsKey([string]$payload.power)){throw 'Invalid power plan'}
           $available=(& powercfg.exe /list) -join ''
           if($LASTEXITCODE -ne 0){throw 'Cannot enumerate power plans'}
+          if($payload.power -eq 'lagophone'){
+            if($available -match [regex]::Escape($managedPlan)){Note $id 'skipped' 'План LAGOPHONE уже существует; не перезаписывался.';continue}
+            [void]$entries.Add(@{id=$id;kind='power';before=(Active-Plan);after=$managedPlan;managed=$true})
+            continue
+          }
           $target=$plans[[string]$payload.power]
           if($available -notmatch [regex]::Escape($target)){Note $id 'skipped' 'Выбранный план недоступен на этом ПК. План не создавался.';continue}
           $before=Active-Plan
@@ -232,10 +293,28 @@ try {
               $verified=Service-State $entry.name
               if($verified.start -ne 4 -or $verified.running){throw 'Service verification failed'}
             } else {
+              if($entry.managed -eq $true){
+                & powercfg.exe /duplicatescheme $entry.before $entry.after | Out-Null
+                if($LASTEXITCODE -ne 0){throw 'This PC cannot create the LAGOPHONE plan. Select an existing plan instead.'}
+                & powercfg.exe /changename $entry.after 'LAGOPHONE Performance' | Out-Null
+                if($LASTEXITCODE -ne 0){throw 'Cannot name the LAGOPHONE plan'}
+                $settings=@(
+                  @{sub='54533251-82be-4824-96c1-47b60b740d00';setting='893dee8e-2bef-41e0-89c6-b55d0929964c';value=100},
+                  @{sub='54533251-82be-4824-96c1-47b60b740d00';setting='bc5038f7-23e0-4960-96da-33abaf5935ec';value=100},
+                  @{sub='54533251-82be-4824-96c1-47b60b740d00';setting='be337238-0d82-4146-a960-4f3749d470c7';value=2},
+                  @{sub='501a4d13-42af-4429-9fd1-a8218c268e20';setting='ee12f906-d277-404b-b6da-e5fa1a576df5';value=0}
+                )
+                foreach($setting in $settings){
+                  & powercfg.exe /setacvalueindex $entry.after $setting.sub $setting.setting $setting.value | Out-Null
+                  if($LASTEXITCODE -ne 0){throw 'A requested AC power setting is unavailable on this PC'}
+                  $key="Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes\$($entry.after)\$($setting.sub)\$($setting.setting)"
+                  if([int](Get-ItemPropertyValue -LiteralPath $key -Name ACSettingIndex) -ne $setting.value){throw 'Power setting verification failed'}
+                }
+              }
               & powercfg.exe /setactive $entry.after | Out-Null
               if($LASTEXITCODE -ne 0 -or (Active-Plan) -ne $entry.after){throw 'Power plan verification failed'}
             }
-            Note $entry.id 'applied' 'Применено, проверено. Исходное состояние сохранено.'
+            Note $entry.id 'applied' $(if($entry.restart){'Значение записано и проверено. Для вступления в силу нужен повторный вход, перезапуск игры или перезагрузка.'}else{'Применено, проверено. Исходное состояние сохранено.'})
           }
           $state.phase='applied'; Save-State $state
           $result=@{ok=$true;report=@($script:report)}

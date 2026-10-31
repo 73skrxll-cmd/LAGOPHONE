@@ -19,7 +19,7 @@ async function system() {
     $gpu=@(Get-CimInstance Win32_VideoController | ForEach-Object {$_.Name});
     $ram=@(Get-CimInstance Win32_PhysicalMemory); $disk=@(Get-PhysicalDisk | ForEach-Object { @{name=$_.FriendlyName;type=[string]$_.MediaType;size=[math]::Round($_.Size/1GB)} });
     @{demo=$false;version=$(if([int]$os.BuildNumber -ge 22000){'11'}else{'10'});os=$os.Caption;build=$os.BuildNumber;
-    cpu=$cpu.Name;cores=$cpu.NumberOfCores;threads=$cpu.NumberOfLogicalProcessors;gpu=$gpu;board=$board.Product;vendor=$board.Manufacturer;manufacturer=$pc.Manufacturer;model=$pc.Model;
+    cpu=$cpu.Name;cores=$cpu.NumberOfCores;threads=$cpu.NumberOfLogicalProcessors;gpu=$gpu;board=$board.Product;vendor=$board.Manufacturer;boardVersion=$board.Version;network=@(Get-CimInstance Win32_NetworkAdapter -ErrorAction SilentlyContinue | Where-Object {$_.PhysicalAdapter} | ForEach-Object {@{name=$_.Name;vendor=$_.Manufacturer;hardwareId=$_.PNPDeviceID}});audio=@(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue | ForEach-Object {@{name=$_.Name}});bluetooth=@(Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue | Where-Object {$_.PNPClass -eq 'Bluetooth' -and $_.PNPDeviceID -like 'USB*'} | ForEach-Object {@{name=$_.Name;hardwareId=$_.PNPDeviceID}});manufacturer=$pc.Manufacturer;model=$pc.Model;
     ram=[math]::Round($pc.TotalPhysicalMemory/1GB);ramSpeed=($ram | Select-Object -First 1).Speed;slots=$ram.Count;disks=$disk;
     uptime=[math]::Floor(((Get-Date)-$os.LastBootUpTime).TotalHours)} | ConvertTo-Json -Depth 4 -Compress
   `));
@@ -72,4 +72,16 @@ ipcMain.handle('download', async (_, id) => {
     return 'Установщик сохранён. Перед запуском проверьте издателя в свойствах файла. Автоматическая установка не выполняется.';
   } catch(e) { if(created) await fs.promises.unlink(partial).catch(()=>{}); throw new Error('Не удалось сохранить установщик: '+e.message); }
   finally { downloading.delete(id); }
+});
+
+ipcMain.handle('drivers:catalog', async (_, version) => {
+  const {buildDriverCatalog}=await import('../shared/drivers.mjs');
+  return buildDriverCatalog(await system(),version);
+});
+ipcMain.handle('drivers:open', async (_, id, version) => {
+  const {buildDriverCatalog}=await import('../shared/drivers.mjs');
+  const catalog=buildDriverCatalog(await system(),version);
+  const link=catalog.flatMap(c=>c.links).find(l=>l.id===id);
+  if(!link)throw new Error('Ссылка не соответствует обнаруженному оборудованию. Обновите сведения о системе.');
+  await shell.openExternal(link.url);
 });

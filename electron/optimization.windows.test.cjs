@@ -88,6 +88,13 @@ test('Windows journal: read settings, apply user registry profile, verify, resto
    assert.equal(status.ok,true,JSON.stringify(status));
    assert.ok(status.checks.filter(c=>['game-mode','transparency'].includes(c.id)).every(c=>c.enabled));
    if(status.active){
+     const permissions=JSON.parse(ps("$file=[IO.Path]::Combine($env:ProgramData,'LAGOPHONE','optimization-state.json');$acl=Get-Acl -LiteralPath $file;$rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]) | ForEach-Object {@{sid=$_.IdentityReference.Value;rights=[int]$_.FileSystemRights;type=[string]$_.AccessControlType}});@{owner=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value;protected=$acl.AreAccessRulesProtected;rules=$rules} | ConvertTo-Json -Depth 5 -Compress"));
+     assert.equal(permissions.owner,'S-1-5-32-544',JSON.stringify(permissions));
+     assert.equal(permissions.protected,true,JSON.stringify(permissions));
+     assert.equal(permissions.rules.length,3,JSON.stringify(permissions));
+     const users=permissions.rules.find(r=>r.sid==='S-1-5-32-545');
+     assert.ok(users&&users.type==='Allow',JSON.stringify(permissions));
+     assert.equal(users.rights&(2|4|16|64|256|65536|262144|524288),0,'Journal must not grant ordinary users write/delete/owner/ACL control');
      const duplicate=run('apply',{ids:['game-mode'],version,profile:'basic',power:'keep'});
      assert.equal(duplicate.ok,false,'Do not overwrite an active journal');
    }

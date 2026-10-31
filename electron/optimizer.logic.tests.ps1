@@ -4,12 +4,14 @@ $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot
 if($errors.Count){throw ($errors | Out-String)}
 # Import actual production definitions, but never execute the Windows mutation entrypoint.
 foreach($node in $ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$false)){Invoke-Expression $node.Extent.Text}
-foreach($node in $ast.FindAll({param($n) $n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -in @('$registry','$services','$plans')},$false)){Invoke-Expression $node.Extent.Text}
+$script:FixtureRoot=$PSScriptRoot
+foreach($node in $ast.FindAll({param($n) $n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -in @('$registry','$services','$plans','$managedPlan')},$false)){Invoke-Expression ($node.Extent.Text.Replace('$PSScriptRoot','$script:FixtureRoot'))}
 $sid='S-1-5-21-1-2-3-1000'
 $root=Join-Path ([IO.Path]::GetTempPath()) ('lagophone-test-'+[guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Path $root | Out-Null
 $statePath=Join-Path $root 'optimization-state.json'
 $script:values=@{};$script:fakeServices=@{};$script:report=New-Object Collections.ArrayList
+function Protect-StateFile($file) {}
 function Assert($condition,$message){if(!$condition){throw $message}}
 # Replace only provider boundaries; all journal validation and restore logic above is production code.
 function Get-Registry($path,$name){$key=$path+'|'+$name;if($script:values.ContainsKey($key)){return $script:values[$key]};return @{exists=$false;value=$null;kind='DWord'}}
@@ -29,7 +31,26 @@ function Get-Service($Name){
 }
 $script:active='381b4222-f694-41f0-9685-ff5bb260df2e'
 function Active-Plan{return $script:active}
-function powercfg.exe {param($op,$guid);if($op -ne '/setactive'){throw 'Unexpected power operation'};$script:active=$guid;$global:LASTEXITCODE=0}
+$script:existingPlans=@{'381b4222-f694-41f0-9685-ff5bb260df2e'=$true;'8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'=$true}
+$script:acValues=@{}
+function powercfg.exe {
+ param($op,$guid,$arg2,$arg3,$arg4)
+ $global:LASTEXITCODE=0
+ switch($op){
+  '/setactive' {$script:active=$guid}
+  '/list' {$script:existingPlans.Keys | ForEach-Object {Write-Output $_}}
+  '/duplicatescheme' {$script:existingPlans[$arg2]=$true}
+  '/changename' {}
+  '/setacvalueindex' {if($script:failPowerSetting){$global:LASTEXITCODE=1}else{$script:acValues[($guid+'|'+$arg2+'|'+$arg3)]=[int]$arg4}}
+  '/delete' {$script:existingPlans.Remove($guid)}
+  default {throw 'Unexpected power operation: '+$op}
+ }
+}
+function Get-ItemPropertyValue($LiteralPath,$Name){
+ if($Name -ne 'ACSettingIndex'){throw 'Unexpected registry query'}
+ $parts=$LiteralPath -split '\\'
+ return $script:acValues[($parts[-3]+'|'+$parts[-2]+'|'+$parts[-1])]
+}
 try {
  $path="Registry::HKEY_USERS\$sid\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
  $absent=@{exists=$false;value=$null;kind='DWord'};$on=@{exists=$true;value=1;kind='DWord'};$off=@{exists=$true;value=0;kind='DWord'}
@@ -87,5 +108,55 @@ try {
  Assert (Same-Registry (Get-Registry $path 'EnableTransparency') $on) 'Earlier applied values must be restored after later failure'
  Assert (!(Get-Registry $gamePath 'AutoGameModeEnabled').exists) 'Failed write must preserve originally absent value'
  Assert (!(Test-Path -LiteralPath $statePath)) 'Successful automatic rollback must clear active journal'
- Write-Output 'PASS: production rollback logic: absent values, interrupted apply, conflict protection, retry journal, tamper rejection, delayed services, power restore, automatic batch rollback'
+ # Remove a startup value and restore its exact type/text.
+ $runPath="Registry::HKEY_USERS\$sid\Software\Microsoft\Windows\CurrentVersion\Run"
+ $runBefore=@{exists=$true;kind='ExpandString';value='"%LOCALAPPDATA%\Microsoft\OneDrive.exe" /background'}
+ $runEntry=@{id='onedrive-startup';kind='registry';path=$runPath;name='OneDrive';before=$runBefore;after=$absent}
+ Write-Registry $runPath 'OneDrive' $runBefore
+ $entries=@($runEntry);$state=@{schema=1;phase='pending';sid=$sid;profile='balanced';entries=$entries};Save-State $state
+ Invoke-Expression $batch.Extent.Text
+ Assert $result.ok 'Removing a selected autorun value should succeed'
+ Assert (!(Get-Registry $runPath 'OneDrive').exists) 'Autorun value should be absent after apply'
+ Assert (Restore-State (Read-State)) 'Autorun rollback should succeed'
+ Assert (Same-Registry (Get-Registry $runPath 'OneDrive') $runBefore) 'Autorun text and ExpandString type must be preserved'
+ # Own power plan: mutate only the clone, verify all AC settings and delete only our clone on rollback.
+ $script:active='381b4222-f694-41f0-9685-ff5bb260df2e';$script:acValues=@{}
+ $powerEntry=@{id='power';kind='power';before=$script:active;after=$managedPlan;managed=$true}
+ $entries=@($powerEntry);$state=@{schema=1;phase='pending';sid=$sid;profile='deep';entries=$entries};Save-State $state
+ Invoke-Expression $batch.Extent.Text
+ Assert $result.ok 'Dedicated power scheme should be created and applied'
+ Assert ($script:active -eq $managedPlan) 'Created scheme should be active'
+ Assert ($script:acValues.Count -eq 4) 'All four documented AC settings must be applied'
+ Assert (@($script:acValues.Keys | Where-Object {$_ -notlike ($managedPlan+'|*')}).Count -eq 0) 'Existing power plans must not be edited'
+ Assert (Restore-State (Read-State)) 'Dedicated power scheme rollback should succeed'
+ Assert ($script:active -eq $powerEntry.before) 'Original power plan must be reactivated'
+ Assert (!(Power-Exists $managedPlan)) 'Only the newly created scheme should be deleted'
+ Assert (Power-Exists $powerEntry.before) 'Original power scheme must still exist'
+ # Failure after cloning but before activation must still remove the orphan clone.
+ $script:failPowerSetting=$true
+ $entries=@($powerEntry);$state=@{schema=1;phase='pending';sid=$sid;profile='deep';entries=$entries};Save-State $state
+ Invoke-Expression $batch.Extent.Text
+ Assert (!$result.ok -and $result.restored) 'Unsupported power setting should fail and roll back the batch'
+ Assert (!(Power-Exists $managedPlan)) 'Failed clone should be cleaned up even if never activated'
+ Assert (!(Test-Path -LiteralPath $statePath)) 'Clean failed-plan rollback should clear the journal'
+ $script:failPowerSetting=$false
+ # Per-game preparation keeps unrelated compatibility flags and GPU preferences.
+ $exe=Join-Path $root 'cs2.exe';[IO.File]::WriteAllText($exe,'fixture')
+ $payload=@{gamePath=$exe}
+ $layerPath="Registry::HKEY_USERS\$sid\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"
+ Write-Registry $layerPath $exe @{exists=$true;kind='String';value='~ RUNASADMIN'}
+ $id='game-fullscreen'
+ $prepare=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text.StartsWith("if(`$id -eq 'game-fullscreen')")},$false))[0]
+ Invoke-Expression $prepare.Extent.Text
+ Assert ($specs[0].value -eq '~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE') 'Existing game compatibility flags must be preserved'
+ Write-Registry $layerPath $exe @{exists=$true;kind='String';value=$specs[0].value}
+ Invoke-Expression $prepare.Extent.Text
+ Assert ($specs[0].value -eq '~ RUNASADMIN DISABLEDXMAXIMIZEDWINDOWEDMODE') 'Per-game flag must not duplicate on repeat'
+ $gpuPath="Registry::HKEY_USERS\$sid\Software\Microsoft\DirectX\UserGpuPreferences"
+ Write-Registry $gpuPath $exe @{exists=$true;kind='String';value='SwapEffectUpgradeEnable=1;GpuPreference=1;'}
+ $id='game-gpu'
+ $prepare=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Extent.Text.StartsWith("if(`$id -eq 'game-gpu')")},$false))[0]
+ Invoke-Expression $prepare.Extent.Text
+ Assert ($specs[0].value -eq 'GpuPreference=2;SwapEffectUpgradeEnable=1;') 'GPU choice must not erase unrelated game preferences'
+ Write-Output 'PASS: production rollback logic: absent values, interrupted apply, conflict protection, retry journal, tamper rejection, delayed services, power restore, automatic batch rollback, autorun type, owned scheme lifecycle/failure, per-game flag preservation'
 } finally {Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue}

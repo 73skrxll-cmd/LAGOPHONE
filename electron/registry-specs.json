@@ -1,0 +1,327 @@
+{
+  "game-mode": [
+    {
+      "path": "Software\\Microsoft\\GameBar",
+      "name": "AutoGameModeEnabled",
+      "value": 1,
+      "kind": "DWord"
+    }
+  ],
+  "transparency": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+      "name": "EnableTransparency",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "animations": [
+    {
+      "path": "Control Panel\\Desktop\\WindowMetrics",
+      "name": "MinAnimate",
+      "value": "0",
+      "kind": "String"
+    }
+  ],
+  "capture": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR",
+      "name": "AppCaptureEnabled",
+      "value": 0,
+      "kind": "DWord"
+    },
+    {
+      "path": "System\\GameConfigStore",
+      "name": "GameDVR_Enabled",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "menu-delay": [
+    {
+      "path": "Control Panel\\Desktop",
+      "name": "MenuShowDelay",
+      "value": "200",
+      "kind": "String",
+      "restart": true
+    }
+  ],
+  "hover-delay": [
+    {
+      "path": "Control Panel\\Mouse",
+      "name": "MouseHoverTime",
+      "value": "200",
+      "kind": "String",
+      "restart": true
+    }
+  ],
+  "taskbar-animation": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "name": "TaskbarAnimations",
+      "value": 0,
+      "kind": "DWord",
+      "restart": true
+    }
+  ],
+  "selection-effects": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "name": "ListviewAlphaSelect",
+      "value": 0,
+      "kind": "DWord",
+      "restart": true
+    }
+  ],
+  "icon-shadows": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "name": "ListviewShadow",
+      "value": 0,
+      "kind": "DWord",
+      "restart": true
+    }
+  ],
+  "drag-content": [
+    {
+      "path": "Control Panel\\Desktop",
+      "name": "DragFullWindows",
+      "value": "0",
+      "kind": "String",
+      "restart": true
+    }
+  ],
+  "startup-delay": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+      "name": "StartupDelayInMSec",
+      "value": 0,
+      "kind": "DWord",
+      "restart": true
+    }
+  ],
+  "explorer-promos": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "name": "ShowSyncProviderNotifications",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "windows-tips": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SubscribedContent-338389Enabled",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "welcome-promos": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SubscribedContent-310093Enabled",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "lockscreen-facts": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "RotatingLockScreenOverlayEnabled",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "start-promos": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SystemPaneSuggestionsEnabled",
+      "value": 0,
+      "kind": "DWord"
+    },
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SubscribedContent-338388Enabled",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "settings-promos": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SubscribedContent-353694Enabled",
+      "value": 0,
+      "kind": "DWord"
+    },
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SubscribedContent-353696Enabled",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "suggested-installs": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SilentInstalledAppsEnabled",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "search-highlights": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings",
+      "name": "IsDynamicSearchBoxEnabled",
+      "value": 0,
+      "kind": "DWord",
+      "minBuild": 19044
+    }
+  ],
+  "edge-startup": [
+    {
+      "path": "Software\\Policies\\Microsoft\\Edge",
+      "name": "StartupBoostEnabled",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "edge-background": [
+    {
+      "path": "Software\\Policies\\Microsoft\\Edge",
+      "name": "BackgroundModeEnabled",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "widgets": [
+    {
+      "path": "SOFTWARE\\Policies\\Microsoft\\Dsh",
+      "name": "AllowNewsAndInterests",
+      "value": 0,
+      "kind": "DWord",
+      "hive": "machine",
+      "minBuild": 22000
+    },
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Feeds",
+      "name": "ShellFeedsTaskbarViewMode",
+      "value": 2,
+      "kind": "DWord",
+      "minBuild": 19041,
+      "maxBuild": 21999
+    }
+  ],
+  "web-search": [
+    {
+      "path": "Software\\Policies\\Microsoft\\Windows\\Explorer",
+      "name": "DisableSearchBoxSuggestions",
+      "value": 1,
+      "kind": "DWord",
+      "restart": true
+    }
+  ],
+  "cloud-search": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings",
+      "name": "IsMSACloudSearchEnabled",
+      "value": 0,
+      "kind": "DWord"
+    },
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings",
+      "name": "IsAADCloudSearchEnabled",
+      "value": 0,
+      "kind": "DWord"
+    }
+  ],
+  "onedrive-startup": [
+    {
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+      "name": "OneDrive",
+      "value": null,
+      "kind": "String",
+      "requireExisting": true,
+      "afterAbsent": true,
+      "restart": true
+    }
+  ],
+  "restart-apps": [
+    {
+      "path": "Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon",
+      "name": "RestartApps",
+      "value": 0,
+      "kind": "DWord",
+      "restart": true
+    }
+  ],
+  "delivery-p2p": [
+    {
+      "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization",
+      "name": "DODownloadMode",
+      "value": 0,
+      "kind": "DWord",
+      "hive": "machine"
+    }
+  ],
+  "desktop-peek": [
+    {
+      "path": "Software\\Microsoft\\Windows\\DWM",
+      "name": "EnableAeroPeek",
+      "value": 0,
+      "kind": "DWord",
+      "restart": true
+    }
+  ],
+  "activity-sync": [
+    {
+      "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "name": "PublishUserActivities",
+      "value": 0,
+      "kind": "DWord",
+      "hive": "machine",
+      "maxBuild": 21999
+    },
+    {
+      "path": "SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "name": "UploadUserActivities",
+      "value": 0,
+      "kind": "DWord",
+      "hive": "machine",
+      "maxBuild": 21999
+    }
+  ],
+  "mmcss": [
+    {
+      "path": "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile",
+      "name": "SystemResponsiveness",
+      "value": 10,
+      "kind": "DWord",
+      "hive": "machine",
+      "restart": true,
+      "requireExisting": true
+    }
+  ],
+  "power-throttling": [
+    {
+      "path": "SYSTEM\\CurrentControlSet\\Control\\Power\\PowerThrottling",
+      "name": "PowerThrottlingOff",
+      "value": 1,
+      "kind": "DWord",
+      "hive": "machine",
+      "minBuild": 16299,
+      "restart": true
+    }
+  ],
+  "hags": [
+    {
+      "path": "SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers",
+      "name": "HwSchMode",
+      "value": 2,
+      "kind": "DWord",
+      "hive": "machine",
+      "minBuild": 19041,
+      "requireExisting": true,
+      "restart": true
+    }
+  ]
+}

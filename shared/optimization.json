@@ -1,41 +1,545 @@
 {
   "profiles": [
-    {"id":"basic","name":"Базовый","level":0,"description":"Игровой режим и более простой интерфейс. Службы остаются включёнными."},
-    {"id":"balanced","name":"Средний","level":1,"description":"Базовые настройки и отключение принтера, Bluetooth, факса и записи игр — только если вы ими не пользуетесь."},
-    {"id":"deep","name":"Глубокий","level":2,"description":"Дополнительно индексатор поиска, офлайн-карты, медиасервер и удалённый реестр. Каждое отключение зависит от ваших ответов."}
+    {
+      "id": "basic",
+      "name": "Базовый",
+      "level": 0,
+      "description": "18 настроек интерфейса, автозапуска оболочки и рекламных рекомендаций. Без отключения служб, Store, Xbox и рабочих функций Windows."
+    },
+    {
+      "id": "balanced",
+      "name": "Средний",
+      "level": 1,
+      "description": "Базовый набор + управление фоном, поиском, автозагрузкой, записью игр и неиспользуемыми службами. Предлагается высокий план питания."
+    },
+    {
+      "id": "deep",
+      "name": "Глубокий",
+      "level": 2,
+      "description": "Все категории + история действий, расширенные параметры ресурсов и отдельный план LAGOPHONE. Экспериментальные пункты выбираются вручную."
+    }
   ],
   "features": [
-    {"id":"printer","name":"Принтер и печать в PDF","detail":"Spooler: печать на принтере и Microsoft Print to PDF. При отключении обе функции перестанут работать."},
-    {"id":"bluetooth","name":"Bluetooth-устройства","detail":"bthserv: обнаружение и подключение Bluetooth-наушников, мышей, геймпадов и других устройств. Они могут отключиться."},
-    {"id":"recording","name":"Запись игр и клипов","detail":"Game DVR: фоновая запись и захват игр через Windows. Отключение записи не удаляет Game Bar, Xbox и Microsoft Store."},
-    {"id":"fax","name":"Отправка факсов","detail":"Fax: отправка и получение факсов через Windows. Если служба отсутствует, действие пропускается."},
-    {"id":"search","name":"Быстрый поиск файлов и Outlook","detail":"WSearch: индексирование файлов, почты и содержимого. Поиск может стать медленнее, некоторые результаты могут отсутствовать."},
-    {"id":"offlineMaps","name":"Офлайн-карты Windows","detail":"MapsBroker: загрузка и обновление офлайн-карт. Уже установленные карты не удаляются."},
-    {"id":"mediaShare","name":"Медиатека по локальной сети","detail":"WMPNetworkSvc: общий доступ к медиатеке Windows Media Player. Передача её на другие устройства перестанет работать."},
-    {"id":"remote","name":"Удалённое управление реестром","detail":"RemoteRegistry: администрирование реестра по сети. Это не служба удалённого рабочего стола."}
+    {
+      "id": "printer",
+      "name": "Принтер и печать в PDF",
+      "detail": "Spooler: печать на принтере и Microsoft Print to PDF. При отключении обе функции перестанут работать.",
+      "defaultUse": true
+    },
+    {
+      "id": "bluetooth",
+      "name": "Bluetooth-устройства",
+      "detail": "bthserv: обнаружение и подключение Bluetooth-наушников, мышей, геймпадов и других устройств. Они могут отключиться.",
+      "defaultUse": true
+    },
+    {
+      "id": "recording",
+      "name": "Запись игр и клипов",
+      "detail": "Game DVR: фоновая запись и захват игр через Windows. Отключение записи не удаляет Game Bar, Xbox и Microsoft Store.",
+      "defaultUse": true
+    },
+    {
+      "id": "fax",
+      "name": "Отправка факсов",
+      "detail": "Fax: отправка и получение факсов через Windows. Если служба отсутствует, действие пропускается.",
+      "defaultUse": false
+    },
+    {
+      "id": "search",
+      "name": "Быстрый поиск файлов и Outlook",
+      "detail": "WSearch: индексирование файлов, почты и содержимого. Поиск может стать медленнее, некоторые результаты могут отсутствовать.",
+      "defaultUse": true
+    },
+    {
+      "id": "offlineMaps",
+      "name": "Офлайн-карты Windows",
+      "detail": "MapsBroker: загрузка и обновление офлайн-карт. Уже установленные карты не удаляются.",
+      "defaultUse": false
+    },
+    {
+      "id": "mediaShare",
+      "name": "Медиатека по локальной сети",
+      "detail": "WMPNetworkSvc: общий доступ к медиатеке Windows Media Player. Передача её на другие устройства перестанет работать.",
+      "defaultUse": false
+    },
+    {
+      "id": "remote",
+      "name": "Удалённое управление реестром",
+      "detail": "RemoteRegistry: администрирование реестра по сети. Это не служба удалённого рабочего стола.",
+      "defaultUse": false
+    },
+    {
+      "id": "edgeBackground",
+      "name": "Фоновые возможности Microsoft Edge",
+      "detail": "Предзагрузка браузера и работа расширений после закрытия окон. Сам браузер и WebView2 не отключаются.",
+      "defaultUse": false
+    },
+    {
+      "id": "widgets",
+      "name": "Виджеты и новостная лента",
+      "detail": "В Windows 11 отключается панель виджетов, в Windows 10 скрывается лента новостей. Microsoft Store и Xbox сохраняются.",
+      "defaultUse": false
+    },
+    {
+      "id": "webSearch",
+      "name": "Поиск в интернете из меню «Пуск»",
+      "detail": "Результаты Bing и предложения веб-поиска. Локальный поиск приложений сохраняется.",
+      "defaultUse": true
+    },
+    {
+      "id": "cloudSearch",
+      "name": "Поиск содержимого облачных аккаунтов",
+      "detail": "Результаты поиска из Microsoft-аккаунта и рабочей учётной записи. Не отключает вход и синхронизацию этих аккаунтов.",
+      "defaultUse": true
+    },
+    {
+      "id": "oneDrive",
+      "name": "Автозапуск OneDrive",
+      "detail": "Отключение затрагивает только запуск при входе. Файлы не удаляются; OneDrive можно открыть вручную.",
+      "defaultUse": true
+    },
+    {
+      "id": "restartApps",
+      "name": "Автоматическое восстановление приложений при входе",
+      "detail": "После входа Windows заново открывает поддерживаемые приложения. Их ручной запуск остаётся доступен.",
+      "defaultUse": false
+    },
+    {
+      "id": "updateSharing",
+      "name": "Раздача обновлений другим ПК",
+      "detail": "Пиринговая раздача Delivery Optimization. HTTP-загрузка обновлений Windows и Store остаётся включённой.",
+      "defaultUse": false
+    },
+    {
+      "id": "peek",
+      "name": "Предпросмотр рабочего стола Aero Peek",
+      "detail": "При отключении исчезает прозрачный предпросмотр рабочего стола; сворачивание окон и обычный рабочий стол доступны.",
+      "defaultUse": false
+    },
+    {
+      "id": "activitySync",
+      "name": "История действий между устройствами",
+      "detail": "История действий и её публикация в Windows 10. Настройки не применяются к версиям Windows, где функция удалена.",
+      "defaultUse": false
+    }
   ],
   "steps": [
-    {"id":"game-mode","name":"Включить игровой режим","level":0,"detail":"Windows сможет применять встроенную приоритизацию игрового сеанса. Античиты и параметры загрузки не меняются."},
-    {"id":"transparency","name":"Отключить прозрачность","level":0,"detail":"Убирает прозрачность интерфейса. Сохраняется исходное значение для отката."},
-    {"id":"animations","name":"Упростить анимацию окон","level":1,"detail":"Отключает анимацию сворачивания и разворачивания. Для полного применения может понадобиться повторный вход."},
-    {"id":"capture","name":"Отключить запись Game DVR","level":1,"feature":"recording","detail":"Отключает захват и фоновую запись Windows. Панель Win+G, Microsoft Store, Xbox и Gaming Services не удаляются."},
-    {"id":"spooler","name":"Отключить службу печати","level":1,"feature":"printer","service":"Spooler","detail":"Останавливает Spooler и отключает автозапуск. Принтер и Microsoft Print to PDF работать не будут."},
-    {"id":"bluetooth","name":"Отключить поддержку Bluetooth","level":1,"feature":"bluetooth","service":"bthserv","detail":"Останавливает bthserv и отключает автозапуск. Bluetooth-устройства могут отключиться. При активных зависимых службах действие пропускается."},
-    {"id":"fax","name":"Отключить факс","level":1,"feature":"fax","service":"Fax","detail":"Останавливает службу Fax и отключает её автозапуск. Факсы Windows будут недоступны."},
-    {"id":"search","name":"Отключить индексацию поиска","level":2,"feature":"search","service":"WSearch","detail":"Останавливает WSearch. Индексируемый поиск и поиск в Outlook могут ухудшиться. Индекс не удаляется."},
-    {"id":"maps","name":"Отключить обслуживание офлайн-карт","level":2,"feature":"offlineMaps","service":"MapsBroker","detail":"Останавливает MapsBroker. Офлайн-карты не будут автоматически обслуживаться."},
-    {"id":"media","name":"Отключить общий доступ к медиатеке","level":2,"feature":"mediaShare","service":"WMPNetworkSvc","detail":"Останавливает WMPNetworkSvc. Общий доступ к медиатеке WMP по сети будет недоступен."},
-    {"id":"remote-registry","name":"Отключить удалённый реестр","level":2,"feature":"remote","service":"RemoteRegistry","detail":"Останавливает RemoteRegistry. Удалённое администрирование реестра станет недоступным."},
-    {"id":"sysmain","name":"Отключить SysMain · экспериментально","level":2,"experimental":true,"service":"SysMain","detail":"Отключает предварительную загрузку часто используемых данных. Может снизить фоновую нагрузку, но также замедлить запуск программ. Прирост FPS не гарантируется."},
-    {"id":"power","name":"Изменить план питания","level":0,"special":"power","detail":"Выбранный план может увеличить нагрев, шум и расход батареи. Исходный план сохраняется; недоступные планы не создаются принудительно."},
-    {"id":"game-gpu","name":"Высокая производительность GPU для игры","level":0,"special":"game","detail":"Устанавливает графическое предпочтение Windows только для выбранного EXE. Драйверы, игровые файлы и античит не меняются. Не гарантирует прирост на ПК с одной видеокартой."}
+    {
+      "id": "transparency",
+      "name": "Отключить прозрачность",
+      "level": 0,
+      "detail": "Убирает прозрачность интерфейса. Сохраняется исходное значение для отката.",
+      "category": "Интерфейс",
+      "defaultSelected": true
+    },
+    {
+      "id": "animations",
+      "name": "Упростить анимацию окон",
+      "level": 0,
+      "detail": "Отключает анимацию сворачивания и разворачивания. Для полного применения может понадобиться повторный вход.",
+      "category": "Интерфейс",
+      "defaultSelected": true
+    },
+    {
+      "id": "menu-delay",
+      "name": "Уменьшить задержку раскрытия меню",
+      "level": 0,
+      "category": "Интерфейс",
+      "detail": "Устанавливает задержку подменю 200 мс. Меню и их функции сохраняются; меняется скорость появления.",
+      "defaultSelected": true
+    },
+    {
+      "id": "hover-delay",
+      "name": "Сократить задержку наведения",
+      "level": 0,
+      "category": "Интерфейс",
+      "detail": "Ожидание реакции интерфейса на наведение — 200 мс. Это отзывчивость интерфейса, а не ускорение вычислений.",
+      "defaultSelected": true
+    },
+    {
+      "id": "taskbar-animation",
+      "name": "Убрать анимации панели задач",
+      "level": 0,
+      "category": "Интерфейс",
+      "detail": "Отключает декоративную анимацию панели задач. Кнопки, переключение и запуск приложений остаются.",
+      "defaultSelected": true
+    },
+    {
+      "id": "selection-effects",
+      "name": "Упростить выделение в Проводнике",
+      "level": 0,
+      "category": "Интерфейс",
+      "detail": "Отключает полупрозрачную рамку выделения. Выделение файлов продолжает работать.",
+      "defaultSelected": true
+    },
+    {
+      "id": "icon-shadows",
+      "name": "Убрать тени подписей значков",
+      "level": 0,
+      "category": "Интерфейс",
+      "detail": "Убирает декоративные тени у подписей рабочего стола. На пёстрых обоях подписи могут стать менее читаемыми.",
+      "defaultSelected": true
+    },
+    {
+      "id": "drag-content",
+      "name": "Показывать рамку при перемещении окна",
+      "level": 0,
+      "category": "Интерфейс",
+      "detail": "Во время перетаскивания показывается рамка вместо постоянной перерисовки содержимого. Перемещение и размер окон не ограничиваются.",
+      "defaultSelected": true
+    },
+    {
+      "id": "explorer-promos",
+      "name": "Убрать рекламные баннеры Проводника",
+      "level": 0,
+      "category": "Рекомендации",
+      "detail": "Выключает ShowSyncProviderNotifications. OneDrive, синхронизация и файловые операции остаются доступны.",
+      "defaultSelected": true
+    },
+    {
+      "id": "windows-tips",
+      "name": "Убрать рекламные советы Windows",
+      "level": 0,
+      "category": "Рекомендации",
+      "detail": "Отключает поток советов и рекомендаций Content Delivery Manager. Уведомления приложений, Defender и обновлений не отключаются.",
+      "defaultSelected": true
+    },
+    {
+      "id": "welcome-promos",
+      "name": "Не показывать рекламный экран после обновлений",
+      "level": 0,
+      "category": "Рекомендации",
+      "detail": "Отключает приветственные рекомендации после обновлений. Само обновление Windows продолжает работать.",
+      "defaultSelected": true
+    },
+    {
+      "id": "lockscreen-facts",
+      "name": "Убрать рекламные подсказки экрана блокировки",
+      "level": 0,
+      "category": "Рекомендации",
+      "detail": "Отключает текстовые факты и подсказки поверх фона. Блокировка, вход и изображение экрана остаются.",
+      "defaultSelected": true
+    },
+    {
+      "id": "start-promos",
+      "name": "Убрать предложения приложений в «Пуске»",
+      "level": 0,
+      "category": "Рекомендации",
+      "detail": "Отключает рекламные предложения приложений. Установленные приложения и Microsoft Store не удаляются.",
+      "defaultSelected": true
+    },
+    {
+      "id": "settings-promos",
+      "name": "Убрать рекомендации в параметрах",
+      "level": 0,
+      "category": "Рекомендации",
+      "detail": "Отключает рекламные рекомендации в приложении «Параметры». Сами страницы и настройки доступны.",
+      "defaultSelected": true
+    },
+    {
+      "id": "suggested-installs",
+      "name": "Запретить установку рекомендованных приложений",
+      "level": 0,
+      "category": "Рекомендации",
+      "detail": "Отключает SilentInstalledAppsEnabled — рекламные установки по инициативе оболочки. Ручная установка и обновления Store остаются.",
+      "defaultSelected": true
+    },
+    {
+      "id": "search-highlights",
+      "name": "Убрать рекламные украшения поиска",
+      "level": 0,
+      "category": "Рекомендации",
+      "detail": "Отключает динамические картинки и рекомендации поисковой панели, сохраняя сам поиск. На старых сборках пункт пропускается.",
+      "defaultSelected": true
+    },
+    {
+      "id": "startup-delay",
+      "name": "Убрать дополнительную задержку автозапуска",
+      "level": 0,
+      "category": "Автозагрузка",
+      "detail": "Убирает StartupDelayInMSec для запуска приложений оболочкой. Ничего не исключает из автозагрузки; кратковременная нагрузка после входа может вырасти.",
+      "defaultSelected": true
+    },
+    {
+      "id": "game-mode",
+      "name": "Включить игровой режим",
+      "level": 0,
+      "detail": "Windows сможет применять встроенную приоритизацию игрового сеанса. Античиты и параметры загрузки не меняются.",
+      "category": "Игры",
+      "defaultSelected": true
+    },
+    {
+      "id": "game-gpu",
+      "name": "Высокая производительность GPU для игры",
+      "level": 0,
+      "special": "game",
+      "detail": "Устанавливает графическое предпочтение Windows только для выбранного EXE. Драйверы, игровые файлы и античит не меняются. Не гарантирует прирост на ПК с одной видеокартой.",
+      "category": "Игры",
+      "defaultSelected": true
+    },
+    {
+      "id": "power",
+      "name": "Изменить план питания",
+      "level": 0,
+      "special": "power",
+      "detail": "Штатный план или отдельный LAGOPHONE: на питании от сети минимальное/максимальное состояние CPU 100%, boost Aggressive, энергосбережение PCIe выключено. Это не 100% загрузка CPU. Батарейные параметры сохраняются; нагрев, шум и потребление могут вырасти. При откате собственный план удаляется.",
+      "category": "Питание",
+      "defaultSelected": true
+    },
+    {
+      "id": "desktop-peek",
+      "name": "Отключить предпросмотр Aero Peek",
+      "level": 1,
+      "category": "Интерфейс",
+      "detail": "Убирает прозрачный предпросмотр рабочего стола. Обычный рабочий стол и сворачивание окон сохраняются.",
+      "defaultSelected": true,
+      "feature": "peek"
+    },
+    {
+      "id": "onedrive-startup",
+      "name": "Не запускать OneDrive вместе с Windows",
+      "level": 1,
+      "category": "Автозагрузка",
+      "detail": "Убирает только существующую запись OneDrive из HKCU Run. Процесс не завершается, файлы не удаляются. Эффект — после следующего входа.",
+      "defaultSelected": true,
+      "feature": "oneDrive"
+    },
+    {
+      "id": "restart-apps",
+      "name": "Не восстанавливать приложения при входе",
+      "level": 1,
+      "category": "Автозагрузка",
+      "detail": "Не открывает автоматически поддерживаемые приложения после входа. Ручной запуск всех программ остаётся.",
+      "defaultSelected": true,
+      "feature": "restartApps"
+    },
+    {
+      "id": "edge-startup",
+      "name": "Не предзагружать Microsoft Edge",
+      "level": 1,
+      "category": "Фоновые процессы",
+      "detail": "Отключает Startup Boost. Edge запускается по запросу, первое открытие может быть медленнее. WebView2 не удаляется.",
+      "defaultSelected": true,
+      "feature": "edgeBackground"
+    },
+    {
+      "id": "edge-background",
+      "name": "Не оставлять расширения Edge в фоне",
+      "level": 1,
+      "category": "Фоновые процессы",
+      "detail": "После закрытия браузера фоновые расширения и приложения Edge не продолжают работу. Сам Edge и WebView2 доступны.",
+      "defaultSelected": true,
+      "feature": "edgeBackground"
+    },
+    {
+      "id": "widgets",
+      "name": "Отключить неиспользуемую панель виджетов",
+      "level": 1,
+      "category": "Фоновые процессы",
+      "detail": "Windows 11: политика выключает панель виджетов. Windows 10: скрывается новостная лента. Это не удаляет WebView2 или Store.",
+      "defaultSelected": true,
+      "feature": "widgets"
+    },
+    {
+      "id": "delivery-p2p",
+      "name": "Не раздавать обновления другим ПК",
+      "level": 1,
+      "category": "Фоновые процессы",
+      "detail": "Delivery Optimization переводится в HTTP-only (0). Загрузки Windows Update, Store и Xbox не отключаются; отключается пиринговая раздача.",
+      "defaultSelected": true,
+      "feature": "updateSharing"
+    },
+    {
+      "id": "web-search",
+      "name": "Оставить в «Пуске» локальные результаты",
+      "level": 1,
+      "category": "Поиск",
+      "detail": "Отключает веб-предложения и историю подсказок поиска. Локальные приложения доступны. Поведение веб-результатов зависит от сборки Windows.",
+      "defaultSelected": true,
+      "feature": "webSearch"
+    },
+    {
+      "id": "cloud-search",
+      "name": "Не искать в облачных аккаунтах",
+      "level": 1,
+      "category": "Поиск",
+      "detail": "Отключает поиск облачного содержимого из Microsoft и рабочей учётной записи. Вход в аккаунты и Store сохраняются.",
+      "defaultSelected": true,
+      "feature": "cloudSearch"
+    },
+    {
+      "id": "spooler",
+      "name": "Отключить службу печати",
+      "level": 1,
+      "feature": "printer",
+      "service": "Spooler",
+      "detail": "Останавливает Spooler и отключает автозапуск. Принтер и Microsoft Print to PDF работать не будут.",
+      "category": "Службы",
+      "defaultSelected": true
+    },
+    {
+      "id": "bluetooth",
+      "name": "Отключить поддержку Bluetooth",
+      "level": 1,
+      "feature": "bluetooth",
+      "service": "bthserv",
+      "detail": "Останавливает bthserv и отключает автозапуск. Bluetooth-устройства могут отключиться. При активных зависимых службах действие пропускается.",
+      "category": "Службы",
+      "defaultSelected": true
+    },
+    {
+      "id": "fax",
+      "name": "Отключить факс",
+      "level": 1,
+      "feature": "fax",
+      "service": "Fax",
+      "detail": "Останавливает службу Fax и отключает её автозапуск. Факсы Windows будут недоступны.",
+      "category": "Службы",
+      "defaultSelected": true
+    },
+    {
+      "id": "capture",
+      "name": "Отключить запись Game DVR",
+      "level": 1,
+      "feature": "recording",
+      "detail": "Отключает захват и фоновую запись Windows. Панель Win+G, Microsoft Store, Xbox и Gaming Services не удаляются.",
+      "category": "Игры",
+      "defaultSelected": true
+    },
+    {
+      "id": "game-fullscreen",
+      "name": "Проверить игру без оптимизации полного экрана",
+      "level": 1,
+      "category": "Игры",
+      "detail": "Добавляет DISABLEDXMAXIMIZEDWINDOWEDMODE только выбранному EXE. Может улучшить задержку или ухудшить FPS/переключение окон; по умолчанию не выбрано. Перезапустите игру.",
+      "defaultSelected": false,
+      "special": "game"
+    },
+    {
+      "id": "activity-sync",
+      "name": "Не публиковать историю действий",
+      "level": 2,
+      "category": "Фоновые процессы",
+      "detail": "Отключает публикацию и загрузку истории действий между устройствами. Не затрагивает вход в Microsoft-аккаунт. Только Windows 10, где доступна Timeline.",
+      "defaultSelected": true,
+      "feature": "activitySync"
+    },
+    {
+      "id": "search",
+      "name": "Отключить индексацию поиска",
+      "level": 2,
+      "feature": "search",
+      "service": "WSearch",
+      "detail": "Останавливает WSearch. Индексируемый поиск и поиск в Outlook могут ухудшиться. Индекс не удаляется.",
+      "category": "Службы",
+      "defaultSelected": true
+    },
+    {
+      "id": "maps",
+      "name": "Отключить обслуживание офлайн-карт",
+      "level": 2,
+      "feature": "offlineMaps",
+      "service": "MapsBroker",
+      "detail": "Останавливает MapsBroker. Офлайн-карты не будут автоматически обслуживаться.",
+      "category": "Службы",
+      "defaultSelected": true
+    },
+    {
+      "id": "media",
+      "name": "Отключить общий доступ к медиатеке",
+      "level": 2,
+      "feature": "mediaShare",
+      "service": "WMPNetworkSvc",
+      "detail": "Останавливает WMPNetworkSvc. Общий доступ к медиатеке WMP по сети будет недоступен.",
+      "category": "Службы",
+      "defaultSelected": true
+    },
+    {
+      "id": "remote-registry",
+      "name": "Отключить удалённый реестр",
+      "level": 2,
+      "feature": "remote",
+      "service": "RemoteRegistry",
+      "detail": "Останавливает RemoteRegistry. Удалённое администрирование реестра станет недоступным.",
+      "category": "Службы",
+      "defaultSelected": true
+    },
+    {
+      "id": "sysmain",
+      "name": "Отключить SysMain · экспериментально",
+      "level": 2,
+      "experimental": true,
+      "service": "SysMain",
+      "detail": "Отключает предварительную загрузку часто используемых данных. Может снизить фоновую нагрузку, но также замедлить запуск программ. Прирост FPS не гарантируется.",
+      "category": "Службы",
+      "defaultSelected": true
+    },
+    {
+      "id": "mmcss",
+      "name": "Уменьшить резерв CPU для фоновых мультимедиа-задач",
+      "level": 2,
+      "category": "Экспериментальные",
+      "detail": "SystemResponsiveness = 10 для MMCSS. Фоновые мультимедиа-задачи могут получать меньше CPU. Не меняет службы Xbox/античитов; прирост в игре не гарантируется. Требуется перезапуск.",
+      "defaultSelected": true
+    },
+    {
+      "id": "power-throttling",
+      "name": "Отключить ограничение мощности фоновых процессов",
+      "level": 2,
+      "category": "Экспериментальные",
+      "detail": "PowerThrottlingOff = 1. Может ускорить фоновые задачи, но увеличить конкуренцию за CPU, нагрев и расход энергии. Может ухудшить игру; по умолчанию не выбрано.",
+      "defaultSelected": false
+    },
+    {
+      "id": "hags",
+      "name": "Включить аппаратное планирование GPU",
+      "level": 2,
+      "category": "Экспериментальные",
+      "detail": "HwSchMode = 2, только если настройка уже существует. Нужны поддержка GPU/драйвера и перезагрузка. В некоторых играх результаты хуже; по умолчанию не выбрано.",
+      "defaultSelected": false
+    }
   ],
   "games": [
-    {"id":"none","name":"Без игрового профиля","executables":[]},
-    {"id":"cs2","name":"Counter-Strike 2","executables":["cs2.exe"]},
-    {"id":"valorant","name":"VALORANT","executables":["valorant-win64-shipping.exe"]},
-    {"id":"fortnite","name":"Fortnite","executables":["fortniteclient-win64-shipping.exe"]},
-    {"id":"dota2","name":"Dota 2","executables":["dota2.exe"]},
-    {"id":"apex","name":"Apex Legends","executables":["r5apex.exe","r5apex_dx12.exe"]}
+    {
+      "id": "none",
+      "name": "Без игрового профиля",
+      "executables": []
+    },
+    {
+      "id": "cs2",
+      "name": "Counter-Strike 2",
+      "executables": [
+        "cs2.exe"
+      ]
+    },
+    {
+      "id": "valorant",
+      "name": "VALORANT",
+      "executables": [
+        "valorant-win64-shipping.exe"
+      ]
+    },
+    {
+      "id": "fortnite",
+      "name": "Fortnite",
+      "executables": [
+        "fortniteclient-win64-shipping.exe"
+      ]
+    },
+    {
+      "id": "dota2",
+      "name": "Dota 2",
+      "executables": [
+        "dota2.exe"
+      ]
+    },
+    {
+      "id": "apex",
+      "name": "Apex Legends",
+      "executables": [
+        "r5apex.exe",
+        "r5apex_dx12.exe"
+      ]
+    }
   ]
 }

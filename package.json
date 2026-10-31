@@ -1,6 +1,6 @@
 {
   "name": "lagophone",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "Windows maintenance dashboard",
   "main": "electron/main.cjs",
@@ -9,7 +9,7 @@
     "dev": "vite --host 0.0.0.0",
     "desktop": "npm run build && electron .",
     "build": "tsc -b && vite build",
-    "test": "node electron/policy.test.cjs && node electron/optimization.test.cjs && node electron/windows-powershell.test.cjs && node electron/optimization.windows.test.cjs",
+    "test": "node electron/policy.test.cjs && node electron/optimization.test.cjs && node electron/windows-powershell.test.cjs && node electron/drivers.test.cjs && node electron/optimization.windows.test.cjs",
     "dist:win": "npm run build && electron-builder --win nsis --x64",
     "dist:portable": "npm run build && electron-builder --win portable --x64"
   },
@@ -58,7 +58,8 @@
       "artifactName": "LAGOPHONE-Portable-${version}-${arch}.${ext}"
     },
     "asarUnpack": [
-      "electron/optimizer.ps1"
+      "electron/optimizer.ps1",
+      "electron/registry-specs.json"
     ]
   }
 }

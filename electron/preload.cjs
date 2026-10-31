@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('lagophone', {
   optimize: (input, version) => ipcRenderer.invoke('optimization:apply', input, version),
   restoreOptimization: () => ipcRenderer.invoke('optimization:restore'),
   chooseGame: game => ipcRenderer.invoke('optimization:game', game),
+  driverCatalog: version => ipcRenderer.invoke('drivers:catalog',version),
+  openDriver: (id,version) => ipcRenderer.invoke('drivers:open',id,version),
   system: () => ipcRenderer.invoke('system'),
   action: (id, version) => ipcRenderer.invoke('action', id, version),
   download: id => ipcRenderer.invoke('download', id),
