@@ -11,6 +11,7 @@ declare global {
    restartStatus:()=>Promise<RestartState>;
    restartLater:()=>Promise<{ok:boolean}>;
    restartNow:()=>Promise<{ok:boolean;cancelled?:boolean}>;
+   installedApps:()=>Promise<{ok:boolean;apps:Record<string,{name:string;version:string;source:string}>;error?:string}>;
    driverCatalog:(version:'10'|'11')=>Promise<DriverCategory[]>;
    openDriver:(id:string,version:'10'|'11')=>Promise<void>;
    system:()=>Promise<System>;
@@ -31,6 +32,7 @@ declare global {
    optimizationStatus:()=>Promise<OptimizationStatus>;
    optimize:(input:OptimizationInput,version:'10'|'11')=>Promise<OptimizationResult>;
    restoreOptimization:()=>Promise<OptimizationResult>;
+   chooseOtherGame:()=>Promise<{id:string;name:string;gamePath:string}|null>;
    chooseGame:(game:string)=>Promise<string|null>;
   }
  }

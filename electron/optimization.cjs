@@ -1,3 +1,4 @@
+const {isCustomGame,acceptsGame}=require('./game-selection.cjs');
 const catalog = require('../shared/optimization.json');
 const {supportsWindows}=require('../shared/windows-compatibility.mjs');
 function buildPlan(input, selected, actual, gamePath = null, actualBuild = undefined) {
@@ -7,7 +8,7 @@ function buildPlan(input, selected, actual, gamePath = null, actualBuild = undef
   if(input.scope!==undefined&&!['game','power'].includes(input.scope))throw new Error('Неизвестный режим оптимизации');
   if(input.scope==='power'&&(input.game!=='none'||input.selected?.length!==1||input.selected[0]!=='power'))throw new Error('Режим питания принимает только план питания');
   const profile = catalog.profiles.find(p=>p.id===input.profile);
-  if (!profile || !['keep','balanced','high','ultimate','lagophone'].includes(input.power) || !catalog.games.some(g=>g.id===input.game)) throw new Error('Неизвестный профиль, план питания или игра');
+  if (!profile || !['keep','balanced','high','ultimate','lagophone'].includes(input.power) || !(catalog.games.some(g=>g.id===input.game)||(input.scope==='game'&&isCustomGame(input.game)&&acceptsGame(input.game,gamePath)))) throw new Error('Неизвестный профиль, план питания или игра');
   if (!input.uses || catalog.features.some(f=>typeof input.uses[f.id] !== 'boolean') || typeof input.sysmain !== 'boolean') throw new Error('Ответьте на вопросы об использовании функций');
   const steps=catalog.steps.filter(s=>{
     if(s.level>profile.level||!supportsWindows(s,selected,actualBuild)) return false;

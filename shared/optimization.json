@@ -1240,6 +1240,62 @@
       "executables": [
         "rocketleague.exe"
       ]
+    },
+    {
+      "id": "rust",
+      "name": "Rust",
+      "executables": [
+        "rustclient.exe"
+      ]
+    },
+    {
+      "id": "overwatch2",
+      "name": "Overwatch 2",
+      "executables": [
+        "overwatch.exe"
+      ]
+    },
+    {
+      "id": "cyberpunk2077",
+      "name": "Cyberpunk 2077",
+      "executables": [
+        "cyberpunk2077.exe"
+      ]
+    },
+    {
+      "id": "rdr2",
+      "name": "Red Dead Redemption 2",
+      "executables": [
+        "rdr2.exe"
+      ]
+    },
+    {
+      "id": "genshin",
+      "name": "Genshin Impact",
+      "executables": [
+        "genshinimpact.exe"
+      ]
+    },
+    {
+      "id": "tarkov",
+      "name": "Escape from Tarkov",
+      "executables": [
+        "escapefromtarkov.exe"
+      ]
+    },
+    {
+      "id": "war-thunder",
+      "name": "War Thunder",
+      "executables": [
+        "aces.exe"
+      ]
+    },
+    {
+      "id": "lol",
+      "name": "League of Legends",
+      "executables": [
+        "league of legends.exe"
+      ]
     }
   ]
 }

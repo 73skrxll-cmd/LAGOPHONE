@@ -1,11 +1,11 @@
 const apps = {
-  discord: { url: 'https://discord.com/api/download?platform=win', file: 'DiscordSetup.exe' },
-  steam: { url: 'https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe', file: 'SteamSetup.exe' },
+  discord: { page:'https://discord.com/', url: 'https://discord.com/api/download?platform=win', file: 'DiscordSetup.exe' },
+  steam: { page:'https://store.steampowered.com/about/', url: 'https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe', file: 'SteamSetup.exe' },
   nanazip: { page: 'https://github.com/M2Team/NanaZip/releases' },
   qbittorrent: { page: 'https://www.qbittorrent.org/download' },
   memreduct: { page: 'https://github.com/henrypp/memreduct/releases' },
-  vscode: { url: 'https://update.code.visualstudio.com/latest/win32-x64-user/stable', file: 'VSCodeSetup.exe' },
-  firefox: { url: 'https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=ru', file: 'FirefoxSetup.exe' },
+  vscode: { page:'https://code.visualstudio.com/', url: 'https://update.code.visualstudio.com/latest/win32-x64-user/stable', file: 'VSCodeSetup.exe' },
+  firefox: { page:'https://www.mozilla.org/firefox/', url: 'https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=ru', file: 'FirefoxSetup.exe' },
   vlc: { page: 'https://www.videolan.org/vlc/' },
 };
 const links = {

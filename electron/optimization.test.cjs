@@ -109,3 +109,11 @@ test('standalone power accepts only one power action and carries no system ratin
  for(const selected of [['transparency'],['power','transparency'],[]])assert.throws(()=>buildPlan({...input({power:'lagophone',selected}),scope:'power'},'11','11'));
  assert.throws(()=>buildPlan({...input({power:'lagophone',selected:['power'],game:'cs2'}),scope:'power'},'11','11'));
 });
+
+test('a manually selected game can receive only game actions',()=>{
+ const id='custom-'+'a'.repeat(32),gamePath='D:\\Games\\MyGame.exe';
+ const plan=buildPlan(input({scope:'game',game:id,selected:['game-gpu','game-priority']}),'11','11',gamePath);
+ assert.equal(plan.game,id);assert.equal(plan.gamePath,gamePath);assert.deepEqual(plan.ids,['game-gpu','game-priority']);
+ assert.throws(()=>buildPlan(input({scope:'game',game:id,selected:['game-gpu']}),'11','11',null));
+ assert.throws(()=>buildPlan(input({scope:'game',game:id,selected:['transparency']}),'11','11',gamePath));
+});

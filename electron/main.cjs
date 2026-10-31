@@ -21,10 +21,10 @@ async function system() {
   return JSON.parse(await powershell(`
     $os=Get-CimInstance Win32_OperatingSystem; $cpu=Get-CimInstance Win32_Processor | Select-Object -First 1;
     $board=Get-CimInstance Win32_BaseBoard | Select-Object -First 1; $pc=Get-CimInstance Win32_ComputerSystem;
-    $gpu=@(Get-CimInstance Win32_VideoController | ForEach-Object {$_.Name});
+    $controllers=@(Get-CimInstance Win32_VideoController);$gpu=@($controllers | ForEach-Object {$_.Name});
     $ram=@(Get-CimInstance Win32_PhysicalMemory); $disk=@(Get-PhysicalDisk | ForEach-Object { @{name=$_.FriendlyName;manufacturer=$_.Manufacturer;type=[string]$_.MediaType;size=[math]::Round($_.Size/1GB)} });
     @{demo=$false;version=$(if([int]$os.BuildNumber -ge 22000){'11'}else{'10'});os=$os.Caption;build=$os.BuildNumber;
-    cpu=$cpu.Name;cores=$cpu.NumberOfCores;threads=$cpu.NumberOfLogicalProcessors;gpu=$gpu;board=$board.Product;vendor=$board.Manufacturer;boardVersion=$board.Version;network=@(Get-CimInstance Win32_NetworkAdapter -ErrorAction SilentlyContinue | Where-Object {$_.PhysicalAdapter} | ForEach-Object {@{name=$_.Name;vendor=$_.Manufacturer;hardwareId=$_.PNPDeviceID}});audio=@(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue | ForEach-Object {@{name=$_.Name}});bluetooth=@(Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue | Where-Object {$_.PNPClass -eq 'Bluetooth' -and $_.PNPDeviceID -like 'USB*'} | ForEach-Object {@{name=$_.Name;hardwareId=$_.PNPDeviceID}});manufacturer=$pc.Manufacturer;model=$pc.Model;
+    cpu=$cpu.Name;cores=$cpu.NumberOfCores;threads=$cpu.NumberOfLogicalProcessors;gpu=$gpu;gpuDrivers=@($controllers | Where-Object {$_.DriverVersion -and $_.AdapterCompatibility -match 'NVIDIA|AMD|Advanced Micro|Intel' -and $_.InstalledDisplayDrivers -notmatch 'BasicDisplay'} | ForEach-Object {@{name=$_.Name;version=$_.DriverVersion}});board=$board.Product;vendor=$board.Manufacturer;boardVersion=$board.Version;network=@(Get-CimInstance Win32_NetworkAdapter -ErrorAction SilentlyContinue | Where-Object {$_.PhysicalAdapter} | ForEach-Object {@{name=$_.Name;vendor=$_.Manufacturer;hardwareId=$_.PNPDeviceID}});audio=@(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue | ForEach-Object {@{name=$_.Name}});bluetooth=@(Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue | Where-Object {$_.PNPClass -eq 'Bluetooth' -and $_.PNPDeviceID -like 'USB*'} | ForEach-Object {@{name=$_.Name;hardwareId=$_.PNPDeviceID}});manufacturer=$pc.Manufacturer;model=$pc.Model;
     ram=[math]::Round($pc.TotalPhysicalMemory/1GB);ramSpeed=($ram | Select-Object -First 1).Speed;slots=$ram.Count;memory=@($ram | ForEach-Object {@{manufacturer=$_.Manufacturer;partNumber=$_.PartNumber}});disks=$disk;
     uptime=[math]::Floor(((Get-Date)-$os.LastBootUpTime).TotalHours)} | ConvertTo-Json -Depth 4 -Compress
   `));
@@ -41,6 +41,7 @@ app.whenReady().then(async () => {
 });
 app.on('window-all-closed', () => app.quit());
 ipcMain.handle('system', () => system());
+ipcMain.handle('apps:installed',()=>require('./installed-apps.cjs').inspectInstalled());
 ipcMain.handle('action', async (_, id, version) => {
   if(optimizer.isRunning()) throw new Error('Дождитесь завершения оптимизации или отката.');
   const info = await system();

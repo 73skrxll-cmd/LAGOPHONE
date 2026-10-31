@@ -123,7 +123,7 @@ test('standalone game profile sets real High priority now and at next launch wit
  const version=ps("if([int](Get-CimInstance Win32_OperatingSystem).BuildNumber -ge 22000){'11'}else{'10'}");
  const run=(mode,payload={})=>{const encoded=Buffer.from(JSON.stringify({sid,...payload})).toString('base64');return JSON.parse(ps(`& ${quote(worker)} -Mode '${mode}' -PayloadBase64 '${encoded}'`))};
  const folder=ps("$d=Join-Path ([IO.Path]::GetTempPath()) ('lagophone-game-'+[guid]::NewGuid());New-Item -ItemType Directory -Path $d | Out-Null;Copy-Item -LiteralPath (Join-Path $env:SystemRoot 'System32\\cmd.exe') -Destination (Join-Path $d 'cs2.exe');$d");
- const exe=path.win32.join(folder,'cs2.exe');let firstPid=0,secondPid=0;
+ const exe=path.win32.join(folder,'cs2.exe');let firstPid=0,secondPid=0,customPid=0;
  const start=()=>Number(ps(`$p=Start-Process -FilePath ${quote(exe)} -ArgumentList '/d /c ping -n 300 127.0.0.1 > nul' -WindowStyle Hidden -PassThru;$p.Id`));
  const priority=pid=>ps(`(Get-Process -Id ${pid}).PriorityClass.ToString()`);
  const key='Registry::HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\cs2.exe\\PerfOptions';
@@ -138,13 +138,23 @@ test('standalone game profile sets real High priority now and at next launch wit
   assert.equal(result.ok,true,JSON.stringify(result));assert.equal(priority(firstPid),'High',JSON.stringify(result));
   assert.equal(JSON.parse(capture()).value,3);assert.equal(systemHash(),beforeSystem,'Game optimization must not alter system backup');
   secondPid=start();assert.equal(priority(secondPid),'High','Saved Windows image priority must work on the next launch');
+  const customExe=path.win32.join(folder,'MyOwnGame.exe'),customId='custom-'+require('node:crypto').randomUUID().replaceAll('-','');
+  ps(`Copy-Item -LiteralPath ${quote(exe)} -Destination ${quote(customExe)};'OK'`);
+  customPid=Number(ps(`(Start-Process -FilePath ${quote(customExe)} -ArgumentList '/d /c ping -n 300 127.0.0.1 > nul' -WindowStyle Hidden -PassThru).Id`));
+  const customBefore=priority(customPid);
+  const customResult=run('apply',{scope:'game',game:customId,gamePath:customExe,ids:['game-gpu','game-priority'],profile:'basic',version,power:'keep',ratingPlan:{basis:'profiles-v2',ids:[]}});
+  assert.equal(customResult.ok,true,JSON.stringify(customResult));assert.equal(priority(customPid),'High','A second, manually selected game must be optimizable without restoring the first');
+  assert.equal(systemHash(),beforeSystem);
   const status=run('inspect',{scope:'game'});assert.ok(Array.isArray(status.savedGames),JSON.stringify(status.savedGames));assert.equal(status.savedGames[0].id,'cs2');
+  assert.equal(status.savedGames.length,2);assert.equal(status.savedGames[1].id,customId);
+  const repeat=run('apply',{scope:'game',game:'cs2',gamePath:exe,ids:['game-gpu','game-priority'],profile:'basic',version,power:'keep',ratingPlan:{basis:'profiles-v2',ids:[]}});
+  assert.equal(repeat.ok,true,JSON.stringify(repeat));assert.equal(run('inspect',{scope:'game'}).savedGames.length,2,'Repeated optimization must not duplicate or lose saved games');
   assert.ok(status.appliedTargets.filter(row=>row.id==='game-priority').every(row=>row.enabled));
-  assert.equal(run('restore',{scope:'game'}).ok,true);assert.equal(priority(firstPid),beforePriority);
+  assert.equal(run('restore',{scope:'game'}).ok,true);assert.equal(priority(firstPid),beforePriority);assert.equal(priority(customPid),customBefore);
   assert.deepEqual(JSON.parse(capture()),JSON.parse(original),'Priority registry type, value and absence must remain recoverable');
   assert.equal(systemHash(),beforeSystem,'Emergency game recovery must leave system tweaks unchanged');
  }finally{
-  for(const pid of [firstPid,secondPid])if(pid)ps(`& taskkill.exe /PID ${pid} /T /F 2>$null | Out-Null; 'OK'`);
+  for(const pid of [firstPid,secondPid,customPid])if(pid)ps(`& taskkill.exe /PID ${pid} /T /F 2>$null | Out-Null; 'OK'`);
   if(run('inspect',{scope:'game'}).active)assert.equal(run('restore',{scope:'game'}).ok,true);
   if(run('inspect').active)assert.equal(run('restore').ok,true);
   ps(`Remove-Item -LiteralPath ${quote(folder)} -Recurse -Force; 'OK'`);
@@ -178,3 +188,5 @@ test('standalone LAGOPHONE power plan applies while system journal needs recover
   if(run('inspect').active)assert.equal(run('restore').ok,true);
  }
 });
+
+test('installed application inspection reads Windows registries without requiring elevation',{skip},()=>{const rows=JSON.parse(ps(require('./installed-apps.cjs').query));assert.ok(Array.isArray(rows));for(const row of rows)assert.equal(typeof row.name,'string')});

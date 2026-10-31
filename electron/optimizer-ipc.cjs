@@ -1,3 +1,4 @@
+const {isCustomGame,acceptsGame,customGame}=require('./game-selection.cjs');
 const { windowsPowerShellEnvironment, windowsPowerShellExecutable } = require('./windows-powershell.cjs');
 const {app,ipcMain,dialog}=require('electron');
 const {execFile}=require('node:child_process');
@@ -66,10 +67,7 @@ function registerOptimizer(getWindow,activities,restart){
     const state=await run('inspect',{scope:'game'},false);
     cachedGameStatus=state;
     for(const saved of state.savedGames||[]){
-      const game=catalog.games.find(g=>g.id===saved.id);
-      if(game&&game.executables.includes(path.basename(saved.gamePath).toLowerCase())){
-        try{if((await fs.stat(saved.gamePath)).isFile())games.set(game.id,saved.gamePath)}catch{}
-      }
+      if(acceptsGame(saved.id,saved.gamePath)){try{if((await fs.stat(saved.gamePath)).isFile())games.set(saved.id,saved.gamePath)}catch{}}
     }
     return {...state,running:session.isRunning(),operation:session.current()};
   });
@@ -93,28 +91,36 @@ function registerOptimizer(getWindow,activities,restart){
     return answer.response===1?shaders.connect(executable):null;
   });
   ipcMain.handle('game:shader-prepare',async(_,id)=>{assertWindows();return session.exclusive('apply',async setPhase=>{
-    const game=catalog.games.find(g=>g.id===id),executable=games.get(id);
-    if(!game||!executable||!game.executables.includes(path.basename(executable).toLowerCase()))throw Error('Сначала выберите EXE игры.');
+    const executable=games.get(id);
+    if(!acceptsGame(id,executable))throw Error('Сначала выберите EXE игры.');
     const name=path.basename(executable,path.extname(executable));
     const count=await ps('@([Diagnostics.Process]::GetProcessesByName('+quote(name)+')).Count',15000);
     if(Number(count)!==0)throw Error('Закройте игру перед подготовкой шейдеров. Настройки приоритета уже сохранены.');
     setPhase('windows');
     return shaders.prepare(executable,message=>{const window=getWindow();if(window&&!window.isDestroyed())window.webContents.send('game:shader-progress',message)});
   })});
+  ipcMain.handle('optimization:custom-game',async()=>{
+    assertWindows();if(session.isRunning())throw Error('Дождитесь завершения операции.');
+    const choice=await dialog.showOpenDialog(getWindow(),{title:'Другая игра',properties:['openFile'],filters:[{name:'Game executable',extensions:['exe']}]});
+    if(choice.canceled)return null;
+    const location=choice.filePaths[0];if(!(await fs.stat(location)).isFile())throw Error('Файл игры недоступен.');
+    const existing=[...games].find(([id,file])=>isCustomGame(id)&&file.toLowerCase()===location.toLowerCase());
+    const selected=customGame(location,existing?.[0]);games.set(selected.id,selected.gamePath);return selected;
+  });
   ipcMain.handle('optimization:game',async(_,id)=>{
     assertWindows();if(session.isRunning())throw new Error('Дождитесь завершения операции.');
     const game=catalog.games.find(g=>g.id===id&&g.id!=='none');
-    if(!game)throw new Error('Неизвестная игра');
-    const choice=await dialog.showOpenDialog(getWindow(),{title:'Выберите основной EXE игры '+game.name,properties:['openFile'],filters:[{name:'Game executable',extensions:['exe']}]});
+    if(!game&&!isCustomGame(id))throw new Error('Неизвестная игра');
+    const choice=await dialog.showOpenDialog(getWindow(),{title:'Выберите EXE игры '+(game?.name||''),properties:['openFile'],filters:[{name:'Game executable',extensions:['exe']}]});
     if(choice.canceled)return null;
     const executable=choice.filePaths[0];
-    if(!game.executables.includes(path.basename(executable).toLowerCase()))throw new Error('Нужен основной EXE игры: '+game.executables.join(' или '));
+    if(!acceptsGame(id,executable)||!(await fs.stat(executable)).isFile())throw new Error('Выберите основной EXE игры'+(game?': '+game.executables.join(' или '):'.'));
     games.set(id,executable);return executable;
   });
   ipcMain.handle('optimization:apply',(_,input,version)=>{assertWindows();return session.exclusive(input?.scope==='power'?'power':'apply',async setPhase=>{
     try {
-    let status=input?.scope==='power'?await run('inspect',{scope:'power'},false):null;
-    if(status&&!status.ok)throw new Error(status.error||'Не удалось проверить питание.');
+    let status=['game','power'].includes(input?.scope)?await run('inspect',{scope:input.scope},false):null;
+    if(status&&!status.ok)throw new Error(status.error||(input?.scope==='power'?'Не удалось проверить питание.':'Не удалось проверить игры.'));
     const actual=status?.windows||JSON.parse(await ps("$build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber; @{version=$(if($build -ge 22000){'11'}else{'10'});build=$build} | ConvertTo-Json -Compress",30000));
     const plan=buildPlan(input,version,actual.version,games.get(input?.game),actual.build);
     status=status||await run('inspect',plan.scope==='game'?{scope:'game'}:{},false);

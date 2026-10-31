@@ -126,6 +126,12 @@ function Save-State($state) {
   if(Test-Path -LiteralPath $statePath){ [IO.File]::Replace($temp,$statePath,[NullString]::Value) } else { [IO.File]::Move($temp,$statePath) }
   Protect-StateFile $statePath
 }
+function Test-GamePath($location,$gameId) {
+  if(!$location -or ![IO.Path]::IsPathRooted([string]$location) -or [IO.Path]::GetExtension([string]$location) -ine '.exe'){return $false}
+  $name=[IO.Path]::GetFileName([string]$location)
+  if($name.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0){return $false}
+  return ($name.ToLowerInvariant() -in $gameExecutables -or $gameId -cmatch '^custom-[a-f0-9]{32}$')
+}
 function Read-State($file=$statePath) {
   if(!(Test-Path -LiteralPath $file)){return $null}
   $state=Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -140,14 +146,14 @@ function Read-State($file=$statePath) {
         }
       } elseif($entry.id -eq 'game-priority'){
         $exe=[IO.Path]::GetFileName([string]$entry.gamePath)
-        $valid=($exe -in $gameExecutables -and $entry.name -eq 'CpuPriorityClass' -and $entry.path -eq ('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\'+$exe+'\PerfOptions'))
+        $valid=((Test-GamePath $entry.gamePath $entry.game) -and $entry.name -eq 'CpuPriorityClass' -and $entry.path -eq ('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\'+$exe+'\PerfOptions'))
       } elseif($entry.id -in @('game-gpu','game-fullscreen')){
         $expected=if($entry.id -eq 'game-gpu'){"Registry::HKEY_USERS\$sid\Software\Microsoft\DirectX\UserGpuPreferences"}else{"Registry::HKEY_USERS\$sid\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"}
         $valid=($entry.path -eq $expected -and [IO.Path]::IsPathRooted($entry.name) -and [IO.Path]::GetExtension($entry.name) -eq '.exe')
       }
       if(!$valid -or $entry.before.kind -notin @('DWord','String','ExpandString','QWord','MultiString','Binary')){throw 'Invalid registry backup entry'}
     } elseif($entry.kind -eq 'process'){
-      if($entry.id -ne 'game-priority' -or [int]$entry.processId -le 0 -or !$entry.started -or [IO.Path]::GetFileName([string]$entry.gamePath) -notin $gameExecutables -or $entry.before -notin @('Normal','BelowNormal','AboveNormal','Idle') -or $entry.after -ne 'High'){throw 'Invalid process backup entry'}
+      if($entry.id -ne 'game-priority' -or [int]$entry.processId -le 0 -or !$entry.started -or !(Test-GamePath $entry.gamePath $entry.game) -or $entry.before -notin @('Normal','BelowNormal','AboveNormal','Idle') -or $entry.after -ne 'High'){throw 'Invalid process backup entry'}
     } elseif($entry.kind -eq 'service'){
       if(!$services.ContainsKey([string]$entry.id) -or $services[[string]$entry.id] -ne $entry.name -or $entry.before.start -notin @(2,3,4)){throw 'Invalid service backup entry'}
     } elseif($entry.kind -eq 'power'){
@@ -301,6 +307,20 @@ function Profile-Audit($build,$state,$gameState=$null) {
   }
   return @{basis='profiles-v2';profile=$state.profile;expectedIds=@($rows | ForEach-Object {$_.id});checks=@($rows)}
 }
+function Game-Inspect {
+  $state=Read-State
+  $build=[int](Get-ItemPropertyValue -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name CurrentBuildNumber)
+  $targets=@()
+  if($state){foreach($game in @($state.games)){
+    $gpu=Get-Registry "Registry::HKEY_USERS\$sid\Software\Microsoft\DirectX\UserGpuPreferences" $game.gamePath
+    $priority=Get-Registry ('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\'+[IO.Path]::GetFileName($game.gamePath)+'\PerfOptions') 'CpuPriorityClass'
+    $enabled=$priority.exists -and $priority.kind -eq 'DWord' -and $priority.value -eq 3
+    foreach($process in @(Get-GameProcesses $game.gamePath)){if($process.priority -notin @('High','RealTime')){$enabled=$false}}
+    $targets+=@{id='game-gpu';gamePath=$game.gamePath;enabled=[bool]($gpu.exists -and $gpu.kind -eq 'String' -and [string]$gpu.value -match '(^|;)GpuPreference=2(;|$)')}
+    $targets+=@{id='game-priority';gamePath=$game.gamePath;enabled=[bool]$enabled}
+  }}
+  return @{ok=$true;active=($null -ne $state);needsRecovery=($state -and $state.phase -ne 'applied');remaining=$(if($state){@($state.entries).Count}else{0});checks=@();appliedTargets=@($targets);savedGames=@(if($state){$state.games});windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build}}
+}
 function Power-Inspect {
   $state=Read-State
   $build=[int](Get-ItemPropertyValue -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name CurrentBuildNumber)
@@ -392,7 +412,7 @@ function Inspect {
 }
 $mutex=$null;$locked=$false
 try {
-  if($Mode -eq 'inspect') { $result=if($payload.scope -eq 'power'){Power-Inspect}else{Inspect} }
+  if($Mode -eq 'inspect') { $result=if($payload.scope -eq 'power'){Power-Inspect}elseif($payload.scope -eq 'game'){Game-Inspect}else{Inspect} }
   else {
     Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
     $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
@@ -420,7 +440,7 @@ try {
     } else {
       $previousState=Read-State
       if($previousState -and $previousState.phase -ne 'applied'){throw 'Complete recovery before adding more settings'}
-      $build=if($payload.scope -eq 'power'){[int](Get-ItemPropertyValue -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name CurrentBuildNumber)}else{[int](Get-CimInstance Win32_OperatingSystem).BuildNumber}
+      $build=if($payload.scope -in @('power','game')){[int](Get-ItemPropertyValue -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name CurrentBuildNumber)}else{[int](Get-CimInstance Win32_OperatingSystem).BuildNumber}
       $actual=if($build -ge 22000){'11'}else{'10'}
       if($actual -ne $payload.version){throw 'Selected Windows does not match this computer'}
       $allowed=@($registry.Keys | Where-Object {!$registry[$_][0].legacy -and (Registry-Compatible $_ $build)})+@($services.Keys)+@('power')
@@ -436,12 +456,12 @@ try {
           $specs=$registry[$id]
           if($id -eq 'game-priority'){
             $exe=[IO.Path]::GetFileName([string]$payload.gamePath)
-            if(!$payload.gamePath -or $exe -notin $gameExecutables -or !(Test-Path -LiteralPath $payload.gamePath -PathType Leaf)){throw 'Unsupported game executable'}
+            if(!$payload.gamePath -or !(Test-GamePath $payload.gamePath $payload.game) -or !(Test-Path -LiteralPath $payload.gamePath -PathType Leaf)){throw 'Unsupported game executable'}
             $specs=@(@{hive='machine';path=('SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\'+$exe+'\PerfOptions');name='CpuPriorityClass';value=3;kind='DWord';minBuild=10240;restart=$false})
             foreach($process in @(Get-GameProcesses $payload.gamePath)){
               if($process.priority -in @('High','RealTime')){Note $id 'skipped' 'Запущенная игра уже имеет высокий приоритет.';continue}
               if($process.priority -notin @('Normal','BelowNormal','AboveNormal','Idle')){Note $id 'skipped' 'Неизвестный приоритет процесса; не изменялся.';continue}
-              [void]$entries.Add(@{id=$id;kind='process';processId=$process.processId;started=$process.started;gamePath=$payload.gamePath;before=$process.priority;after='High'})
+              [void]$entries.Add(@{id=$id;kind='process';game=$payload.game;processId=$process.processId;started=$process.started;gamePath=$payload.gamePath;before=$process.priority;after='High'})
             }
           }
           if($id -eq 'game-fullscreen'){
@@ -471,7 +491,7 @@ try {
             $after=@{exists=(!$spec.afterAbsent);value=$spec.value;kind=$spec.kind}
             if($spec.requireExisting -and !$before.exists){Note $id 'skipped' 'Настройка отсутствует на этом ПК; не создавалась принудительно.';continue}
             if(Same-Registry $before $after){Note $id 'skipped' 'Нужное значение уже установлено.';continue}
-            [void]$entries.Add(@{id=$id;kind='registry';path=$path;name=$spec.name;before=$before;after=$after;gamePath=$(if($id -like 'game-*'){$payload.gamePath}else{$null});restart=[bool]$spec.restart})
+            [void]$entries.Add(@{id=$id;kind='registry';game=$payload.game;path=$path;name=$spec.name;before=$before;after=$after;gamePath=$(if($id -like 'game-*'){$payload.gamePath}else{$null});restart=[bool]$spec.restart})
           }
         } elseif($services.ContainsKey($id)) {
           $name=$services[$id];$service=Get-Service -Name $name -ErrorAction SilentlyContinue

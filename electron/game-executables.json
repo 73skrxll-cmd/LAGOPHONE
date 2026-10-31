@@ -1,13 +1,21 @@
 [
+  "aces.exe",
   "cs2.exe",
+  "cyberpunk2077.exe",
   "dota2.exe",
+  "escapefromtarkov.exe",
   "fortniteclient-win64-shipping.exe",
+  "genshinimpact.exe",
   "gta5.exe",
   "gta5_enhanced.exe",
+  "league of legends.exe",
+  "overwatch.exe",
   "project8.exe",
   "r5apex.exe",
   "r5apex_dx12.exe",
+  "rdr2.exe",
   "rocketleague.exe",
+  "rustclient.exe",
   "tslgame.exe",
   "valorant-win64-shipping.exe"
 ]
