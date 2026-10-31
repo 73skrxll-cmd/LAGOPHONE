@@ -1,3 +1,4 @@
+import {useEffect,useState} from 'react';
 import {Gamepad2} from 'lucide-react';
 import {BrandMark} from './Brand';
 import dota from '../assets/games/dota2.svg?raw';
@@ -10,12 +11,14 @@ export function GameLogo({id,name}:{id:string;name:string}){
  if(id.startsWith('custom-'))return <span className="game-logo game-custom-logo" role="img" aria-label={name}><Gamepad2 size={86}/></span>;
  return icons[id]?<span className={'game-logo game-logo-'+id} role="img" aria-label={'Логотип '+name} dangerouslySetInnerHTML={{__html:icons[id]}}/>:<span className={'game-logo game-text-logo game-logo-'+id} role="img" aria-label={name}>{names[id]||name}</span>;
 }
-export function GameEmblem({id,name,phase,motion}:{id:string;name:string;phase:'idle'|'working'|'ready'|'error';motion:boolean}){
+export function GameEmblem({id,name,phase,motion,paused=false}:{id:string;name:string;phase:'idle'|'working'|'ready'|'error';motion:boolean;paused?:boolean}){
+ const [visible,setVisible]=useState(()=>!document.hidden);
+ useEffect(()=>{const blur=()=>setVisible(false),focus=()=>setVisible(!document.hidden),visibility=()=>setVisible(!document.hidden);window.addEventListener('blur',blur);window.addEventListener('focus',focus);document.addEventListener('visibilitychange',visibility);return()=>{window.removeEventListener('blur',blur);window.removeEventListener('focus',focus);document.removeEventListener('visibilitychange',visibility)}},[]);
  const hole=phase==='working'||phase==='ready';
- return <div className={'game-emblem phase-'+phase+(hole?' has-black-hole':'')} data-motion={motion} aria-hidden="true">
-  <div className="emblem-nebula"/>
+ return <div className={'game-emblem phase-'+phase+(hole?' has-black-hole':'')} data-motion={motion} data-paused={paused||!visible} aria-hidden="true">
+  <div className="emblem-nebula"/><div className="collapse-wave"/>
   <div className="emblem-logo">{id?<GameLogo id={id} name={name}/>:<BrandMark/>}</div>
   <div className="hole-infall" aria-hidden="true">{Array.from({length:36},(_,i)=><span className="infall-lane" key={i} style={{'--angle':`${i*137.508}deg`,'--flight':`${1.15+i%7*.12}s`,'--start':`${i*-.137}s`,'--reach':`${145+i%5*10}px`} as React.CSSProperties}><i className="infall-spark"/></span>)}</div>
-  <div className="black-hole" role="presentation"><div className="hole-back-orbit"/><div className="hole-photon-halo"/><div className="hole-singularity"/><div className="hole-event-horizon"/><div className="hole-disk disk-back"/><div className="hole-disk disk-front"/><div className="hole-lensing"/>{Array.from({length:9},(_,i)=><i className="hole-particle" key={i} style={{'--orbit':`${i*40}deg`,'--delay':`${i*-.37}s`,'--radius':`${104+i%3*13}px`} as React.CSSProperties}/>)}<span className="hole-core-mark">{id&&<GameLogo id={id} name={name}/>}</span></div>
+  <div className="black-hole" role="presentation"><div className="hole-bloom"/><div className="hole-accretion-haze"/><div className="hole-back-orbit"/><div className="hole-photon-halo"/><div className="hole-singularity"/><div className="hole-event-horizon"/><div className="hole-disk disk-back"/><div className="hole-disk disk-front"/><div className="hole-lensing"/>{Array.from({length:9},(_,i)=><i className="hole-particle" key={i} style={{'--orbit':`${i*40}deg`,'--delay':`${i*-.37}s`,'--radius':`${104+i%3*13}px`} as React.CSSProperties}/>)}<span className="hole-core-mark">{id&&<GameLogo id={id} name={name}/>}</span></div>
  </div>;
 }

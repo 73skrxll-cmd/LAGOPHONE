@@ -12,11 +12,13 @@ const shortName:Record<string,string>={cs2:'CS2',dota2:'DOTA 2',pubg:'PUBG',dead
 // of truth for configured settings and paths after a full application restart.
 let lastView:{game:string;gamePath:string;result:OptimizationResult|null;activated:boolean;custom?:GameChoice|null}|null=null;
 const isCustom=(id:string)=>/^custom-[a-f0-9]{32}$/.test(id);
+const friendlyError=(error:unknown)=>String((error as Error)?.message||error).replace(/^Error invoking remote method '[^']+': (?:Error: )?/,'');
 const fileName=(location:string)=>location.split(/[\\/]/).at(-1)||'Игра';
 type GameChoice={id:string;name:string;executables:string[]};
 function rememberedGame(){try{const id=localStorage.getItem('lagophone-selected-game');return (games.some(game=>game.id===id)||isCustom(id||''))?id!:''}catch{return ''}}
 export function GameOptimizer({native,active,version,mismatch,motion=true,onCompleted}:{native:boolean;active:boolean;motion?:boolean;version:'10'|'11';mismatch:boolean;onCompleted:()=>void}){
  const [game,setGame]=useState(()=>lastView?.game||rememberedGame()),[gamePath,setGamePath]=useState(()=>lastView?.gamePath||''),[catalogOpen,setCatalogOpen]=useState(false),[query,setQuery]=useState(''),[busy,setBusy]=useState(false),[status,setStatus]=useState<OptimizationStatus|null>(null),[result,setResult]=useState<OptimizationResult|null>(()=>lastView?.result||null),[error,setError]=useState(''),[activated,setActivated]=useState(()=>lastView?.activated||false),[shaderTool,setShaderTool]=useState<{available:boolean;version:string}>({available:false,version:''}),[useShaders,setUseShaders]=useState(false),[shaderPreparing,setShaderPreparing]=useState(false),[shaderProgress,setShaderProgress]=useState('');
+ const [choosing,setChoosing]=useState(false);
  const [custom,setCustom]=useState<GameChoice|null>(()=>lastView?.custom||null);
  const requestVersion=useRef(0);
  const modal=useRef<HTMLDivElement>(null),opener=useRef<HTMLButtonElement>(null),reading=useRef<Promise<void>|null>(null);
@@ -34,20 +36,20 @@ export function GameOptimizer({native,active,version,mismatch,motion=true,onComp
   else if(!gamePath){const previous=saved.find(item=>item.id===game);if(previous)setGamePath(previous.gamePath)}
  },[status,game,gamePath]);
  useEffect(()=>{if(!native)return;void window.lagophone!.gameShaderStatus().then(tool=>{setShaderTool(tool);setUseShaders(tool.available)}).catch(()=>{});return window.lagophone!.onGameShaderProgress(message=>setShaderProgress(message))},[native]);
- async function connectShaders(){try{const tool=await window.lagophone!.connectShaderTool();if(tool){setShaderTool(tool);setUseShaders(tool.available);setError('')}}catch(e){setError((e as Error).message)}}
+ async function connectShaders(){try{const tool=await window.lagophone!.connectShaderTool();if(tool){setShaderTool(tool);setUseShaders(tool.available);setError('')}}catch(e){setError(friendlyError(e))}}
  async function refresh(force=false){
   if(!native)return;
   if(reading.current&&!force)return reading.current;
   const token=++requestVersion.current;
   const task=withTimeout(Promise.resolve().then(()=>window.lagophone!.gameOptimizationStatus()),25000,'Не удалось проверить игры. Попробуйте ещё раз.')
    .then(state=>{if(token===requestVersion.current){setStatus(state);setError(state.ok?'':state.error||'Не удалось проверить игры.')}})
-   .catch(e=>{if(token===requestVersion.current){setError((e as Error).message);setStatus(previous=>previous?{...previous,running:false,operation:null}:previous)}})
+   .catch(e=>{if(token===requestVersion.current){setError(friendlyError(e));setStatus(previous=>previous?{...previous,running:false,operation:null}:previous)}})
    .finally(()=>{if(reading.current===task)reading.current=null});
   reading.current=task;return task;
  }
  async function chooseOther(){
   if(!native)return;
-  try{const choice=await window.lagophone!.chooseOtherGame();if(choice){setCustom({id:choice.id,name:choice.name,executables:[fileName(choice.gamePath)]});setGame(choice.id);setGamePath(choice.gamePath);setResult(null);setActivated(false);setError('');setCatalogOpen(false);await refresh(true)}}catch(e){setError((e as Error).message)}
+  try{const choice=await window.lagophone!.chooseOtherGame();if(choice){setCustom({id:choice.id,name:choice.name,executables:[fileName(choice.gamePath)]});setGame(choice.id);setGamePath(choice.gamePath);setResult(null);setActivated(false);setError('');setCatalogOpen(false);await refresh(true)}}catch(e){setError(friendlyError(e))}
  }
 
  useEffect(()=>{if(!active||!native)return;void refresh();const check=()=>{if(!document.hidden)void refresh()};const timer=setInterval(check,15000);window.addEventListener('focus',check);document.addEventListener('visibilitychange',check);return()=>{clearInterval(timer);window.removeEventListener('focus',check);document.removeEventListener('visibilitychange',check)}},[native,active]);
@@ -69,7 +71,9 @@ export function GameOptimizer({native,active,version,mismatch,motion=true,onComp
  }
  async function choosePath(){
   if(!native){setError('Выбор EXE доступен в настольном приложении Windows.');return}
-  try{const path=await window.lagophone!.chooseGame(game);if(path){setGamePath(path);if(isCustom(game))setCustom({id:game,name:fileName(path).replace(/\.exe$/i,''),executables:[fileName(path)]});setResult(null);setError('');await refresh(true)}}catch(e){setError((e as Error).message)}
+  if(choosing)return;
+  setChoosing(true);
+  try{const path=await window.lagophone!.chooseGame(game);if(path){setGamePath(path);if(isCustom(game))setCustom({id:game,name:fileName(path).replace(/\.exe$/i,''),executables:[fileName(path)]});setResult(null);setError('');void refresh(true)}}catch(e){setError(friendlyError(e))}finally{setChoosing(false)}
  }
  const targets=(status?.appliedTargets||[]).filter(target=>target.gamePath?.toLowerCase()===gamePath.toLowerCase());
  const optimized=!!gamePath&&['game-gpu','game-priority'].every(id=>{const rows=targets.filter(target=>target.id===id);return rows.length>0&&rows.every(row=>row.enabled)});
@@ -82,34 +86,35 @@ export function GameOptimizer({native,active,version,mismatch,motion=true,onComp
    if(response.ok&&!response.cancelled&&useShaders&&shaderTool.available){
     setShaderPreparing(true);setShaderProgress('Чтение шейдеров выбранной игры');
     try{const prepared=await window.lagophone!.prepareGameShaders(game);setResult({...response,report:[...response.report,{id:'game-shaders',status:prepared.alreadyPrepared?'skipped':'applied',message:prepared.message}]})}
-    catch(e){setResult({...response,ok:false,error:'Приоритет и GPU сохранены, но подготовка шейдеров не завершена.',report:[...response.report,{id:'game-shaders',status:'error',message:(e as Error).message}]});setError((e as Error).message)}
+    catch(e){setResult({...response,error:'Настройки игры применены. Подготовка шейдеров не завершена.',report:[...response.report,{id:'game-shaders',status:'error',message:(e as Error).message}]});setError(friendlyError(e))}
     finally{setShaderPreparing(false)}
    }
    await refresh(true);onCompleted();
-  }catch(e){setError((e as Error).message)}finally{setBusy(false);setStatus(previous=>previous?{...previous,running:false,operation:null}:previous)}
+  }catch(e){setError(friendlyError(e))}finally{setBusy(false);setStatus(previous=>previous?{...previous,running:false,operation:null}:previous)}
  }
  async function restore(){
   setBusy(true);setError('');
-  try{const response=await window.lagophone!.restoreGameOptimization();setResult(response);await refresh();onCompleted()}catch(e){setError((e as Error).message)}finally{setBusy(false);setStatus(previous=>previous?{...previous,running:false,operation:null}:previous)}
+  try{const response=await window.lagophone!.restoreGameOptimization();setResult(response);await refresh();onCompleted()}catch(e){setError(friendlyError(e))}finally{setBusy(false);setStatus(previous=>previous?{...previous,running:false,operation:null}:previous)}
  }
  const phase=shaderPreparing?(shaderProgress||'Подготовка шейдеров'):status?.operation?.phase==='confirmation'?'Подтвердите игровые настройки в окне Windows':status?.operation?.phase==='windows'?'Windows применяет и проверяет параметры игры':'Подготавливаем игровые настройки';
  return <div className="game-optimizer">
   <section className="game-launcher" aria-label="Оптимизация выбранной игры">
-   <GameEmblem id={game} name={selected?.name||'LAGOPHONE'} phase={busy?'working':activated&&result?.ok===false?'error':optimized||activated&&result?.ok&&!result.cancelled?'ready':'idle'} motion={motion&&active}/>
+   <GameEmblem id={game} name={selected?.name||'LAGOPHONE'} phase={busy?'working':optimized||activated&&result?.ok&&!result.cancelled?'ready':activated&&result?.ok===false?'error':'idle'} motion={motion} paused={!active}/>
    <h2>{selected?selected.name:'Выберите игру'}</h2>
    {!selected&&<p>Выберите игру или добавьте свою.</p>}
    <button ref={opener} className="button secondary game-choose" disabled={busy} onClick={()=>{setQuery('');setCatalogOpen(true)}}><Gamepad2 size={19}/>{selected?'Выбрать другую игру':'Выбрать игру'}<ChevronRight size={16}/></button>
    {selected&&<div className="game-selected">
-    <div className="game-path-step"><span className="game-step-number">1</span><div><b>Путь к игре</b><small>{gamePath||'Выберите файл игры (.exe)'}</small></div><button className="button secondary" disabled={busy} onClick={()=>void choosePath()}><FolderOpen size={16}/>{gamePath?'Изменить путь':'Выбрать EXE игры'}</button></div>
+    <div className="game-path-step"><span className="game-step-number">1</span><div><b>Путь к игре</b><small>{gamePath||'Выберите файл игры (.exe)'}</small></div><button className="button secondary" disabled={busy||choosing} onClick={()=>void choosePath()}><FolderOpen size={16}/>{gamePath?'Изменить путь':'Выбрать EXE игры'}</button></div>
+    {error&&<div className="optimization-message" role="alert"><Info size={18}/>{error}</div>}
     <div className="game-plan"><div><Check size={16}/><span><b>Высокий приоритет CPU</b></span></div><div><Check size={16}/><span><b>Производительная видеокарта</b></span></div></div>
     <details className="game-shader-options"><summary>Подготовка шейдеров</summary><p>Подготовка шейдеров через SCSKiller для поддерживаемых игр. Игра должна быть закрыта.</p>{shaderTool.available?<><label><input type="checkbox" disabled={busy} checked={useShaders} onChange={event=>setUseShaders(event.target.checked)}/>Подготовить шейдеры при оптимизации</label><small>SCSKiller {shaderTool.version} · поддержка зависит от игры, DirectX и GPU.</small></>:<div><button className="button secondary" disabled={!native||busy} onClick={()=>void window.lagophone?.open('scskiller')}>Сайт SCSKiller</button><button className="button secondary" disabled={!native||busy} onClick={()=>void connectShaders()}>Подключить SCSKiller</button></div>}</details>
 
-    {busy?<div className="game-progress" role="status"><LoaderCircle className="spin" size={22}/><span><b>Оптимизация выполняется</b><small>{phase}</small></span></div>:<button className="button primary game-optimize" disabled={!native||!gamePath||mismatch||!!status?.needsRecovery||!!status?.running} onClick={()=>void optimize()}>{optimized?<CheckCircle2 size={20}/>:<Sparkles size={20}/>} {status?.running?'Дождитесь текущей операции':!gamePath?'Выберите файл игры':'Оптимизировать'}</button>}
+    {busy?<div className="game-progress" role="status"><LoaderCircle className="spin" size={22}/><span><b>Оптимизация выполняется</b><small>{phase}</small></span></div>:<button className="button primary game-optimize" disabled={!native||choosing||mismatch||!!status?.needsRecovery||!!status?.running} title={optimized?'Повторно проверить и применить настройки':undefined} onClick={()=>void (gamePath?optimize():choosePath())}>{choosing?<LoaderCircle className="spin" size={20}/>:!gamePath?<FolderOpen size={20}/>:optimized?<CheckCircle2 size={20}/>:<Sparkles size={20}/>} {choosing?'Выбор файла…':status?.running?'Дождитесь текущей операции':!gamePath?'Выбрать файл игры':optimized?'Игра оптимизирована':'Оптимизировать'}</button>}
     {optimized&&!busy&&<p className="game-configured"><CheckCircle2 size={14}/>Настройки применены</p>}
     {mismatch&&<p role="alert">Выберите установленную Windows для применения настроек.</p>}
    </div>}
   </section>
-  {error&&<div className="optimization-message" role="alert"><Info size={18}/>{error}</div>}
+  {!selected&&error&&<div className="optimization-message" role="alert"><Info size={18}/>{error}</div>}
   {result&&<section className="optimization-report game-report" aria-live="polite"><h3>{result.cancelled?'Действие отменено':result.ok?'Результат игровой настройки':'Настройка завершена не полностью'}</h3>{result.error&&<p>{result.error}</p>}{result.report.map((row,index)=><div className={'report-row '+row.status} key={index}><Info size={16}/><div><b>{catalog.steps.find(step=>step.id===row.id)?.name||(row.id==='game-shaders'?'Подготовка шейдеров':row.id)}</b><p>{row.message}</p></div><small>{{applied:'Применено',skipped:'Пропущено',restored:'Восстановлено',error:'Ошибка'}[row.status]||row.status}</small></div>)}</section>}
   {!!status?.savedGames?.length&&<section className="game-library"><h3>Ваши игры</h3><div>{status.savedGames.map(saved=><button className="button secondary" disabled={busy} key={saved.id} onClick={()=>select(saved.id)}><Gamepad2 size={16}/>{allGames.find(item=>item.id===saved.id)?.name||fileName(saved.gamePath)}</button>)}</div></section>}
   {status?.needsRecovery&&<div className="game-restore"><p>Предыдущая операция была прервана. Завершите восстановление после ошибки перед новой настройкой.</p><button className="button secondary" disabled={busy||!!status.running} onClick={()=>void restore()}><RotateCcw size={15}/>Исправить незавершённую операцию</button></div>}

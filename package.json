@@ -1,6 +1,6 @@
 {
   "name": "lagophone",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "private": true,
   "description": "Windows maintenance dashboard",
   "main": "electron/main.cjs",

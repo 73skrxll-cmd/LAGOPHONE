@@ -114,7 +114,7 @@ function registerOptimizer(getWindow,activities,restart){
     const choice=await dialog.showOpenDialog(getWindow(),{title:'Выберите EXE игры '+(game?.name||''),properties:['openFile'],filters:[{name:'Game executable',extensions:['exe']}]});
     if(choice.canceled)return null;
     const executable=choice.filePaths[0];
-    if(!acceptsGame(id,executable)||!(await fs.stat(executable)).isFile())throw new Error('Выберите основной EXE игры'+(game?': '+game.executables.join(' или '):'.'));
+    if(!acceptsGame(id,executable)||!(await fs.stat(executable)).isFile())throw new Error('Выберите исполняемый файл игры (.exe).');
     games.set(id,executable);return executable;
   });
   ipcMain.handle('optimization:apply',(_,input,version)=>{assertWindows();return session.exclusive(input?.scope==='power'?'power':'apply',async setPhase=>{

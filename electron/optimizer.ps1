@@ -130,7 +130,8 @@ function Test-GamePath($location,$gameId) {
   if(!$location -or ![IO.Path]::IsPathRooted([string]$location) -or [IO.Path]::GetExtension([string]$location) -ine '.exe'){return $false}
   $name=[IO.Path]::GetFileName([string]$location)
   if($name.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0){return $false}
-  return ($name.ToLowerInvariant() -in $gameExecutables -or $gameId -cmatch '^custom-[a-f0-9]{32}$')
+  # The file was explicitly chosen by the user. Preset filenames are suggestions, not restrictions.
+  return $true
 }
 function Read-State($file=$statePath) {
   if(!(Test-Path -LiteralPath $file)){return $null}

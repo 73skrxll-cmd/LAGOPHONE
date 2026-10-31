@@ -142,13 +142,17 @@ test('standalone game profile sets real High priority now and at next launch wit
   ps(`Copy-Item -LiteralPath ${quote(exe)} -Destination ${quote(customExe)};'OK'`);
   customPid=Number(ps(`(Start-Process -FilePath ${quote(customExe)} -ArgumentList '/d /c ping -n 300 127.0.0.1 > nul' -WindowStyle Hidden -PassThru).Id`));
   const customBefore=priority(customPid);
-  const customResult=run('apply',{scope:'game',game:customId,gamePath:customExe,ids:['game-gpu','game-priority'],profile:'basic',version,power:'keep',ratingPlan:{basis:'profiles-v2',ids:[]}});
+  const customResult=run('apply',{scope:'game',game:'deadlock',gamePath:customExe,ids:['game-gpu','game-priority'],profile:'basic',version,power:'keep',ratingPlan:{basis:'profiles-v2',ids:[]}});
   assert.equal(customResult.ok,true,JSON.stringify(customResult));assert.equal(priority(customPid),'High','A second, manually selected game must be optimizable without restoring the first');
   assert.equal(systemHash(),beforeSystem);
   const status=run('inspect',{scope:'game'});assert.ok(Array.isArray(status.savedGames),JSON.stringify(status.savedGames));assert.equal(status.savedGames[0].id,'cs2');
-  assert.equal(status.savedGames.length,2);assert.equal(status.savedGames[1].id,customId);
+  assert.equal(status.savedGames.length,2);assert.equal(status.savedGames[1].id,'deadlock','A preset must accept an explicitly selected EXE with a nonstandard filename');
   const repeat=run('apply',{scope:'game',game:'cs2',gamePath:exe,ids:['game-gpu','game-priority'],profile:'basic',version,power:'keep',ratingPlan:{basis:'profiles-v2',ids:[]}});
   assert.equal(repeat.ok,true,JSON.stringify(repeat));assert.equal(run('inspect',{scope:'game'}).savedGames.length,2,'Repeated optimization must not duplicate or lose saved games');
+  const anotherExe=path.win32.join(folder,'AnotherCustomGame.exe');ps(`Copy-Item -LiteralPath ${quote(exe)} -Destination ${quote(anotherExe)};'OK'`);
+  const own=run('apply',{scope:'game',game:customId,gamePath:anotherExe,ids:['game-gpu','game-priority'],profile:'basic',version,power:'keep',ratingPlan:{basis:'profiles-v2',ids:[]}});
+  assert.equal(own.ok,true,JSON.stringify(own));assert.equal(run('inspect',{scope:'game'}).savedGames.length,3);assert.equal(systemHash(),beforeSystem);
+
   assert.ok(status.appliedTargets.filter(row=>row.id==='game-priority').every(row=>row.enabled));
   assert.equal(run('restore',{scope:'game'}).ok,true);assert.equal(priority(firstPid),beforePriority);assert.equal(priority(customPid),customBefore);
   assert.deepEqual(JSON.parse(capture()),JSON.parse(original),'Priority registry type, value and absence must remain recoverable');

@@ -5,7 +5,7 @@ test('manual games accept only absolute EXE selections and keep independent iden
  const first=customGame('D:\\Games\\My Game\\MyGame.exe'),second=customGame('D:\\Games\\Another\\Other.exe');
  assert.ok(isCustomGame(first.id));assert.notEqual(first.id,second.id);assert.equal(first.name,'MyGame');
  assert.ok(acceptsGame(first.id,first.gamePath));assert.ok(acceptsGame('cs2','C:\\Games\\CS2.EXE'));
- assert.equal(acceptsGame('cs2','C:\\Games\\unknown.exe'),false);
+ assert.equal(acceptsGame('cs2','C:\\Games\\unknown.exe'),true,'Explicit EXE selection must not be rejected because the preset uses another file name');
  for(const invalid of ['game.exe','C:\\Games\\game.dll','C:\\Games\\bad?.exe'])assert.throws(()=>customGame(invalid));
  assert.equal(acceptsGame('custom-fake','C:\\Games\\test.exe'),false);
 });
