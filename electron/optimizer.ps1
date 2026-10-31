@@ -22,7 +22,8 @@ function Load-RegistryCatalog($file) {
   return $map
 }
 $registry=Load-RegistryCatalog (Join-Path $PSScriptRoot 'registry-specs.json')
-$gameExecutables=@(Get-Content -LiteralPath (Join-Path $PSScriptRoot 'game-executables.json') -Raw | ConvertFrom-Json)
+# Keep the JSON array flat on both Windows PowerShell 5.1 and PowerShell 7.
+$gameExecutables=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'game-executables.json') -Raw | ConvertFrom-Json
 $services=@{spooler='Spooler';bluetooth='bthserv';fax='Fax';search='WSearch';maps='MapsBroker';media='WMPNetworkSvc';'remote-registry'='RemoteRegistry';sysmain='SysMain'}
 $plans=@{balanced='381b4222-f694-41f0-9685-ff5bb260df2e';high='8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';ultimate='e9a42b02-d5df-448d-aa00-03f14749eb61'}
 $managedPlan='b9e86298-7324-4f93-9066-faf25aa1c0a3'
