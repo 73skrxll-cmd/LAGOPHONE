@@ -20,4 +20,5 @@ test('component logos use detected manufacturers and never guess from a chipset 
  assert.equal(hardwareBrands({cpu:'AMD FX-8350'})[0].series,'');
  assert.equal(hardwareBrands({disks:[{manufacturer:'Seagate',name:'ST1000DM010'}]})[0].id,'seagate');
  assert.equal(hardwareBrands({disks:[{name:'SanDisk SSD'}]})[0].name,'SanDisk');
+ assert.equal(hardwareBrands({disks:[{name:'Patriot M.2 P300'}]})[0].name,'Patriot');
 });

@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, ArrowDown, Check, CheckCircle2, ChevronDown, Cpu, Gamepad2, Info, LoaderCircle, RotateCcw, ShieldCheck, Sparkles, Zap, X } from 'lucide-react';
 import {optimizationView} from '../shared/optimization-view.mjs';
 import catalog from '../shared/optimization.json';
+import type {RestartRequest} from './bridge';
 
-export type OptimizationResult={ok:boolean;error?:string;cancelled?:boolean;restored?:boolean;noChanges?:boolean;report:{id:string;status:string;message:string}[]};
+export type OptimizationResult={restart?:RestartRequest|null;ok:boolean;error?:string;cancelled?:boolean;restored?:boolean;noChanges?:boolean;report:{id:string;status:string;message:string}[]};
 export type OptimizationStatus={ok:boolean;error?:string;active:boolean;needsRecovery?:boolean;profile?:string;remaining:number;availability?:Record<string,{available:boolean;reason?:string}>;created?:string;power?:string;checks:{id:string;enabled:boolean}[];last?:OptimizationResult & {date:string;mode:string};running?:boolean;operation?:{mode:string;phase:string;startedAt:number}|null};
 export type OptimizationInput={profile:string;uses:Record<string,boolean>;power:string;game:string;sysmain:boolean;selected:string[]};
 export function OptimizationMeter({status,native,error=''}:{status:OptimizationStatus|null;native:boolean;error?:string}){
@@ -20,7 +21,7 @@ function preferences(){
  return {profile:'basic',power:'keep',game:'none',uses:Object.fromEntries(catalog.features.map(f=>[f.id,typeof saved.uses?.[f.id]==='boolean'?saved.uses[f.id]:f.defaultUse]))};
  }catch{return fallback}
 }
-export function OptimizationPanel({native,version,mismatch,status,error,checking=false,onRefresh,onOperationFinished}:{native:boolean;version:'10'|'11';mismatch:boolean;status:OptimizationStatus|null;error:string;checking?:boolean;onRefresh:()=>Promise<void>;onOperationFinished:()=>void}){
+export function OptimizationPanel({native,version,mismatch,status,error,checking=false,onRefresh,onOperationFinished}:{native:boolean;version:'10'|'11';mismatch:boolean;status:OptimizationStatus|null;error:string;checking?:boolean;onRefresh:()=>Promise<void>;onOperationFinished:(result:OptimizationResult,mode:'apply'|'restore')=>void}){
  const [profile,setProfile]=useState<string>(()=>preferences().profile),[uses,setUses]=useState<Record<string,boolean>>(()=>preferences().uses),[power,setPower]=useState<string>(()=>preferences().power),[game,setGame]=useState<string>(()=>preferences().game),[gamePath,setGamePath]=useState(''),[sysmain,setSysmain]=useState(false),[overrides,setOverrides]=useState<Record<string,boolean>>({}),[category,setCategory]=useState('Все'),[busy,setBusy]=useState(''),[review,setReview]=useState(false),[message,setMessage]=useState(''),[result,setResult]=useState<OptimizationResult|null>(null),[riskAcknowledged,setRiskAcknowledged]=useState(false),[expandedGroups,setExpandedGroups]=useState([0,3]),[profileChange,setProfileChange]=useState<{added:number;removed:number}|null>(null);
  useEffect(()=>{try{localStorage.setItem('lagophone-optimization-preferences',JSON.stringify({profile,uses,power,game}))}catch{}},[profile,uses,power,game]);
  const view=optimizationView({status,error,busy,native});
@@ -82,7 +83,7 @@ export function OptimizationPanel({native,version,mismatch,status,error,checking
      const pending=mode==='apply'?window.lagophone!.optimize({profile,uses,power,game,sysmain,selected:chosen.map(s=>s.id)},version):window.lagophone!.restoreOptimization();
      void onRefresh().catch(()=>{});
      const response=await pending;
-     onOperationFinished();
+     onOperationFinished(response,mode);
      setResult(response);
      setMessage(response.cancelled?'Действие отменено.':response.ok?(mode==='restore'?'Исходные значения восстановлены.':response.noChanges?'Все выбранные настройки уже установлены или недоступны.':'Профиль применён. Проверьте отчёт: некоторые действия могут быть пропущены.'):(response.error||'Ошибка выполнения')+(response.restored?' Изменения отменены.':' Проверьте отчёт и используйте откат.'));
    }catch(e){setMessage((e as Error).message)}finally{setBusy('');try{await onRefresh()}catch(e){setMessage('Не удалось проверить состояние после операции: '+(e as Error).message)}}

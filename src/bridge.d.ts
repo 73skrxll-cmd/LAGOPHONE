@@ -1,10 +1,17 @@
+export type RestartRequest={required:boolean;scheduled:boolean;warning:string};
+export type RestartState={pending:boolean;offer?:boolean;scheduled?:boolean;warning?:string;celebration?:{profile:string;count:number;version:'10'|'11'}};
 export type ActivityEntry={id:string;at:string;kind:string;status:'success'|'error'|'warning'|'cancelled';title:string;detail:string};
+import type {MonitorSample} from '../shared/monitor.mjs';
 import type { DriverCategory } from '../shared/drivers.mjs';
 import type { System } from './main';
 import type { OptimizationInput, OptimizationStatus, OptimizationResult } from './Optimization';
 declare global {
  interface Window {
   lagophone?: {
+   monitorSample:()=>Promise<MonitorSample>;
+   restartStatus:()=>Promise<RestartState>;
+   restartLater:()=>Promise<{ok:boolean}>;
+   restartNow:()=>Promise<{ok:boolean;cancelled?:boolean}>;
    driverCatalog:(version:'10'|'11')=>Promise<DriverCategory[]>;
    openDriver:(id:string,version:'10'|'11')=>Promise<void>;
    system:()=>Promise<System>;

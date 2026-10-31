@@ -9,7 +9,7 @@ const quote=value=>"'"+String(value).replaceAll("'","''")+"'";
 function ps(script,timeout=600000){
   return new Promise((resolve,reject)=>execFile(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8; "+script,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(),windowsHide:true,timeout,maxBuffer:4*1024*1024},(e,out)=>e?reject(new Error('Windows не выполнила операцию. Возможно, отменён запрос администратора. Если выполнение было прервано, проверьте состояние и используйте откат.')):resolve(out.trim())));
 }
-function registerOptimizer(getWindow,activities){
+function registerOptimizer(getWindow,activities,restart){
   const {optimizationEvents}=require('./activity.cjs');
   const session=require('./optimizer-session.cjs').createOptimizerSession();
   let cachedStatus=null,cachedLast=null,sidRequest=null;
@@ -33,7 +33,7 @@ function registerOptimizer(getWindow,activities){
       return result;
     }finally{await fs.rm(directory,{recursive:true,force:true});}
   }
-  ipcMain.handle('optimization:status',async()=>{
+  async function inspectStatus(){
     assertWindows();
     const current=()=>({...((cachedStatus)||{ok:true,active:false,remaining:0,checks:[]}),last:cachedLast,running:session.isRunning(),operation:session.current()});
     // Poll the in-memory operation while Windows works; do not spawn another full audit every two seconds.
@@ -45,7 +45,8 @@ function registerOptimizer(getWindow,activities){
       return {...cachedStatus,...state,last:cachedLast};
     });
     return {...inspected,running:session.isRunning(),operation:session.current()};
-  });
+  }
+  ipcMain.handle('optimization:status',inspectStatus);
   ipcMain.handle('optimization:game',async(_,id)=>{
     assertWindows();if(session.isRunning())throw new Error('Дождитесь завершения операции.');
     const game=catalog.games.find(g=>g.id===id&&g.id!=='none');
@@ -68,6 +69,7 @@ function registerOptimizer(getWindow,activities){
     if(choice.response!==1){const result={ok:true,cancelled:true,report:[]};await activities.add(optimizationEvents('apply',input,result));return result;}
     setPhase('windows');
     const result=await run('apply',plan,true);
+    if(restart)result.restart=await restart.afterApply(plan,result,actual);
     await activities.add(optimizationEvents('apply',plan,result));return result;
     } catch(error){await activities.add([{kind:'apply',status:'error',title:'Ошибка применения настроек',detail:error.message}]);throw error}
   });});
@@ -78,9 +80,10 @@ function registerOptimizer(getWindow,activities){
     if(choice.response!==1){const result={ok:true,cancelled:true,report:[]};await activities.add(optimizationEvents('restore',null,result));return result;}
     setPhase('windows');
     const result=await run('restore',{},true);
+    if(restart)await restart.clear().catch(()=>{});
     await activities.add(optimizationEvents('restore',null,result));return result;
     } catch(error){await activities.add([{kind:'restore',status:'error',title:'Ошибка восстановления настроек',detail:error.message}]);throw error}
   });});
-  return {isRunning:()=>session.isRunning()};
+  return {isRunning:()=>session.isRunning(),isMutating:()=>session.isRunning()&&session.current().mode!=='restart',status:inspectStatus,exclusive:(mode,task)=>session.exclusive(mode,task)};
 }
 module.exports={registerOptimizer};

@@ -9,6 +9,7 @@ const rules=[
  ['samsung','SAMSUNG',/\bSamsung\b/i],
  ['kingstontechnology','Kingston',/\bKingston\b/i],
  ['hyperx','HyperX',/\bHyperX\b/i],
+ ['patriot','Patriot',/\bPatriot\b|\bViper Gaming\b/i],
  ['corsair','CORSAIR',/\bCorsair\b/i],
  ['crucial','crucial',/\bCrucial\b/i],
  ['sandisk','SanDisk',/\bSanDisk\b/i],
@@ -36,5 +37,5 @@ export function hardwareBrands(system={}){
  for(const gpu of Array.isArray(system.gpu)?system.gpu:[])add('Видеокарта',gpu);
  for(const memory of Array.isArray(system.memory)?system.memory:[])add('Память',memory?.manufacturer);
  for(const disk of Array.isArray(system.disks)?system.disks:[])add('Накопитель',[disk?.manufacturer,disk?.name].filter(v=>typeof v==='string').join(' '));
- return result.slice(0,8);
+ return result;
 }

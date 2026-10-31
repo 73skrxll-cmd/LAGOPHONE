@@ -1,1 +1,3 @@
 AMD, Intel, NVIDIA, ASUS, MSI, Samsung, Kingston, Corsair and Seagate SVG marks are from Simple Icons (https://github.com/simple-icons/simple-icons), distributed under CC0-1.0. Retrieved 2026-10-31 from icons/*.svg on the develop branch. Trademarks belong to their respective owners. Other supported manufacturer names are rendered as typographic wordmarks in the UI. Logos indicate detected component manufacturers, not sponsorship or a match to the illustrated case.
+
+Western Digital SVG: https://github.com/homarr-labs/dashboard-icons/blob/main/svg/western-digital.svg, retrieved 2026-10-31. Collection license in DASHBOARD-ICONS-LICENSE.
