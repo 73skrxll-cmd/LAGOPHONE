@@ -36,7 +36,17 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Test validation, PowerShell and real registry rollback on disposable runner
-        run: npm test
+        shell: pwsh
+        run: |
+          & npm.cmd test 2>&1 | Tee-Object -FilePath test-output.log
+          $testExit = $LASTEXITCODE
+          if ($testExit -ne 0) {
+            '### Windows test failure' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            '```text' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            Get-Content test-output.log -Tail 180 | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            '```' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+          exit $testExit
         env:
           LAGOPHONE_WINDOWS_INTEGRATION: '1'
       - name: Build installer
