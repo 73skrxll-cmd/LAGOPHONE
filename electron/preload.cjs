@@ -1,5 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('lagophone', {
+  activities: () => ipcRenderer.invoke('activity:list'),
+  clearActivities: () => ipcRenderer.invoke('activity:clear'),
   optimizationStatus: () => ipcRenderer.invoke('optimization:status'),
   optimize: (input, version) => ipcRenderer.invoke('optimization:apply', input, version),
   restoreOptimization: () => ipcRenderer.invoke('optimization:restore'),

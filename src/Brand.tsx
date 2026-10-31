@@ -1,0 +1,3 @@
+export function BrandMark({className=''}:{className?:string}){
+ return <svg className={'brand-mark '+className} viewBox="0 0 44 44" fill="none" aria-hidden="true"><path d="M11 3h22l8 8v22l-8 8H11l-8-8V11l8-8Z" fill="currentColor"/><path d="M12 12v20h11v-5h-6V12h-5Zm13 0-5 5v5l5 5h8V19h-8v4h4v1h-3l-2-2v-4l2-2h7v-4h-8Z" fill="var(--accent-contrast,#17240f)"/><path d="m30 30 3-3 3 3-3 3-3-3Z" fill="var(--accent-contrast,#17240f)"/></svg>
+}

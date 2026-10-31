@@ -9,17 +9,19 @@ const quote=value=>"'"+String(value).replaceAll("'","''")+"'";
 function ps(script,timeout=600000){
   return new Promise((resolve,reject)=>execFile(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8; "+script,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(),windowsHide:true,timeout,maxBuffer:4*1024*1024},(e,out)=>e?reject(new Error('Windows не выполнила операцию. Возможно, отменён запрос администратора. Если выполнение было прервано, проверьте состояние и используйте откат.')):resolve(out.trim())));
 }
-function registerOptimizer(getWindow){
-  let running=false;
+function registerOptimizer(getWindow,activities){
+  const {optimizationEvents}=require('./activity.cjs');
+  const session=require('./optimizer-session.cjs').createOptimizerSession();
+  let cachedStatus=null,cachedLast=null,sidRequest=null;
   const games=new Map();
   const worker=app.isPackaged?path.join(process.resourcesPath,'app.asar.unpacked','electron','optimizer.ps1'):path.join(__dirname,'optimizer.ps1');
   const assertWindows=()=>{if(process.platform!=='win32')throw new Error('Оптимизация выполняется только в настольном приложении Windows.');};
-  async function identity(){return ps('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value',15000);}
+  async function identity(){if(!sidRequest)sidRequest=ps('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value',15000).catch(error=>{sidRequest=null;throw error});return sidRequest;}
   async function run(mode,payload,elevate){
     assertWindows();
     const sid=await identity();
     const encoded=Buffer.from(JSON.stringify({...payload,sid}),'utf8').toString('base64');
-    if(!elevate)return JSON.parse(await ps(`& ${quote(worker)} -Mode ${quote(mode)} -PayloadBase64 ${quote(encoded)}`));
+    if(!elevate)return JSON.parse(await ps(`& ${quote(worker)} -Mode ${quote(mode)} -PayloadBase64 ${quote(encoded)}`,20000));
     const directory=await fs.mkdtemp(path.join(os.tmpdir(),'lagophone-'));
     const output=path.join(directory,'result.json');
     try{
@@ -33,12 +35,19 @@ function registerOptimizer(getWindow){
   }
   ipcMain.handle('optimization:status',async()=>{
     assertWindows();
-    const state=await run('inspect',{},false);
-    let last=null;try{last=JSON.parse(await fs.readFile(path.join(app.getPath('userData'),'last-optimization.json'),'utf8'));}catch{}
-    return {...state,last,running};
+    const current=()=>({...((cachedStatus)||{ok:true,active:false,remaining:0,checks:[]}),last:cachedLast,running:session.isRunning(),operation:session.current()});
+    // Poll the in-memory operation while Windows works; do not spawn another full audit every two seconds.
+    if(session.isRunning())return current();
+    const inspected=await session.inspect(async()=>{
+      const state=await run('inspect',{},false);
+      if(state.ok)cachedStatus=state;
+      try{cachedLast=JSON.parse(await fs.readFile(path.join(app.getPath('userData'),'last-optimization.json'),'utf8'));}catch{}
+      return {...cachedStatus,...state,last:cachedLast};
+    });
+    return {...inspected,running:session.isRunning(),operation:session.current()};
   });
   ipcMain.handle('optimization:game',async(_,id)=>{
-    assertWindows();if(running)throw new Error('Дождитесь завершения операции.');
+    assertWindows();if(session.isRunning())throw new Error('Дождитесь завершения операции.');
     const game=catalog.games.find(g=>g.id===id&&g.id!=='none');
     if(!game)throw new Error('Неизвестная игра');
     const choice=await dialog.showOpenDialog(getWindow(),{title:'Выберите основной EXE игры '+game.name,properties:['openFile'],filters:[{name:'Game executable',extensions:['exe']}]});
@@ -47,22 +56,31 @@ function registerOptimizer(getWindow){
     if(!game.executables.includes(path.basename(executable).toLowerCase()))throw new Error('Нужен основной EXE игры: '+game.executables.join(' или '));
     games.set(id,executable);return executable;
   });
-  async function exclusive(task){assertWindows();if(running)throw new Error('Уже выполняется операция.');running=true;try{return await task()}finally{running=false}}
-  ipcMain.handle('optimization:apply',(_,input,version)=>exclusive(async()=>{
+  ipcMain.handle('optimization:apply',(_,input,version)=>{assertWindows();return session.exclusive('apply',async setPhase=>{
+    try {
     const actual=await ps("$build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber; if($build -ge 22000){'11'}else{'10'}",30000);
     const plan=buildPlan(input,version,actual,games.get(input?.game));
     const status=await run('inspect',{},false);
     if(!status.ok)throw new Error(status.error||'Не удалось прочитать состояние.');
     if(status.active)throw new Error('Сначала восстановите предыдущие настройки.');
-    const choice=await dialog.showMessageBox(getWindow(),{type:'warning',title:'Применить профиль?',message:'Изменений: '+plan.ids.length,detail:plan.ids.map(id=>catalog.steps.find(s=>s.id===id).name).join('\n')+'\n\nИсходные значения будут сохранены до изменений. Windows запросит права администратора. При ошибке программа попытается выполнить откат; результат будет показан в отчёте.',buttons:['Отмена','Применить'],defaultId:0,cancelId:0});
-    if(choice.response!==1)return {ok:true,cancelled:true,report:[]};
-    return run('apply',plan,true);
-  }));
-  ipcMain.handle('optimization:restore',()=>exclusive(async()=>{
+    setPhase('confirmation');
+    const choice=await dialog.showMessageBox(getWindow(),{type:'warning',title:'Применить профиль?',message:'Изменений: '+plan.ids.length,detail:plan.ids.map(id=>{const step=catalog.steps.find(s=>s.id===id);return step.attention?'⚠ '+step.name+' — '+step.attention.consequence:step.name}).join('\n')+'\n\nИсходные значения будут сохранены до изменений. Windows запросит права администратора. При ошибке программа попытается выполнить откат; результат будет показан в отчёте.',buttons:['Отмена','Применить'],defaultId:0,cancelId:0});
+    if(choice.response!==1){const result={ok:true,cancelled:true,report:[]};await activities.add(optimizationEvents('apply',input,result));return result;}
+    setPhase('windows');
+    const result=await run('apply',plan,true);
+    await activities.add(optimizationEvents('apply',plan,result));return result;
+    } catch(error){await activities.add([{kind:'apply',status:'error',title:'Ошибка применения настроек',detail:error.message}]);throw error}
+  });});
+  ipcMain.handle('optimization:restore',()=>{assertWindows();return session.exclusive('restore',async setPhase=>{
+    try {
+    setPhase('confirmation');
     const choice=await dialog.showMessageBox(getWindow(),{type:'question',message:'Восстановить исходные настройки?',detail:'Восстановятся сохранённые параметры реестра, состояния служб и план питания. Настройки, изменённые сторонними программами, могут потребовать ручной проверки.',buttons:['Отмена','Восстановить'],defaultId:0,cancelId:0});
-    if(choice.response!==1)return {ok:true,cancelled:true,report:[]};
-    return run('restore',{},true);
-  }));
-  return {isRunning:()=>running};
+    if(choice.response!==1){const result={ok:true,cancelled:true,report:[]};await activities.add(optimizationEvents('restore',null,result));return result;}
+    setPhase('windows');
+    const result=await run('restore',{},true);
+    await activities.add(optimizationEvents('restore',null,result));return result;
+    } catch(error){await activities.add([{kind:'restore',status:'error',title:'Ошибка восстановления настроек',detail:error.message}]);throw error}
+  });});
+  return {isRunning:()=>session.isRunning()};
 }
 module.exports={registerOptimizer};

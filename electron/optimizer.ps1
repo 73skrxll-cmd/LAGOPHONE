@@ -215,7 +215,7 @@ try {
       $build=[int](Get-CimInstance Win32_OperatingSystem).BuildNumber
       $actual=if($build -ge 22000){'11'}else{'10'}
       if($actual -ne $payload.version){throw 'Selected Windows does not match this computer'}
-      $allowed=@($registry.Keys)+@($services.Keys)+@('power','game-gpu','game-fullscreen')
+      $allowed=@($registry.Keys | Where-Object {!$registry[$_][0].legacy})+@($services.Keys)+@('power','game-gpu','game-fullscreen')
       if(!$payload.ids.Count -or @($payload.ids | Where-Object {$_ -notin $allowed}).Count -or @($payload.ids | Select-Object -Unique).Count -ne $payload.ids.Count){throw 'Invalid action list'}
       $entries=New-Object System.Collections.ArrayList
       foreach($id in $payload.ids){

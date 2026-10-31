@@ -1,0 +1,2 @@
+export function optimizationView(input?:{status?:{ok:boolean;active:boolean;needsRecovery?:boolean;running?:boolean}|null;error?:string;busy?:string;native?:boolean}):{mode:'running'|'demo'|'error'|'checking'|'recovery'|'applied'|'idle';controlsLocked:boolean;canApply:boolean;canRestore:boolean;hasBackup:boolean};
+export function withTimeout<T>(promise:Promise<T>,milliseconds:number,message:string):Promise<T>;

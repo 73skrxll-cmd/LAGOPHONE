@@ -5,7 +5,10 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { apps, links, validateAction } = require('./policy.cjs');
 let win;
-const optimizer = require('./optimizer-ipc.cjs').registerOptimizer(() => win);
+const activities=require('./activity.cjs').createActivityStore(()=>path.join(app.getPath('userData'),'activity.json'));
+const optimizer = require('./optimizer-ipc.cjs').registerOptimizer(() => win,activities);
+ipcMain.handle('activity:list',()=>activities.list());
+ipcMain.handle('activity:clear',()=>activities.clear());
 function powershell(script) {
   if (process.platform !== 'win32') return Promise.reject(new Error('Системные функции доступны только в Windows.'));
   const encoded = Buffer.from("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; " + script, 'utf16le').toString('base64');
@@ -27,7 +30,7 @@ async function system() {
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => { if (win) { if(win.isMinimized()) win.restore(); win.focus(); } });
 app.whenReady().then(() => {
-  win = new BrowserWindow({ width: 1440, height: 960, minWidth: 960, minHeight: 680, backgroundColor: '#101211', title: 'LAGOPHONE', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname,'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  win = new BrowserWindow({ width: 1440, height: 960, minWidth: 960, minHeight: 680, backgroundColor: '#101211', icon:path.join(__dirname,'../assets/brand.png'), title: 'LAGOPHONE', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname,'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   win.on('close', e => { if(optimizer.isRunning()){e.preventDefault();void dialog.showMessageBox(win,{type:'info',message:'Дождитесь завершения оптимизации или отката.',detail:'Сейчас сохраняются и проверяются настройки Windows.'});} });
   win.loadFile(path.join(__dirname,'../dist/index.html'));
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -41,7 +44,9 @@ ipcMain.handle('action', async (_, id, version) => {
   const action = validateAction(id, version, info.version);
   const choice = await dialog.showMessageBox(win, { type:'question', title:'Подтверждение', message:action.title, detail:'Перед изменениями рекомендуется создать точку восстановления. Продолжить?', buttons:['Отмена','Продолжить'], defaultId:0, cancelId:0 });
   if(choice.response !== 1) return 'Действие отменено.';
-  return powershell(action.script);
+  const message=await powershell(action.script);
+  await activities.add([{kind:'windows',status:'success',title:id==='temp'?'Очистка временных файлов завершена':'Выполнено действие Windows',detail:message}]);
+  return message;
 });
 ipcMain.handle('open', async (_, id) => {
   const url = Object.hasOwn(links,id) ? links[id] : Object.hasOwn(apps,id) ? apps[id].page : null;
@@ -69,6 +74,7 @@ ipcMain.handle('download', async (_, id) => {
     try { for await (const chunk of response.body) { await file.write(chunk); bytes+=chunk.length; if(!win.isDestroyed()) win.webContents.send('download-progress',{id,percent:total?Math.round(bytes/total*100):null,bytes}); } } finally {await file.close();}
     await fs.promises.rename(partial,choice.filePath);
     shell.showItemInFolder(choice.filePath);
+    await activities.add([{kind:'download',status:'success',title:'Скачан установщик '+item.file,detail:'Установщик сохранён. Автоматическая установка не запускалась.'}]);
     return 'Установщик сохранён. Перед запуском проверьте издателя в свойствах файла. Автоматическая установка не выполняется.';
   } catch(e) { if(created) await fs.promises.unlink(partial).catch(()=>{}); throw new Error('Не удалось сохранить установщик: '+e.message); }
   finally { downloading.delete(id); }

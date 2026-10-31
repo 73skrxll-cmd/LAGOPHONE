@@ -66,7 +66,7 @@ test('recommendations materially differ and a dedicated power scheme is restrict
 test('every registry tweak is scoped and independently reversible without duplicate targets',()=>{
  const specs=require('./registry-specs.json'),targets=new Set();
  for(const [id,items] of Object.entries(specs)){
-  assert.ok(catalog.steps.some(s=>s.id===id));
+  assert.ok(catalog.steps.some(s=>s.id===id)||id==='power-throttling'&&items.every(s=>s.legacy===true));
   for(const spec of items){
    assert.ok(['DWord','String'].includes(spec.kind));
    assert.ok(!spec.hive||spec.hive==='machine');
@@ -81,4 +81,14 @@ test('fullscreen experiment is scoped to the chosen executable and keeps the gam
  assert.throws(()=>buildPlan(input({game:'cs2',selected:['game-fullscreen']}),'11','11','C:\\Games\\cs2.exe'));
  const result=buildPlan(input({profile:'balanced',game:'cs2',selected:['game-fullscreen']}),'11','11','C:\\Games\\cs2.exe');
  assert.equal(result.gamePath,'C:\\Games\\cs2.exe');assert.deepEqual(result.ids,['game-fullscreen']);
+});
+
+test('background power throttling removal is no longer an applicable gaming tweak',()=>{
+ assert.equal(catalog.steps.some(s=>s.id==='power-throttling'),false);
+ assert.throws(()=>buildPlan(input({profile:'deep',selected:['power-throttling']}),'11','11'));
+ const legacy=require('./registry-specs.json')['power-throttling'];assert.ok(legacy.every(s=>s.legacy===true),'Keep exact targets available only for old journal restoration');
+});
+test('descriptions explain benefits and costs without registry instructions',()=>{
+ for(const step of catalog.steps){assert.ok(step.benefit&&step.tradeoff);assert.doesNotMatch(step.detail,/HwSchMode|GpuPreference|PowerThrottlingOff|SystemResponsiveness|HKCU|HKLM|=\s*[0-9]/)}
+ for(const id of ['hags','power','mmcss','spooler','bluetooth','game-fullscreen'])assert.ok(catalog.steps.find(s=>s.id===id).attention);
 });

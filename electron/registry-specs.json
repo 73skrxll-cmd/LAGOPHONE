@@ -309,7 +309,8 @@
       "kind": "DWord",
       "hive": "machine",
       "minBuild": 16299,
-      "restart": true
+      "restart": true,
+      "legacy": true
     }
   ],
   "hags": [

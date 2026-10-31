@@ -1,6 +1,6 @@
 {
   "name": "lagophone",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Windows maintenance dashboard",
   "main": "electron/main.cjs",
@@ -9,7 +9,7 @@
     "dev": "vite --host 0.0.0.0",
     "desktop": "npm run build && electron .",
     "build": "tsc -b && vite build",
-    "test": "node electron/policy.test.cjs && node electron/optimization.test.cjs && node electron/windows-powershell.test.cjs && node electron/drivers.test.cjs && node electron/optimization.windows.test.cjs",
+    "test": "node electron/policy.test.cjs && node electron/optimization.test.cjs && node electron/windows-powershell.test.cjs && node electron/drivers.test.cjs && node electron/optimizer-session.test.cjs && node electron/activity.test.cjs && node electron/gpu-badge.test.cjs && node electron/optimization.windows.test.cjs",
     "dist:win": "npm run build && electron-builder --win nsis --x64",
     "dist:portable": "npm run build && electron-builder --win portable --x64"
   },
@@ -37,11 +37,13 @@
       "dist/**/*",
       "electron/**/*",
       "package.json",
-      "shared/**/*"
+      "shared/**/*",
+      "assets/**/*"
     ],
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
+      "signExecutable": false,
+      "icon": "assets/brand.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -52,7 +54,9 @@
       "createStartMenuShortcut": true,
       "shortcutName": "LAGOPHONE",
       "runAfterFinish": true,
-      "artifactName": "LAGOPHONE-Setup-${version}-${arch}.${ext}"
+      "artifactName": "LAGOPHONE-Setup-${version}-${arch}.${ext}",
+      "installerIcon": "assets/brand.ico",
+      "uninstallerIcon": "assets/brand.ico"
     },
     "portable": {
       "artifactName": "LAGOPHONE-Portable-${version}-${arch}.${ext}"
