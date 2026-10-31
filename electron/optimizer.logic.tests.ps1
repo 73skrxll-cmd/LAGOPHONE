@@ -254,6 +254,8 @@ try {
  $trans=$registry['transparency'][0];$transPath=Resolve-RegistryPath $trans
  Write-Registry $transPath $trans.name @{exists=$true;kind='DWord';value=0}
  $live=Inspect
+ Assert (@($live.checks | Where-Object {!$_.id}).Count -eq 0) 'Live checks must retain actual IDs on Windows PowerShell 5.1'
+ Assert (@($live.checks | Where-Object {$_.id -eq 'transparency'}).Count -eq 1) 'Duplicate summary and catalog reads must merge into one actual ID'
  Assert ((@($live.checks | Where-Object {$_.id -eq 'transparency'})[0].enabled)) 'Live status must mark an installed tweak as applied'
  $privacy=$registry['advertising-id'][0]
  Write-Registry (Resolve-RegistryPath $privacy) $privacy.name @{exists=$true;kind='DWord';value=0}

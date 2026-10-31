@@ -251,7 +251,15 @@ function Inspect {
       $checks+=@{id=$entry.id;enabled=[bool]$enabled}
     }
   }
-  $grouped=@($checks | Group-Object id | ForEach-Object { @{id=$_.Name;enabled=(@($_.Group | Where-Object {!$_.enabled}).Count -eq 0)} })
+  # Windows PowerShell 5.1 does not group hashtable keys as object properties.
+  # Aggregate explicitly so IDs and false results survive on both PS 5.1 and 7.
+  $byId=@{}
+  foreach($check in $checks){
+    $checkId=[string]$check.id
+    if(!$byId.ContainsKey($checkId)){$byId[$checkId]=$true}
+    if(!$check.enabled){$byId[$checkId]=$false}
+  }
+  $grouped=@(foreach($checkId in $byId.Keys){@{id=$checkId;enabled=[bool]$byId[$checkId]}})
   return @{ok=$true;windows=@{version=$(if($build -ge 22000){'11'}else{'10'});build=$build};audit=(Optimization-Audit $build);profileAudit=(Profile-Audit $build $state);availability=$availability;needsRecovery=($state -and $state.phase -ne 'applied');checks=@($grouped);active=($null -ne $state);profile=$(if($state){$state.profile}else{$null});remaining=$(if($state){@($state.entries).Count}else{0});created=$(if($state){$state.created}else{$null});power=(Active-Plan)}
 }
 $mutex=$null;$locked=$false
