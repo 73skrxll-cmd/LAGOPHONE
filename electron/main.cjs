@@ -20,10 +20,10 @@ async function system() {
     $os=Get-CimInstance Win32_OperatingSystem; $cpu=Get-CimInstance Win32_Processor | Select-Object -First 1;
     $board=Get-CimInstance Win32_BaseBoard | Select-Object -First 1; $pc=Get-CimInstance Win32_ComputerSystem;
     $gpu=@(Get-CimInstance Win32_VideoController | ForEach-Object {$_.Name});
-    $ram=@(Get-CimInstance Win32_PhysicalMemory); $disk=@(Get-PhysicalDisk | ForEach-Object { @{name=$_.FriendlyName;type=[string]$_.MediaType;size=[math]::Round($_.Size/1GB)} });
+    $ram=@(Get-CimInstance Win32_PhysicalMemory); $disk=@(Get-PhysicalDisk | ForEach-Object { @{name=$_.FriendlyName;manufacturer=$_.Manufacturer;type=[string]$_.MediaType;size=[math]::Round($_.Size/1GB)} });
     @{demo=$false;version=$(if([int]$os.BuildNumber -ge 22000){'11'}else{'10'});os=$os.Caption;build=$os.BuildNumber;
     cpu=$cpu.Name;cores=$cpu.NumberOfCores;threads=$cpu.NumberOfLogicalProcessors;gpu=$gpu;board=$board.Product;vendor=$board.Manufacturer;boardVersion=$board.Version;network=@(Get-CimInstance Win32_NetworkAdapter -ErrorAction SilentlyContinue | Where-Object {$_.PhysicalAdapter} | ForEach-Object {@{name=$_.Name;vendor=$_.Manufacturer;hardwareId=$_.PNPDeviceID}});audio=@(Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue | ForEach-Object {@{name=$_.Name}});bluetooth=@(Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue | Where-Object {$_.PNPClass -eq 'Bluetooth' -and $_.PNPDeviceID -like 'USB*'} | ForEach-Object {@{name=$_.Name;hardwareId=$_.PNPDeviceID}});manufacturer=$pc.Manufacturer;model=$pc.Model;
-    ram=[math]::Round($pc.TotalPhysicalMemory/1GB);ramSpeed=($ram | Select-Object -First 1).Speed;slots=$ram.Count;disks=$disk;
+    ram=[math]::Round($pc.TotalPhysicalMemory/1GB);ramSpeed=($ram | Select-Object -First 1).Speed;slots=$ram.Count;memory=@($ram | ForEach-Object {@{manufacturer=$_.Manufacturer;partNumber=$_.PartNumber}});disks=$disk;
     uptime=[math]::Floor(((Get-Date)-$os.LastBootUpTime).TotalHours)} | ConvertTo-Json -Depth 4 -Compress
   `));
 }

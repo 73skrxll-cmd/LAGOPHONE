@@ -1,28 +1,40 @@
 import {useEffect,useId,useState} from 'react';
 import {ArrowUpRight,Pause,Play,Settings2} from 'lucide-react';
 import {gpuBadge} from '../shared/gpu-badge.mjs';
-function Rotor({cx,cy,r,front=false,id}:{cx:number;cy:number;r:number;front?:boolean;id:string}){
- return <g transform={`translate(${cx} ${cy}) ${front?'skewY(13) scale(.78 1)':''}`}><circle r={r+5} fill="#0a1014" stroke="#3d4951" strokeWidth="2"/><circle r={r} fill="#10191f" stroke={`url(#${id}-rgb)`} strokeWidth="4"/><circle r={r-5} fill="none" stroke={`url(#${id}-rgb)`} strokeWidth="1" opacity=".4"/><g className="studio-fan-blades">{[0,60,120,180,240,300].map(angle=><path key={angle} d={`M 3 -4 C ${r*.55} ${-r*.95} ${r*.9} ${-r*.5} ${r*.63} -1 C ${r*.4} 6 10 4 3 -4Z`} fill="#596d77" opacity=".75" transform={`rotate(${angle})`}/>)}</g><circle r="7" fill="#17232a" stroke="#66808a" strokeWidth="1"/><circle r="2" fill="#b9dfe7"/></g>
+import {hardwareBrands,type HardwareBrand} from '../shared/hardware-brands.mjs';
+import type {System} from './main';
+import sideCase from '../assets/computer-side.webp';
+const marks=import.meta.glob<string>('../assets/brands/*.svg',{eager:true,query:'?url',import:'default'});
+function HardwareLogo({brand}:{brand:HardwareBrand}){
+ const source=marks[`../assets/brands/${brand.id}.svg`];
+ return <div className={'hardware-logo logo-'+brand.id} role="img" aria-label={`${brand.category}: ${brand.name}${brand.series?' '+brand.series:''}`} title={`${brand.category} · ${brand.models.join(' / ')}`}>
+  {source?<img src={source} alt=""/>:<span className="hardware-wordmark">{brand.name}</span>}{brand.series&&<span className="hardware-series">{brand.series}</span>}
+ </div>;
 }
-export function Computer({gpu,demo,onTweaks}:{gpu?:string[];demo:boolean;onTweaks:()=>void}){
- const detected=gpuBadge(gpu),id=useId().replace(/:/g,'');
+function Rotor({cy,id}:{cy:number;id:string}){
+ return <g><defs><clipPath id={`${id}-fan-${cy}`}><ellipse cx="1061" cy={cy} rx="112" ry="114"/></clipPath><mask id={`${id}-foreground-${cy}`} maskUnits="userSpaceOnUse" x="0" y="0" width="1374" height="1145"><rect width="1374" height="1145" fill="white"/>{cy>315&&<path d="M0 575H997L1013 732H0Z" fill="black"/>}</mask></defs>
+  <g mask={`url(#${id}-foreground-${cy})`}><g clipPath={`url(#${id}-fan-${cy})`}><g className="studio-fan-blades" style={{transformOrigin:'1061px 315px'}}><image href={sideCase} y={cy-315} width="1374" height="1145"/></g></g></g>
+ </g>;
+}
+export function Computer({system,onTweaks}:{system:System;onTweaks:()=>void}){
+ const {gpu,demo}=system,detected=gpuBadge(gpu),brands=hardwareBrands(system),id=useId().replace(/:/g,'');
  const [paused,setPaused]=useState(()=>{try{return localStorage.getItem('lagophone-pc-animation')==='off'}catch{return false}}),[visible,setVisible]=useState(!document.hidden),[reduced,setReduced]=useState(()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches);
  useEffect(()=>{const media=window.matchMedia('(prefers-reduced-motion: reduce)'),change=()=>setReduced(media.matches),show=()=>setVisible(!document.hidden),blur=()=>setVisible(false),focus=()=>setVisible(!document.hidden);media.addEventListener('change',change);document.addEventListener('visibilitychange',show);window.addEventListener('blur',blur);window.addEventListener('focus',focus);return()=>{media.removeEventListener('change',change);document.removeEventListener('visibilitychange',show);window.removeEventListener('blur',blur);window.removeEventListener('focus',focus)}},[]);
  useEffect(()=>{try{localStorage.setItem('lagophone-pc-animation',paused?'off':'on')}catch{}},[paused]);
- return <section className="pc-studio" data-animate={!paused&&visible&&!reduced} aria-label="Визуализация компьютера"><div className="studio-heading"><div><span className="eyebrow">{demo?'ПРЕДПРОСМОТР КОНФИГУРАЦИИ':'ВАША КОНФИГУРАЦИЯ'}</span><h2>В центре — ваш ПК.</h2></div><button type="button" className="button secondary" disabled={reduced} aria-label={paused?'Включить анимацию компьютера':'Остановить анимацию компьютера'} onClick={()=>setPaused(!paused)}>{paused||reduced?<Play size={13}/>:<Pause size={13}/>}<span>{reduced?'Без анимации':paused?'Анимация выключена':'Остановить анимацию'}</span></button></div>
- <div className="studio-scene"><svg viewBox="110 0 425 355" role="img" aria-label={`Иллюстрация ПК. Надпись на видеокарте: ${detected.badge}`}><defs><linearGradient id={`${id}-rgb`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#77dfff"/><stop offset=".35" stopColor="#ae8dff"/><stop offset=".65" stopColor="#ff83bb"/><stop offset="1" stopColor="#91f8a8"/></linearGradient><linearGradient id={`${id}-glass`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#233640" stopOpacity=".8"/><stop offset=".55" stopColor="#0a1219" stopOpacity=".8"/><stop offset="1" stopColor="#2c3e44" stopOpacity=".85"/></linearGradient><linearGradient id={`${id}-metal`}><stop stopColor="#182129"/><stop offset=".5" stopColor="#34404b"/><stop offset="1" stopColor="#161e26"/></linearGradient><radialGradient id={`${id}-floor`}><stop stopColor="#6b91b8" stopOpacity=".25"/><stop offset="1" stopColor="#6b91b8" stopOpacity="0"/></radialGradient></defs>
- <ellipse cx="315" cy="328" rx="180" ry="23" fill={`url(#${id}-floor)`}/><path d="m181 316 18 2-1 14-18-3Zm241-12 18 5v14l-18-3Z" fill="#080e14"/>
- <path d="M170 66 381 35v-10L170 56Zm211-41 84 38v10l-84-38Z" fill="#26323c" stroke="#56636c" strokeWidth="1.5"/><path d="m381 35 84 38v239l-84-20Z" fill={`url(#${id}-metal)`} stroke="#48565f" strokeWidth="2"/><path d="M170 66 381 35v257l-211 32Z" fill="#121c25" stroke="#56646d" strokeWidth="2"/>
- <path d="m183 80 184-25v218l-184 28Z" fill={`url(#${id}-glass)`} stroke="#647885" strokeWidth="1.3"/>
- <path d="m198 94 128-17v113l-128 17Z" fill="#17282e" opacity=".8" stroke="#3b515a" strokeWidth="1"/>
- <path d="m207 99 108-15M207 106l108-15m-108 23 108-15M207 122l108-15M199 188l130-18" stroke="#3e565a" strokeWidth="1" opacity=".45"/>
- <Rotor cx={271} cy={141} r={36} id={id}/>
- <g className="studio-led"><path d="m333 88 5-1v87l-5 1Zm13-2 5-1v87l-5 1Z" fill={`url(#${id}-rgb)`}/><path d="M205 210 350 190" stroke={`url(#${id}-rgb)`} strokeWidth="3"/><path d="M455 100v194" stroke={`url(#${id}-rgb)`} strokeWidth="3"/></g>
- <path d="m197 216 153-21v42l-153 23Z" fill="#18252f" stroke="#6e8792" strokeWidth="1.4"/><path d="m199 218 149-20" stroke={`url(#${id}-rgb)`} strokeWidth="2"/>
- <g transform="matrix(1 -.14 0 1 211 230)"><text className="studio-gpu-family" y="-4">{detected.family}</text><text className="studio-gpu-label" y="20">{detected.badge}</text></g>
- <path d="m207 270 139-20m-139 7 139-20" stroke="#415866" strokeWidth="2"/><path d="m194 290 12-2m7-1 12-2m7-1 12-2m7-1 12-2" stroke="#667f89" strokeWidth="2"/>
- <path d="m394 61 56 24v211l-56-15Z" fill="#0a131c" stroke="#40525e" strokeWidth="1.5"/>
- <Rotor cx={421} cy={117} r={27} front id={id}/><Rotor cx={421} cy={191} r={27} front id={id}/><Rotor cx={421} cy={265} r={27} front id={id}/>
- <path d="m280 40 18 5m-10-11 18 5m-10-11 18 5" stroke="#71818c" strokeWidth="2"/><circle cx="355" cy="46" r="3" fill="#92d9ec"/><path d="m183 305 183-28" stroke="#8ba7b4" strokeWidth=".8" opacity=".4"/><path d="m190 87 9-1v8m158-28 5-1v8m-171 211 8-1v8m158-29 5-1v8" stroke="#91abb6" strokeWidth="1" opacity=".6"/>
- </svg></div><div className="studio-footer"><div><span className="gpu-family-tag">{detected.badge}</span><span><b>{detected.name}</b><small>{demo?'Пример оборудования · корпус условный':'Надпись по обнаруженной видеокарте · корпус условный'}</small></span></div><button className="button primary-subtle" onClick={onTweaks}><Settings2 size={15}/> Настроить для игр <ArrowUpRight size={15}/></button></div></section>
+ return <section className="pc-studio" data-animate={!paused&&visible&&!reduced} aria-label="Визуализация компьютера">
+ <div className="studio-heading"><div><span className="eyebrow">{demo?'ПРИМЕР КОНФИГУРАЦИИ':'ВАША КОНФИГУРАЦИЯ'}</span><h2>Ваша сборка</h2></div><button type="button" className="button secondary" disabled={reduced} aria-label={paused?'Включить анимацию компьютера':'Остановить анимацию компьютера'} onClick={()=>setPaused(!paused)}>{paused||reduced?<Play size={13}/>:<Pause size={13}/>}<span>{reduced?'Без анимации':paused?'Анимация выключена':'Остановить анимацию'}</span></button></div>
+ <div className="studio-layout">
+ <div className="hardware-logos hardware-logos-left" aria-label="Производители комплектующих">{brands.filter((_,i)=>i%2===0).map(brand=><HardwareLogo key={brand.key} brand={brand}/>)}</div>
+ <div className="studio-scene"><svg viewBox="80 30 1230 1080" role="img" aria-label={`Корпус ПК, вид сбоку. Надпись на видеокарте: ${detected.badge}`}><defs>
+ <linearGradient id={`${id}-nameplate`} x1="0" y1="0" x2="0" y2="1"><stop stopColor="#25282c"/><stop offset="1" stopColor="#15191d"/></linearGradient>
+ </defs><image href={sideCase} x="0" y="0" width="1374" height="1145"/>
+ <Rotor cy={315} id={id}/><Rotor cy={594} id={id}/>
+ <g className="studio-led" fill="none" stroke="#a6e9ff" strokeWidth="3" opacity=".65"><ellipse cx="1061" cy="315" rx="125" ry="128"/><ellipse cx="1061" cy="594" rx="125" ry="128"/><ellipse cx="517" cy="379" rx="76" ry="83"/></g>
+ <rect x="607" y="620" width="258" height="52" rx="2" fill={`url(#${id}-nameplate)`}/>
+ <text x="735" y="654" textAnchor="middle" className="studio-gpu-label">{detected.badge}</text>
+ </svg></div>
+ <div className="hardware-logos hardware-logos-right" aria-label="Производители комплектующих">{brands.filter((_,i)=>i%2===1).map(brand=><HardwareLogo key={brand.key} brand={brand}/>)}</div>
+ </div>
+ <div className="studio-actions"><button className="button secondary" onClick={onTweaks}><Settings2 size={15}/> Настроить для игр <ArrowUpRight size={15}/></button></div>
+ </section>;
 }
