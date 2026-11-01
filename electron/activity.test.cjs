@@ -6,7 +6,7 @@ const os=require('node:os');
 const {createActivityStore,optimizationEvents}=require('./activity.cjs');
 test('events reflect actual results, never pretend a skipped or rolled-back power change succeeded',()=>{
  const ok=optimizationEvents('apply',{power:'lagophone'},{ok:true,report:[{id:'power',status:'applied'},{id:'capture',status:'applied'},{id:'capture',status:'applied'}]});
- assert.equal(ok.length,2);assert.equal(ok[1].title,'Изменён план питания');assert.equal(ok[1].detail,'LAGOPHONE Performance');assert.match(ok[0].detail,/Применено: 2/);
+ assert.equal(ok.length,2);assert.equal(ok[1].title,'Изменён план питания');assert.equal(ok[1].detail,'GTM PC Performance');assert.match(ok[0].detail,/Применено: 2/);
  assert.equal(optimizationEvents('apply',{power:'high'},{ok:true,report:[{id:'power',status:'skipped'}]}).length,1);
  assert.equal(optimizationEvents('apply',{power:'high'},{ok:false,restored:true,report:[{id:'power',status:'applied'},{id:'power',status:'restored'}]}).some(e=>e.title==='Изменён план питания'),false);
  assert.equal(optimizationEvents('restore',null,{ok:true,report:[{id:'power',status:'restored'}]})[1].title,'Восстановлен прежний план питания');

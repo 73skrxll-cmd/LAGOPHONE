@@ -4,6 +4,7 @@ const { execFile } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
 const { apps, links, validateAction } = require('./policy.cjs');
+require('./branding.cjs').configureBranding(app);
 let win;
 const activities=require('./activity.cjs').createActivityStore(()=>path.join(app.getPath('userData'),'activity.json'));
 const restart=require('./restart-ipc.cjs').createWindowsRestart({inspect:()=>optimizer.status()});
@@ -33,9 +34,11 @@ if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => { if (win) { if(win.isMinimized()) win.restore(); win.focus(); } });
 app.whenReady().then(async () => {
   if(process.argv.includes('--lagophone-after-restart')){try{if(await restart.startup()){app.quit();return}}catch{ /* The UI offers a retry if Windows could not be inspected. */ }}
-  win = new BrowserWindow({ width: 1440, height: 960, minWidth: 960, minHeight: 680, backgroundColor: '#101211', icon:path.join(__dirname,'../assets/brand.png'), title: 'LAGOPHONE', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname,'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  win = new BrowserWindow({ width: 1440, height: 960, minWidth: 960, minHeight: 680, backgroundColor: '#101211', icon:path.join(__dirname,'../assets/brand.png'), title: 'GTM PC', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname,'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   win.on('close', e => { if(optimizer.isMutating()){e.preventDefault();void dialog.showMessageBox(win,{type:'info',message:'Дождитесь завершения оптимизации или отката.',detail:'Сейчас сохраняются и проверяются настройки Windows.'});} });
   win.loadFile(path.join(__dirname,'../dist/index.html'));
+  // Update only an existing, consented RunOnce target; do not delay the window.
+  if(!process.argv.includes('--lagophone-after-restart'))void restart.refreshStartup().catch(()=>{});
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', e => e.preventDefault());
 });

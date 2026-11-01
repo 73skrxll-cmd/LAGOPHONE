@@ -14,9 +14,9 @@ function createRestartManager({file,getBootId,arm,disarm,inspect,enabled=true}){
    try{
     const bootId=await getBootId();if(!bootId)throw Error('Не удалось определить запуск Windows.');
     const state={schema:1,bootId,version,profile:plan.profile,ids:[...new Set(result.report.filter(r=>r.status==='applied').map(r=>r.id))],count:applied,notified:false,scheduled:false};await write(state);
-    try{await arm();state.scheduled=true;await write(state)}catch{state.warning='Не удалось настроить разовый запуск. После перезагрузки откройте LAGOPHONE вручную.';await write(state)}
+    try{await arm();state.scheduled=true;await write(state)}catch{state.warning='Не удалось настроить разовый запуск. После перезагрузки откройте GTM PC вручную.';await write(state)}
     return {required:true,scheduled:state.scheduled,warning:state.warning||''};
-   }catch{return {required:true,scheduled:false,warning:'Не удалось сохранить напоминание. Перезагрузите ПК и откройте LAGOPHONE вручную.'}}
+   }catch{return {required:true,scheduled:false,warning:'Не удалось сохранить напоминание. Перезагрузите ПК и откройте GTM PC вручную.'}}
   })},
   clear(){return exclusive(async()=>{if(!enabled)return;await remove()})},
   status(){return exclusive(async()=>{
@@ -33,6 +33,11 @@ function createRestartManager({file,getBootId,arm,disarm,inspect,enabled=true}){
   })},
   acknowledge(){return exclusive(async()=>{if(!enabled)return {ok:true};const state=await read(),bootId=await getBootId();if(state&&bootId&&bootId!==state.bootId)await remove();return {ok:true}})},
   defer(){return exclusive(async()=>{const state=await read();if(state){state.notified=true;await write(state)}return {ok:true}})},
+  refreshStartup(){return exclusive(async()=>{
+   if(!enabled)return;
+   const state=await read();if(!state?.scheduled)return;
+   const bootId=await getBootId();if(bootId===state.bootId)await arm();
+  })},
   async startup(){
    // RunOnce also fires after sign-out. Keep the one-time launch for the next real reboot.
    if(!enabled)return false;

@@ -43,7 +43,7 @@ function createShaderPreparation({file,run=runCli,isFile=async executable=>(awai
    if(!path.win32.isAbsolute(executable)||path.win32.basename(executable).toLowerCase()!=='scskiller.exe')throw Error('Нужен scskiller.exe из папки cli официального SCSKiller.');
    const version=(await run(executable,['--version'])).trim();
    const help=await run(executable,['--help']);
-   if(!version||!help.includes('compile <game')||!help.includes('add <exe>')||!help.includes('--idle'))throw Error('Эта версия SCSKiller CLI не поддерживает подготовку из LAGOPHONE.');
+   if(!version||!help.includes('compile <game')||!help.includes('add <exe>')||!help.includes('--idle'))throw Error('Эта версия SCSKiller CLI не поддерживает подготовку из GTM PC.');
    const saved={executable,version:version.slice(0,100)};
    await fs.mkdir(path.dirname(location()),{recursive:true});await fs.writeFile(location(),JSON.stringify(saved),'utf8');
    return {available:true,version:saved.version};

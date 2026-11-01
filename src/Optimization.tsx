@@ -82,7 +82,7 @@ export function OptimizationPanel({gamingOnly=false,active=true,native,version,m
  const categories=['Все',...new Set(displaySteps.filter(s=>!!s.special===gamingOnly).map(s=>s.category))];
  const currentProfile=windowsProfiles.find(p=>p.id===profile)!;
  const regularCount=profileSteps.filter(s=>!s.special).length,extraCount=displaySteps.filter(s=>!!s.special).length;
- const powerName:Record<string,string>={keep:'Оставить текущий',balanced:'Сбалансированный',high:'Высокая производительность',ultimate:'Максимальная производительность',lagophone:'LAGOPHONE Performance'};
+ const powerName:Record<string,string>={keep:'Оставить текущий',balanced:'Сбалансированный',high:'Высокая производительность',ultimate:'Максимальная производительность',lagophone:'GTM PC Performance'};
  const groups=[{id:0,name:'Базовый набор',detail:'Интерфейс, игровой режим и рекомендации Windows'},{id:1,name:'Дополнительно в среднем',detail:'Фоновые функции, автозагрузка и неиспользуемые службы'},{id:2,name:'Дополнительно в глубоком',detail:'Индексация, системные службы и эксперименты'},{id:3,name:'Питание и выбранная игра',detail:'Отдельные действия по выбранным параметрам'}];
  function changeProfile(id:string){
   const next=catalog.profiles.find(p=>p.id===id)!;

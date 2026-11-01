@@ -168,19 +168,19 @@ function Restore-Entry($entry) {
   if($entry.kind -eq 'registry') {
     $current=Get-Registry $entry.path $entry.name
     if(Same-Registry $current $entry.before){return}
-    if(!(Same-Registry $current $entry.after)){throw 'Setting changed outside LAGOPHONE; retained for manual review'}
+    if(!(Same-Registry $current $entry.after)){throw 'Setting changed outside GTM PC; retained for manual review'}
     Write-Registry $entry.path $entry.name $entry.before
     if(!(Same-Registry (Get-Registry $entry.path $entry.name) $entry.before)){throw 'Registry restore verification failed'}
   } elseif($entry.kind -eq 'process') {
     $current=Get-GameProcessState $entry.processId $entry.started $entry.gamePath
     if(!$current -or $current.priority -eq $entry.before){return}
-    if($current.priority -ne 'High'){throw 'Game priority changed outside LAGOPHONE'}
+    if($current.priority -ne 'High'){throw 'Game priority changed outside GTM PC'}
     [void](Set-GamePriority $entry.processId $entry.started $entry.gamePath $entry.before)
   } elseif($entry.kind -eq 'service') {
     $current=Service-State $entry.name
     if(!$current){throw 'Service no longer exists'}
     # Allow retry after restoring the startup mode but failing to restart the service.
-    if($current.start -ne 4 -and $current.start -ne $entry.before.start){throw 'Service startup changed outside LAGOPHONE'}
+    if($current.start -ne 4 -and $current.start -ne $entry.before.start){throw 'Service startup changed outside GTM PC'}
     $startup=@{2='Automatic';3='Manual';4='Disabled'}[[int]$entry.before.start]
     if(!$startup){throw 'Unsupported original service startup mode'}
     Set-Service -Name $entry.name -StartupType $startup
@@ -193,13 +193,13 @@ function Restore-Entry($entry) {
   } elseif($entry.kind -eq 'power') {
     $current=Active-Plan
     if($current -ne $entry.before){
-      if($current -ne $entry.after){throw 'Power plan changed outside LAGOPHONE'}
+      if($current -ne $entry.after){throw 'Power plan changed outside GTM PC'}
       Invoke-PowerCfg /setactive $entry.before | Out-Null
       if($LASTEXITCODE -ne 0 -or (Active-Plan) -ne $entry.before){throw 'Power plan restore failed'}
     }
     if($entry.managed -eq $true -and $entry.after -eq $managedPlan -and (Power-Exists $entry.after)){
       Invoke-PowerCfg /delete $entry.after | Out-Null
-      if($LASTEXITCODE -ne 0 -or (Power-Exists $entry.after)){throw 'Cannot remove the plan created by LAGOPHONE'}
+      if($LASTEXITCODE -ne 0 -or (Power-Exists $entry.after)){throw 'Cannot remove the plan created by GTM PC'}
     }
   } else {throw 'Unknown backup entry'}
 }
@@ -513,7 +513,7 @@ try {
               $owned=$previousState -and @($previousState.entries | Where-Object {$_.kind -eq 'power' -and $_.managed -eq $true -and $_.after -eq $managedPlan}).Count -gt 0
               if($owned -and (Active-Plan) -ne $managedPlan){[void]$entries.Add(@{id=$id;kind='power';before=(Active-Plan);after=$managedPlan;reused=$true})}
               elseif($payload.scope -eq 'power' -and (Active-Plan) -ne $managedPlan){[void]$entries.Add(@{id=$id;kind='power';before=(Active-Plan);after=$managedPlan;existing=$true})}
-              else{Note $id 'skipped' 'План LAGOPHONE уже активен или существует; не перезаписывался.'}
+              else{Note $id 'skipped' 'План GTM PC уже активен или существует; не перезаписывался.'}
               continue
             }
             [void]$entries.Add(@{id=$id;kind='power';before=(Active-Plan);after=$managedPlan;managed=$true})
@@ -550,9 +550,9 @@ try {
             } else {
               if($entry.managed -eq $true){
                 Invoke-PowerCfg /duplicatescheme $entry.before $entry.after | Out-Null
-                if($LASTEXITCODE -ne 0){throw 'This PC cannot create the LAGOPHONE plan. Select an existing plan instead.'}
-                Invoke-PowerCfg /changename $entry.after 'LAGOPHONE Performance' | Out-Null
-                if($LASTEXITCODE -ne 0){throw 'Cannot name the LAGOPHONE plan'}
+                if($LASTEXITCODE -ne 0){throw 'This PC cannot create the GTM PC plan. Select an existing plan instead.'}
+                Invoke-PowerCfg /changename $entry.after 'GTM PC Performance' | Out-Null
+                if($LASTEXITCODE -ne 0){throw 'Cannot name the GTM PC plan'}
                 $settings=@(
                   @{sub='54533251-82be-4824-96c1-47b60b740d00';setting='893dee8e-2bef-41e0-89c6-b55d0929964c';value=100},
                   @{sub='54533251-82be-4824-96c1-47b60b740d00';setting='bc5038f7-23e0-4960-96da-33abaf5935ec';value=100},

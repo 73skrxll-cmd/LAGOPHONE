@@ -1,7 +1,7 @@
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const {randomUUID}=require('node:crypto');
-const powerNames={balanced:'Сбалансированный',high:'Высокая производительность',ultimate:'Максимальная производительность',lagophone:'LAGOPHONE Performance',keep:'Текущий'};
+const powerNames={balanced:'Сбалансированный',high:'Высокая производительность',ultimate:'Максимальная производительность',lagophone:'GTM PC Performance',keep:'Текущий'};
 function optimizationEvents(mode,payload,result){
  const report=Array.isArray(result.report)?result.report:[];
  const count=status=>new Set(report.filter(r=>r.status===status).map(r=>r.id)).size;

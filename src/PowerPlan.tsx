@@ -3,7 +3,7 @@ import {CheckCircle2,Info,LoaderCircle,Zap} from 'lucide-react';
 import type {OptimizationStatus} from './Optimization';
 import {withTimeout} from '../shared/optimization-view.mjs';
 import catalog from '../shared/optimization.json';
-const plans=[{id:'keep',name:'Оставить текущий',guid:''},{id:'balanced',name:'Сбалансированный',guid:'381b4222-f694-41f0-9685-ff5bb260df2e'},{id:'high',name:'Высокая производительность',guid:'8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'},{id:'ultimate',name:'Максимальная производительность',guid:'e9a42b02-d5df-448d-aa00-03f14749eb61'},{id:'lagophone',name:'LAGOPHONE Performance — агрессивный',guid:'b9e86298-7324-4f93-9066-faf25aa1c0a3'}];
+const plans=[{id:'keep',name:'Оставить текущий',guid:''},{id:'balanced',name:'Сбалансированный',guid:'381b4222-f694-41f0-9685-ff5bb260df2e'},{id:'high',name:'Высокая производительность',guid:'8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'},{id:'ultimate',name:'Максимальная производительность',guid:'e9a42b02-d5df-448d-aa00-03f14749eb61'},{id:'lagophone',name:'GTM PC Performance — агрессивный',guid:'b9e86298-7324-4f93-9066-faf25aa1c0a3'}];
 type Status=OptimizationStatus & {plans?:Record<string,boolean>};
 export function PowerPlan({native,version,mismatch,value,onChange,onCompleted}:{native:boolean;version:'10'|'11';mismatch:boolean;value:string;onChange:(value:string)=>void;onCompleted:()=>void}){
  const [status,setStatus]=useState<Status|null>(null),[checking,setChecking]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[failure,setFailure]=useState(''),[message,setMessage]=useState('');

@@ -99,7 +99,7 @@ export function GameOptimizer({native,active,version,mismatch,motion=true,onComp
  const phase=shaderPreparing?(shaderProgress||'Подготовка шейдеров'):status?.operation?.phase==='confirmation'?'Подтвердите игровые настройки в окне Windows':status?.operation?.phase==='windows'?'Windows применяет и проверяет параметры игры':'Подготавливаем игровые настройки';
  return <div className="game-optimizer">
   <section className="game-launcher" aria-label="Оптимизация выбранной игры">
-   <GameEmblem id={game} name={selected?.name||'LAGOPHONE'} phase={busy?'working':optimized||activated&&result?.ok&&!result.cancelled?'ready':activated&&result?.ok===false?'error':'idle'} motion={motion} paused={!active}/>
+   <GameEmblem id={game} name={selected?.name||'GTM PC'} phase={busy?'working':optimized||activated&&result?.ok&&!result.cancelled?'ready':activated&&result?.ok===false?'error':'idle'} motion={motion} paused={!active}/>
    <h2>{selected?selected.name:'Выберите игру'}</h2>
    {!selected&&<p>Выберите игру или добавьте свою.</p>}
    <button ref={opener} className="button secondary game-choose" disabled={busy} onClick={()=>{setQuery('');setCatalogOpen(true)}}><Gamepad2 size={19}/>{selected?'Выбрать другую игру':'Выбрать игру'}<ChevronRight size={16}/></button>

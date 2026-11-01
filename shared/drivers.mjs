@@ -24,7 +24,7 @@ export function buildDriverCatalog(system,version){
  const oemLinks=()=>oem?[{...oem,id:'category-oem'}]:[];
  const categories=[];
  const graphics=[];
- if(/nvidia/i.test(gpu))graphics.push(link('nvidia-driver','Драйвер NVIDIA по модели видеокарты','https://www.nvidia.com/en-us/drivers/','selector','Выберите серию, модель '+gpu+' и Windows '+version+'. Случайный пакет драйвера не подставляется.'),link('nvidia-app','NVIDIA App — обновление совместимых драйверов','https://www.nvidia.com/en-us/software/nvidia-app/','autodetect','Программа NVIDIA определяет поддерживаемую видеокарту. Это не файл драйвера от LAGOPHONE.'));
+ if(/nvidia/i.test(gpu))graphics.push(link('nvidia-driver','Драйвер NVIDIA по модели видеокарты','https://www.nvidia.com/en-us/drivers/','selector','Выберите серию, модель '+gpu+' и Windows '+version+'. Случайный пакет драйвера не подставляется.'),link('nvidia-app','NVIDIA App — обновление совместимых драйверов','https://www.nvidia.com/en-us/software/nvidia-app/','autodetect','Программа NVIDIA определяет поддерживаемую видеокарту. Это не файл драйвера от GTM PC.'));
  if(/amd|radeon/i.test(gpu))graphics.push(link('amd-gpu','AMD Radeon — выбор GPU и автоопределение','https://www.amd.com/en/support/download/drivers.html','autodetect','Выберите именно графический адаптер, а не чипсет материнской платы.'));
  if(/intel/i.test(gpu))graphics.push(link('intel-gpu-dsa','Intel DSA — официальный установщик автоподбора',INTEL_DSA,'installer','Поддержка зависит от поколения GPU. Для ноутбуков сначала проверьте драйвер OEM.'));
  categories.push({id:'gpu',name:'Видеокарта',device:gpu||'Не определена',description:'Графический драйвер. HDMI/DisplayPort-аудио обычно входит в его пакет.',links:graphics.length?graphics:oemLinks()});

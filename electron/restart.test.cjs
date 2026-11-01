@@ -19,3 +19,10 @@ test('restart IPC requires native consent, shares the operation lock and never f
 });
 
 test('acknowledgment before a real reboot cannot discard the pending notification',async t=>{const f=await fixture(t);await f.m.afterApply({profile:'basic'},result,'11');await f.m.acknowledge();assert.equal((await f.m.status()).pending,true);f.boot('boot-2');assert.ok((await f.m.status()).celebration);assert.ok((await f.m.status()).celebration);await f.m.acknowledge();assert.equal((await f.m.status()).pending,false)});
+
+test('rebranding refreshes only an already scheduled launch for the same boot',async t=>{
+ const f=await fixture(t);await f.m.refreshStartup();assert.equal(f.counts().arms,0);
+ await f.m.afterApply({profile:'basic'},result,'11');await f.m.refreshStartup();assert.equal(f.counts().arms,2);
+ f.boot('boot-2');await f.m.refreshStartup();assert.equal(f.counts().arms,2);
+ const g=await fixture(t);g.armError();await g.m.afterApply({profile:'basic'},result,'11');await g.m.refreshStartup();assert.equal(g.counts().arms,1,'An unscheduled or refused launch must not be silently enabled');
+});

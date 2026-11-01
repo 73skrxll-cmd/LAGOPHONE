@@ -6,7 +6,7 @@ const {windowsPowerShellEnvironment,windowsPowerShellExecutable}=require('./wind
 const RUN_ONCE='HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce';
 const VALUE='LAGOPHONEAfterRestart';
 function run(file,args,timeout=15000){return new Promise((resolve,reject)=>execFile(file,args,{windowsHide:true,timeout,env:windowsPowerShellEnvironment(),maxBuffer:1024*1024},(error,stdout)=>error?reject(error):resolve(stdout.trim())))}
-function startupCommand(executable){if(!path.win32.isAbsolute(executable)||!/^.*\.exe$/i.test(executable)||/["\r\n\0]/.test(executable))throw Error('Недопустимый путь LAGOPHONE.');const command='"'+executable+'" --lagophone-after-restart';if(command.length>260)throw Error('Путь слишком длинный для разового запуска Windows.');return command}
+function startupCommand(executable){if(!path.win32.isAbsolute(executable)||!/^.*\.exe$/i.test(executable)||/["\r\n\0]/.test(executable))throw Error('Недопустимый путь GTM PC.');const command='"'+executable+'" --lagophone-after-restart';if(command.length>260)throw Error('Путь слишком длинный для разового запуска Windows.');return command}
 function createWindowsRestart({inspect}){
  const enabled=process.platform==='win32'&&app.isPackaged;
  const systemFile=name=>path.win32.join(process.env.SystemRoot||'C:\\Windows','System32',name);
@@ -27,7 +27,7 @@ function createWindowsRestart({inspect}){
    restarting=true;
    try{return await optimizer.exclusive('restart',async()=>{
     const state=await manager.status();if(!state.pending)throw Error('Нет ожидающего перезагрузки профиля.');
-    const choice=await dialog.showMessageBox(getWindow(),{type:'warning',title:'Перезагрузить компьютер?',message:'Сохраните открытые файлы перед перезагрузкой.',detail:state.scheduled?'Windows перезагрузится сейчас. После входа LAGOPHONE откроется один раз и проверит сохранённый профиль.':'Windows перезагрузится сейчас. После входа откройте LAGOPHONE вручную.',buttons:['Отмена','Перезагрузить'],defaultId:0,cancelId:0});
+    const choice=await dialog.showMessageBox(getWindow(),{type:'warning',title:'Перезагрузить компьютер?',message:'Сохраните открытые файлы перед перезагрузкой.',detail:state.scheduled?'Windows перезагрузится сейчас. После входа GTM PC откроется один раз и проверит сохранённый профиль.':'Windows перезагрузится сейчас. После входа откройте GTM PC вручную.',buttons:['Отмена','Перезагрузить'],defaultId:0,cancelId:0});
     if(choice.response!==1)return {ok:true,cancelled:true};
     await manager.defer();
     // Do not force-close applications with unsaved work.

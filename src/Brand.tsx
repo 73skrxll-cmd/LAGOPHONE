@@ -1,3 +1,3 @@
 export function BrandMark({className=''}:{className?:string}){
- return <svg className={'brand-mark '+className} viewBox="0 0 44 44" fill="none" aria-hidden="true"><path d="M11 3h22l8 8v22l-8 8H11l-8-8V11l8-8Z" fill="currentColor"/><path d="M12 12v20h11v-5h-6V12h-5Zm13 0-5 5v5l5 5h8V19h-8v4h4v1h-3l-2-2v-4l2-2h7v-4h-8Z" fill="var(--accent-contrast,#17240f)"/><path d="m30 30 3-3 3 3-3 3-3-3Z" fill="var(--accent-contrast,#17240f)"/></svg>
+ return <svg className={'brand-mark '+className} viewBox="0 0 64 64" fill="none" aria-hidden="true"><rect x="4" y="6" width="56" height="42" rx="7" fill="currentColor"/><rect x="8" y="10" width="48" height="34" rx="3" fill="var(--accent-contrast,#17240f)"/><path d="M24 18H12V34H24V25H18V28H21V31H15V21H24V18ZM26 18H39V21H34V34H31V21H26V18ZM41 34V18H44L47 24L50 18H53V34H50V24L47 30L44 24V34H41Z" fill="currentColor"/><path d="M28 48H36V54H43L47 59H17L21 54H28V48Z" fill="currentColor"/></svg>;
 }
