@@ -17,8 +17,13 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
 (async()=>{
  for(let i=0;i<100;i++){if(launchError)throw launchError;try{if((await fetch(origin)).ok)break}catch{}await delay(100)}
  let pages;
- for(let i=0;i<30;i++){try{pages=await (await fetch('http://127.0.0.1:'+debugPort+'/json')).json();break}catch{await delay(200)}}
- assert.ok(pages?.length,'Chromium debugging page');
+ for(let i=0;i<75;i++){
+  if(launchError)throw launchError;
+  if(browser.exitCode!==null)break;
+  try{pages=await (await fetch('http://127.0.0.1:'+debugPort+'/json')).json();if(pages.some(page=>page.type==='page'))break}catch{}
+  await delay(200);
+ }
+ assert.ok(pages?.some(page=>page.type==='page'),'Chromium debugging page; exit='+browser.exitCode+'; '+fs.readFileSync(path.join(output,'chromium.log'),'utf8').slice(-6000));
  ws=new WebSocket(pages.find(p=>p.type==='page').webSocketDebuggerUrl);
  await new Promise((resolve,reject)=>{ws.onopen=resolve;ws.onerror=reject});
  let seq=0;const pending=new Map();
