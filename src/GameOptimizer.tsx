@@ -23,7 +23,7 @@ export function GameOptimizer({native,active,version,mismatch,onCompleted,activi
  const [custom,setCustom]=useState<GameChoice|null>(()=>lastView?.custom||null);
  const requestVersion=useRef(0);
  const visitedActivity=useRef(0);
- useEffect(()=>{if(!active||!activityRequest?.game||activityRequest.request===visitedActivity.current||!status?.ok)return;if(!allGames.some(item=>item.id===activityRequest.game))return;visitedActivity.current=activityRequest.request;select(activityRequest.game)},[active,activityRequest?.request,status]);
+ useEffect(()=>{if(busy||!active||!activityRequest?.game||activityRequest.request===visitedActivity.current||!status?.ok)return;if(!allGames.some(item=>item.id===activityRequest.game))return;visitedActivity.current=activityRequest.request;select(activityRequest.game)},[busy,active,activityRequest?.request,status]);
  const launcher=useRef<HTMLElement>(null),emblem=useRef<HTMLDivElement>(null),optimizeButton=useRef<HTMLButtonElement>(null);
  const [animation,setAnimation]=useState<{run:number;phase:'idle'|'working'|'ready'|'error'}>({run:0,phase:'idle'});
  const resetAnimation=()=>setAnimation({run:0,phase:'idle'});
