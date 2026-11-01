@@ -30,7 +30,17 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  ws.onmessage=e=>{const msg=JSON.parse(e.data);if(msg.method==='Runtime.exceptionThrown')console.error('Browser exception:',JSON.stringify(msg.params.exceptionDetails));if(msg.id){const [resolve,reject]=pending.get(msg.id);pending.delete(msg.id);msg.error?reject(new Error(JSON.stringify(msg.error))):resolve(msg.result)}};
  const send=(method,params={})=>new Promise((resolve,reject)=>{const id=++seq;pending.set(id,[resolve,reject]);ws.send(JSON.stringify({id,method,params}))});
  const evaluate=async expression=>{const result=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(result.exceptionDetails)throw new Error(JSON.stringify(result.exceptionDetails));return result.result.value};
- const click=async text=>{assert.equal(await evaluate(`(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.getClientRects().length&&b.textContent.trim()===${JSON.stringify(text)});if(!b)return false;b.click();return true})()`),true,'Button '+text);await delay(400)};
+ const waitFor=async(expression,label)=>{
+  for(let i=0;i<100;i++){
+   try{if(await evaluate(expression))return}catch(error){if(!/context|navigat/i.test(String(error)))throw error}
+   await delay(100);
+  }
+  throw Error(label+' did not become ready: '+await evaluate(`document.body.innerText.slice(0,2500)`));
+ };
+ const click=async text=>{
+  const operation=`(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.getClientRects().length&&b.textContent.trim()===${JSON.stringify(text)});if(!b||b.disabled)return false;b.click();return true})()`;
+  await waitFor(operation,'Button '+text);await delay(400);
+ };
  await send('Page.enable');await send('Runtime.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
  const hardware={demo:false,version:'11',build:'26100',cpu:'AMD Ryzen 5 5600X',gpu:['NVIDIA GeForce RTX 3060'],gpuDrivers:[{name:'NVIDIA GeForce RTX 3060',version:'580.0'}],board:'B550',ram:32,disks:[]};
  const {buildDriverCatalog}=await import(pathToFileURL(path.join(root,'shared/drivers.mjs')).href);
@@ -45,7 +55,9 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  `});
  await send('Storage.clearDataForOrigin',{origin,storageTypes:'local_storage'});
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:960,deviceScaleFactor:1,mobile:false});
- await send('Page.navigate',{url:origin+'/'});await delay(1000);
+ await send('Page.navigate',{url:origin+'/'});
+ await waitFor(`!!document.querySelector('.welcome-emblem')`,'Welcome screen');
+ await evaluate(`document.body.offsetHeight;document.fonts.ready.then(()=>true)`);
  assert.equal(await evaluate(`document.body.textContent.includes('PC UTILITY')`),false);
  assert.ok(await evaluate(`!!document.querySelector('.welcome-emblem')`),await evaluate(`document.body.innerText.slice(0,2500)`));
  assert.ok((await evaluate(`document.body.textContent`)).includes('GTM PC'));
@@ -64,7 +76,7 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  assert.equal(await evaluate(`document.querySelector('.game-optimize').disabled`),false,'Primary action must remain clickable before choosing the EXE');
  await click('Выбрать файл игры');assert.equal(await evaluate(`document.querySelector('.game-optimize').textContent.trim()`),'Оптимизировать');
  const shot=async name=>fs.writeFileSync(path.join(output,name+'.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
- const animation=()=>evaluate(`({...document.querySelector('.game-animation').dataset})`);
+ const animation=()=>evaluate(`({...document.querySelector('.game-animation')?.dataset})`);
  const diskDepth=async()=>{
   const samples=await evaluate(`(()=>{
    const canvas=document.querySelector('.game-animation'),ctx=canvas.getContext('2d'),front=document.querySelector('.game-animation-front').getContext('2d'),d=canvas.dataset;
@@ -156,7 +168,7 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await evaluate(`window.__outcome='cancelled';document.querySelector('.game-optimize').click()`);await delay(200);await evaluate(`window.__finish()`);await delay(100);assert.equal((await animation()).stage,'idle');assert.equal((await coloredPixels()).total,0);
  await evaluate(`window.__outcome='throw';document.querySelector('.game-optimize').click()`);await delay(200);await evaluate(`window.__finish()`);await delay(150);assert.equal((await animation()).stage,'error');assert.ok(await evaluate(`document.querySelector('.optimization-message').textContent.includes('native test failure')`));
  await evaluate(`window.__outcome=null;document.querySelector('.game-optimize').click()`);await delay(3100);await evaluate(`window.__finish()`);await waitStage(['boost']);
- await send('Page.reload');await delay(800);await click('Игровая оптимизация');assert.equal((await animation()).stage,'orbit','Saved optimized game opens with a formed orbit, without emission');
+ const previousDocument=await evaluate(`performance.timeOrigin`);await send('Page.reload');await waitFor(`performance.timeOrigin!==${previousDocument}&&!!document.querySelector('.app-shell')`,'Reloaded application');await click('Игровая оптимизация');await waitStage(['orbit']);assert.equal((await animation()).stage,'orbit','Saved optimized game opens with a formed orbit, without emission');
  const firstDisk=await diskDepth();let diskYaw=firstDisk.yaw,depthChecks=firstDisk.back.length?1:0;
  for(let i=0;i<3;i++){
   await delay(800);const next=await diskDepth();
