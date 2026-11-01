@@ -14,12 +14,12 @@ const point=(a:Point,b:Point,c:Point,d:Point,t:number):Point=>{const u=1-t;retur
 // This is operation feedback. Its clock deliberately does not use OS motion
 // preferences or the application's ambient-effects switch. Hidden views pause it.
 export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{game:string;run:number;phase:Phase;active:boolean;launcher:RefObject<HTMLElement>;button:RefObject<HTMLButtonElement>;emblem:RefObject<HTMLDivElement>}){
- const canvas=useRef<HTMLCanvasElement>(null);
+ const canvas=useRef<HTMLCanvasElement>(null),foreground=useRef<HTMLCanvasElement>(null);
  const simulation=useRef<Simulation|null>(null);
  useEffect(()=>{
-  const surface=canvas.current,host=launcher.current,target=emblem.current;
-  if(!surface||!host||!target)return;
-  const ctx=surface.getContext('2d');if(!ctx)return;
+  const surface=canvas.current,frontSurface=foreground.current,host=launcher.current,target=emblem.current;
+  if(!surface||!frontSurface||!host||!target)return;
+  const ctx=surface.getContext('2d'),frontCtx=frontSurface.getContext('2d');if(!ctx||!frontCtx)return;
   const key=`${game}:${run}`;
   if(simulation.current?.key!==key)simulation.current={key,time:run===0&&phase==='ready'?5:0,angle:0,success:run===0&&phase==='ready'?-10:null,failed:null,emit:0,serial:0,particles:[]};
   const state=simulation.current;
@@ -35,7 +35,7 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
   function measure(){
    const bounds=host!.getBoundingClientRect(),logo=target!.getBoundingClientRect(),source=button.current?.getBoundingClientRect();
    width=host!.clientWidth;height=host!.clientHeight;dpr=Math.min(window.devicePixelRatio||1,2);
-   surface!.width=Math.round(width*dpr);surface!.height=Math.round(height*dpr);
+   for(const layer of [surface!,frontSurface!]){layer.width=Math.round(width*dpr);layer.height=Math.round(height*dpr)}
    center={x:logo.left+logo.width/2-bounds.left-host!.clientLeft,y:logo.top+logo.height/2-bounds.top-host!.clientTop};
    origin=source?{x:source.left+source.width/2-bounds.left-host!.clientLeft,y:source.top+4-bounds.top-host!.clientTop}:{...center};
    radius=Math.max(1,Math.min(98,(width-32)/3.6));
@@ -53,7 +53,8 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
   }
   function draw(){
    if(width<=0||height<=0)return false;
-   const s=state!;ctx!.setTransform(dpr,0,0,dpr,0,0);ctx!.clearRect(0,0,width,height);
+   const s=state!;
+   for(const paint of [ctx!,frontCtx!]){paint.setTransform(dpr,0,0,dpr,0,0);paint.clearRect(0,0,width,height)}
    if(phase==='idle'){surface!.dataset.stage='idle';return false}
    if(phase==='ready'&&s.success===null)s.success=Math.max(s.time,2.9);
    if(phase==='error'&&s.failed===null)s.failed=s.time;
@@ -74,25 +75,27 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
    surface!.dataset.origin=`${origin.x.toFixed(1)},${origin.y.toFixed(1)}`;surface!.dataset.target=`${center.x.toFixed(1)},${center.y.toFixed(1)}`;
    function disk(side:'back'|'front'){
     if(horizon<=0)return;
-    ctx!.save();
+    // Foreground canvas sits above the DOM logo; the back canvas sits below it.
+    const paint=(side==='front'?frontCtx:ctx)!;
+    paint.save();
     if(side==='back'){
      // The far half is occluded by the central shadow, even while it fades in.
-     ctx!.beginPath();ctx!.rect(0,0,width,height);ctx!.moveTo(center.x+radius*.94,center.y);ctx!.arc(center.x,center.y,radius*.94,0,Math.PI*2);ctx!.clip('evenodd');
+     paint.beginPath();paint.rect(0,0,width,height);paint.moveTo(center.x+radius*.94,center.y);paint.arc(center.x,center.y,radius*.94,0,Math.PI*2);paint.clip('evenodd');
     }
     // z(t) has its front/back crossings at nearStart and nearStart + PI.
     const start=nearStart+(side==='back'?Math.PI:0),step=Math.PI/48;
-    ctx!.strokeStyle=gold(.62,horizon*.23);ctx!.lineWidth=9;ctx!.lineCap='round';ctx!.beginPath();
-    for(let i=0;i<=48;i++){const p=diskPoint(start+i*step,1.76);if(i===0)ctx!.moveTo(p.x,p.y);else ctx!.lineTo(p.x,p.y)}
-    ctx!.stroke();ctx!.lineCap='butt';
+    paint.strokeStyle=gold(.62,horizon*.23);paint.lineWidth=9;paint.lineCap='round';paint.beginPath();
+    for(let i=0;i<=48;i++){const p=diskPoint(start+i*step,1.76);if(i===0)paint.moveTo(p.x,p.y);else paint.lineTo(p.x,p.y)}
+    paint.stroke();paint.lineCap='butt';
     for(const [scale,opacity,thickness,offset] of [[1.76,horizon,4.4,1.2],[1.83,horizon*.25,1,2]]){
      for(let i=0;i<48;i++){
       const t=start+i*step,hot=(Math.cos(t-s.angle-offset)+1)/2;
       const a=diskPoint(t,scale),b=diskPoint(t+step+.001,scale);
-      ctx!.strokeStyle=gold(.18+.72*(1-hot),opacity*(.3+.7*hot));ctx!.lineWidth=thickness*(.55+.65*hot);
-      ctx!.beginPath();ctx!.moveTo(a.x,a.y);ctx!.lineTo(b.x,b.y);ctx!.stroke();
+      paint.strokeStyle=gold(.18+.72*(1-hot),opacity*(.3+.7*hot));paint.lineWidth=thickness*(.55+.65*hot);
+      paint.beginPath();paint.moveTo(a.x,a.y);paint.lineTo(b.x,b.y);paint.stroke();
      }
     }
-    ctx!.restore();
+    paint.restore();
    }
    ctx!.save();
    if(halo>0){
@@ -164,5 +167,5 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
   window.addEventListener('blur',blur);window.addEventListener('focus',focus);document.addEventListener('visibilitychange',visibility);
   return()=>{disposed=true;stop();observer.disconnect();window.removeEventListener('blur',blur);window.removeEventListener('focus',focus);document.removeEventListener('visibilitychange',visibility)};
  },[game,run,phase,active,launcher,button,emblem]);
- return <canvas ref={canvas} className="game-animation" aria-hidden="true"/>;
+ return <><canvas ref={canvas} className="game-animation" aria-hidden="true"/><canvas ref={foreground} className="game-animation-front" aria-hidden="true"/></>;
 }

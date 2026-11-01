@@ -37,7 +37,7 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  const categories=buildDriverCatalog(hardware,'11');
  const empty={ok:true,active:false,remaining:0,checks:[],savedGames:[],appliedTargets:[],windows:{version:'11',build:26100}};
  await send('Page.addScriptToEvaluateOnNewDocument',{source:`
- window.__game=JSON.parse(sessionStorage.getItem('game-test')||'null')||${JSON.stringify(empty)};window.__paths={cs2:'C:/Games/cs2.exe',dota2:'D:/Dota/dota2.exe',deadlock:'D:/Deadlock/DeadlockClient.exe'};window.__requests=[];
+ window.__game=JSON.parse(sessionStorage.getItem('game-test')||'null')||${JSON.stringify(empty)};window.__paths={cs2:'C:/Games/cs2.exe',dota2:'D:/Dota/dota2.exe',deadlock:'D:/Deadlock/DeadlockClient.exe',fortnite:'C:/Games/FortniteClient.exe'};window.__requests=[];
  window.lagophone={system:async()=>(${JSON.stringify(hardware)}),onProgress:()=>()=>{},activities:async()=>({items:[],warning:''}),restartStatus:async()=>({pending:false}),optimizationStatus:async()=>({ok:true,active:true,needsRecovery:true,remaining:1,checks:[],windows:{version:'11',build:26100}}),powerOptimizationStatus:async()=>({...${JSON.stringify(empty)},power:'381b4222-f694-41f0-9685-ff5bb260df2e',plans:{balanced:true,lagophone:true}}),gameOptimizationStatus:async()=>window.__game,
  chooseGame:async id=>window.__paths[id],chooseOtherGame:async()=>{const id='custom-'+(window.__game.savedGames.some(g=>g.id.startsWith('custom-'))?'b':'a').repeat(32),gamePath='E:/My Games/'+(id.includes('aaaa')?'FirstGame.exe':'SecondGame.exe');window.__paths[id]=gamePath;return{id,name:gamePath.split('/').at(-1).replace('.exe',''),gamePath}},
  optimize:async input=>{window.__requests.push(input);window.__game={...window.__game,running:true,operation:{mode:'apply',phase:'windows'}};return new Promise((resolve,reject)=>window.__finish=()=>{if(window.__outcome){window.__game={...window.__game,running:false,operation:null};if(window.__outcome==='throw'){reject(Error('native test failure'));return}resolve({ok:window.__outcome==='cancelled',cancelled:window.__outcome==='cancelled',report:[],error:window.__outcome==='error'?'Native operation failed':undefined});return}const gamePath=window.__paths[input.game];window.__game={...window.__game,active:true,running:false,operation:null,savedGames:[...window.__game.savedGames.filter(g=>g.id!==input.game),{id:input.game,gamePath}],appliedTargets:[...window.__game.appliedTargets.filter(t=>t.gamePath!==gamePath),...['game-gpu','game-priority'].map(id=>({id,gamePath,enabled:true}))]};sessionStorage.setItem('game-test',JSON.stringify(window.__game));resolve({ok:true,report:[{id:'game-priority',status:'applied',message:'High verified'}]})})},
@@ -67,9 +67,9 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  const animation=()=>evaluate(`({...document.querySelector('.game-animation').dataset})`);
  const diskDepth=async()=>{
   const samples=await evaluate(`(()=>{
-   const canvas=document.querySelector('.game-animation'),ctx=canvas.getContext('2d'),d=canvas.dataset;
+   const canvas=document.querySelector('.game-animation'),ctx=canvas.getContext('2d'),front=document.querySelector('.game-animation-front').getContext('2d'),d=canvas.dataset;
    const [cx,cy]=d.target.split(',').map(Number),r=Number(d.horizonRadius),yaw=Number(d.diskYaw),inclination=Number(d.diskInclination),scale=canvas.width/canvas.clientWidth;
-   const peak=(x,y)=>{const pixels=ctx.getImageData(Math.round(x*scale)-3,Math.round(y*scale)-3,7,7).data;let value=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>50)value=Math.max(value,pixels[i],pixels[i+1],pixels[i+2]);return value};
+   const peak=(x,y)=>{let value=0;for(const layer of [ctx,front]){const pixels=layer.getImageData(Math.round(x*scale)-3,Math.round(y*scale)-3,7,7).data;for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>50)value=Math.max(value,pixels[i],pixels[i+1],pixels[i+2])}return value};
    const at=t=>peak(cx+r*1.76*(Math.cos(yaw)*Math.cos(t)+Math.cos(inclination)*Math.sin(yaw)*Math.sin(t)),cy+r*1.76*Math.sin(inclination)*Math.sin(t));
    const near=Math.atan2(Math.sin(yaw),Math.cos(inclination)*Math.cos(yaw));
    const host=document.querySelector('.game-launcher').getBoundingClientRect(),heading=document.querySelector('.game-launcher h2').getBoundingClientRect();
@@ -86,7 +86,42 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  };
  const waitStage=async stages=>{for(let i=0;i<100;i++){if(stages.includes((await animation()).stage))return;await delay(50)}throw Error('Missing animation stage '+stages+': '+JSON.stringify(await animation()))};
  const originMatches=async()=>{const values=await evaluate(`(()=>{const c=document.querySelector('.game-animation'),host=document.querySelector('.game-launcher'),b=document.querySelector('.game-optimize').getBoundingClientRect(),e=document.querySelector('.emblem-logo').getBoundingClientRect(),h=host.getBoundingClientRect();return{actual:c.dataset.origin.split(',').map(Number),target:c.dataset.target.split(',').map(Number),expected:[b.x+b.width/2-h.x-host.clientLeft,b.y+4-h.y-host.clientTop],center:[e.x+e.width/2-h.x-host.clientLeft,e.y+e.height/2-h.y-host.clientTop]}})()`);for(let i=0;i<2;i++){assert.ok(Math.abs(values.actual[i]-values.expected[i])<.6,JSON.stringify(values));assert.ok(Math.abs(values.target[i]-values.center[i])<.6,JSON.stringify(values))}};
- const coloredPixels=()=>evaluate(`(()=>{const c=document.querySelector('.game-animation'),p=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let white=0,gold=0,total=0;for(let i=0;i<p.length;i+=4){if(p[i+3]<30)continue;total++;if(p[i+2]>225)white++;if(p[i]>200&&p[i+1]>125&&p[i+1]<230&&p[i+2]<200)gold++}return{white,gold,total}})()`);
+ const coloredPixels=()=>evaluate(`(()=>{let white=0,gold=0,total=0;for(const c of document.querySelectorAll('.game-animation,.game-animation-front')){const p=c.getContext('2d').getImageData(0,0,c.width,c.height).data;for(let i=0;i<p.length;i+=4){if(p[i+3]<30)continue;total++;if(p[i+2]>225)white++;if(p[i]>200&&p[i+1]>125&&p[i+1]<230&&p[i+2]<200)gold++}}return{white,gold,total}})()`);
+ const frontOverLogo=async label=>{
+  let crossing=false;
+  for(let i=0;i<180;i++){if(Math.abs(Math.cos(Number((await animation()).diskYaw)))<.13){crossing=true;break}await delay(50)}
+  assert.ok(crossing,'Ring passes across '+label);
+  await evaluate(`window.dispatchEvent(new Event('blur'))`);
+  const angle=(await animation()).angle;
+  let views;
+  try{
+   await shot('front-over-'+label);
+   const clip=await evaluate(`(()=>{const e=document.querySelector('.emblem-logo').getBoundingClientRect();return{x:Math.floor(e.left+scrollX),y:Math.floor(e.top+scrollY),width:Math.ceil(e.width)+2,height:Math.ceil(e.height)+2,scale:1}})()`);
+   const capture=async()=> (await send('Page.captureScreenshot',{format:'png',clip,captureBeyondViewport:true})).data;
+   const normal=await capture();
+   await evaluate(`document.querySelector('.game-animation-front').style.visibility='hidden'`);
+   const withoutFront=await capture();
+   await evaluate(`document.querySelector('.emblem-logo').style.visibility='hidden'`);
+   views=[normal,withoutFront,await capture()];
+  }finally{
+   await evaluate(`document.querySelector('.emblem-logo').style.visibility='';document.querySelector('.game-animation-front').style.visibility=''`);
+  }
+  assert.equal((await animation()).angle,angle,'Freeze the exact same frame for compositing comparison');
+  const pixels=await evaluate(`(async()=>{
+   const decode=async value=>{const image=await createImageBitmap(await(await fetch('data:image/png;base64,'+value)).blob()),c=document.createElement('canvas');c.width=image.width;c.height=image.height;const p=c.getContext('2d');p.drawImage(image,0,0);return p.getImageData(0,0,c.width,c.height).data};
+   const [normal,withoutFront,background]=await Promise.all(${JSON.stringify(views)}.map(decode));let glyph=0,covered=0;
+   for(let i=0;i<normal.length;i+=4){
+    if(Math.max(...[0,1,2].map(c=>Math.abs(withoutFront[i+c]-background[i+c])))<80)continue;
+    glyph++;
+    if(Math.max(...[0,1,2].map(c=>Math.abs(normal[i+c]-withoutFront[i+c])))>10)covered++;
+   }
+   return{glyph,covered};
+  })()`);
+  assert.ok(pixels.glyph>50,'Visible logo pixels for '+label+': '+JSON.stringify(pixels));
+  assert.ok(pixels.covered>3,'The front arc must paint over actual '+label+' glyph pixels: '+JSON.stringify(pixels));
+  await evaluate(`window.dispatchEvent(new Event('focus'))`);
+ };
+
  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
  assert.equal(await evaluate(`matchMedia('(prefers-reduced-motion: reduce)').matches`),true);
  assert.equal(await evaluate(`/SCSKiller|Подготовка шейдеров/i.test(document.querySelector('.game-optimizer').textContent)`),false);
@@ -134,6 +169,9 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
 
  await evaluate(`document.querySelector('.effects-toggle').click();document.querySelector('[aria-label="Цветовая тема"]').value='black';document.querySelector('[aria-label="Цветовая тема"]').dispatchEvent(new Event('change',{bubbles:true}))`);await delay(200);
  const effectsOff=await animation();await delay(250);assert.notEqual((await animation()).angle,effectsOff.angle,'Operation animation continues with ambient effects switched off');
+ await frontOverLogo('dota2');
+ await click('Выбрать другую игру');await evaluate(`document.querySelector('[aria-label="Выбрать Fortnite"]').click()`);await delay(150);await click('Выбрать файл игры');await click('Оптимизировать');await evaluate(`window.__finish()`);await waitStage(['orbit']);
+ await frontOverLogo('fortnite');
  await shot('ready');
  if(process.env.GTM_CAPTURE_ORBIT){
   const frames=process.env.GTM_CAPTURE_ORBIT;fs.mkdirSync(frames,{recursive:true});
@@ -149,5 +187,5 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await evaluate(`window.lagophone.optimizationStatus=async()=>({ok:true,active:false,needsRecovery:false,remaining:0,checks:[],windows:{version:'11',build:26100}})`);await click('Твики');await evaluate(`window.scrollTo(0,0)`);await delay(180);assert.ok(await evaluate(`!!document.querySelector('.selection-float')`));
  await evaluate(`document.querySelector('.apply-guide').click()`);await delay(250);assert.equal(await evaluate(`!!document.querySelector('.selection-float')`),false);
  await evaluate(`window.scrollTo(0,0)`);await delay(180);assert.ok(await evaluate(`!!document.querySelector('.selection-float')`));
- console.log('PASS: actual button/center geometry; stable mounted button; white→gold particles→halo→horizon; native success boost and persistent orbit; OS reduced motion; 3D outer ring, stationary central horizon and occluded back side at multiple angles; resize and scroll; focus/navigation pause; repeat/instant success; failure/cancellation; reload of saved game; sticky guide');
+ console.log('PASS: actual button/center geometry; stable mounted button; white→gold particles→halo→horizon; native success boost and persistent orbit; OS reduced motion; 3D outer ring, stationary horizon, rear occlusion and actual front-arc compositing over Fortnite text and Dota SVG; resize and scroll; focus/navigation pause; repeat/instant success; failure/cancellation; reload of saved game; sticky guide');
 })().catch(e=>{console.error(e);if(process.env.GITHUB_ACTIONS)console.log('::error title=Browser assertion details::'+String(e.stack||e).replaceAll('%','%25').replaceAll('\r','%0D').replaceAll('\n','%0A'));process.exitCode=1}).finally(()=>{clearTimeout(deadline);ws?.close();browser.kill('SIGKILL');server.kill();console.log('Browser snapshots: '+output)});
