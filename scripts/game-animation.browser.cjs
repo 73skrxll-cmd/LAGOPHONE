@@ -68,16 +68,21 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  const diskDepth=async()=>{
   const samples=await evaluate(`(()=>{
    const canvas=document.querySelector('.game-animation'),ctx=canvas.getContext('2d'),d=canvas.dataset;
-   const [cx,cy]=d.target.split(',').map(Number),r=Number(d.horizonRadius),rotation=Number(d.diskRotation),scale=canvas.width/canvas.clientWidth;
+   const [cx,cy]=d.target.split(',').map(Number),r=Number(d.horizonRadius),yaw=Number(d.diskYaw),inclination=Number(d.diskInclination),scale=canvas.width/canvas.clientWidth;
    const peak=(x,y)=>{const pixels=ctx.getImageData(Math.round(x*scale)-3,Math.round(y*scale)-3,7,7).data;let value=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>50)value=Math.max(value,pixels[i],pixels[i+1],pixels[i+2]);return value};
-   const at=t=>{const x=r*1.76*Math.cos(t),y=r*.51*Math.sin(t);return peak(cx+x*Math.cos(rotation)-y*Math.sin(rotation),cy+x*Math.sin(rotation)+y*Math.cos(rotation))};
+   const at=t=>peak(cx+r*1.76*(Math.cos(yaw)*Math.cos(t)+Math.cos(inclination)*Math.sin(yaw)*Math.sin(t)),cy+r*1.76*Math.sin(inclination)*Math.sin(t));
+   const near=Math.atan2(Math.sin(yaw),Math.cos(inclination)*Math.cos(yaw));
    const host=document.querySelector('.game-launcher').getBoundingClientRect(),heading=document.querySelector('.game-launcher h2').getBoundingClientRect();
-   return{rotation,back:[-.4,-.5,-.6].map(t=>at(t*Math.PI)),front:[.4,.5,.6].map(t=>at(t*Math.PI)),top:cy-r*1.83-6,bottom:cy+r*1.83+6,heading:heading.top-host.top};
+   // This band contains the circular horizon, above every projected outer-ring position.
+   const core=ctx.getImageData(Math.round((cx-r*.4)*scale),Math.round((cy-r*1.18)*scale),Math.round(r*.8*scale),Math.round(r*.4*scale)).data;
+   let coreSignature=2166136261;for(const byte of core)coreSignature=Math.imul(coreSignature^byte,16777619)>>>0;
+   const extent=Math.max(r*1.13,r*1.83*Math.sin(inclination))+6;
+   return{yaw,coreSignature,back:Math.abs(Math.cos(yaw))>.45?[.4,.5,.6].map(t=>at(near+Math.PI+t*Math.PI)):[],front:[.4,.5,.6].map(t=>at(near+t*Math.PI)),top:cy-extent,bottom:cy+extent,heading:heading.top-host.top};
   })()`);
   assert.ok(samples.back.every(value=>value<25),'Far side must be hidden inside the central shadow: '+JSON.stringify(samples));
   assert.ok(samples.front.every(value=>value>50),'Near side must remain visible in front: '+JSON.stringify(samples));
-  assert.ok(samples.top>0&&samples.bottom<samples.heading,'The full orbit must fit above the game title at every rotation: '+JSON.stringify(samples));
-  return samples.rotation;
+  assert.ok(samples.top>0&&samples.bottom<samples.heading,'The 3D outer ring must fit above the game title: '+JSON.stringify(samples));
+  return samples;
  };
  const waitStage=async stages=>{for(let i=0;i<100;i++){if(stages.includes((await animation()).stage))return;await delay(50)}throw Error('Missing animation stage '+stages+': '+JSON.stringify(await animation()))};
  const originMatches=async()=>{const values=await evaluate(`(()=>{const c=document.querySelector('.game-animation'),host=document.querySelector('.game-launcher'),b=document.querySelector('.game-optimize').getBoundingClientRect(),e=document.querySelector('.emblem-logo').getBoundingClientRect(),h=host.getBoundingClientRect();return{actual:c.dataset.origin.split(',').map(Number),target:c.dataset.target.split(',').map(Number),expected:[b.x+b.width/2-h.x-host.clientLeft,b.y+4-h.y-host.clientTop],center:[e.x+e.width/2-h.x-host.clientLeft,e.y+e.height/2-h.y-host.clientTop]}})()`);for(let i=0;i<2;i++){assert.ok(Math.abs(values.actual[i]-values.expected[i])<.6,JSON.stringify(values));assert.ok(Math.abs(values.target[i]-values.center[i])<.6,JSON.stringify(values))}};
@@ -117,18 +122,32 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await evaluate(`window.__outcome='throw';document.querySelector('.game-optimize').click()`);await delay(200);await evaluate(`window.__finish()`);await delay(150);assert.equal((await animation()).stage,'error');assert.ok(await evaluate(`document.querySelector('.optimization-message').textContent.includes('native test failure')`));
  await evaluate(`window.__outcome=null;document.querySelector('.game-optimize').click()`);await delay(3100);await evaluate(`window.__finish()`);await waitStage(['boost']);
  await send('Page.reload');await delay(800);await click('Игровая оптимизация');assert.equal((await animation()).stage,'orbit','Saved optimized game opens with a formed orbit, without emission');
- let diskAngle=await diskDepth();
+ const firstDisk=await diskDepth();let diskYaw=firstDisk.yaw,depthChecks=firstDisk.back.length?1:0;
  for(let i=0;i<3;i++){
-  await delay(800);const nextAngle=await diskDepth();
-  assert.ok(nextAngle-diskAngle>.3,'The tilted ellipse itself must rotate, in addition to its light highlights');diskAngle=nextAngle;
+  await delay(800);const next=await diskDepth();
+  assert.ok(next.yaw-diskYaw>.3,'Only the outer disk must rotate in 3D');diskYaw=next.yaw;
+  assert.equal(next.coreSignature,firstDisk.coreSignature,'The central horizon must remain pixel-for-pixel stationary');
+  if(next.back.length)depthChecks++;
   await shot('disk-depth-'+i);
  }
+ assert.ok(depthChecks>=2,'Check front/back occlusion at multiple non-edge-on orientations');
 
  await evaluate(`document.querySelector('.effects-toggle').click();document.querySelector('[aria-label="Цветовая тема"]').value='black';document.querySelector('[aria-label="Цветовая тема"]').dispatchEvent(new Event('change',{bubbles:true}))`);await delay(200);
  const effectsOff=await animation();await delay(250);assert.notEqual((await animation()).angle,effectsOff.angle,'Operation animation continues with ambient effects switched off');
  await shot('ready');
+ if(process.env.GTM_CAPTURE_ORBIT){
+  const frames=process.env.GTM_CAPTURE_ORBIT;fs.mkdirSync(frames,{recursive:true});
+  const clip=await evaluate(`(()=>{const h=document.querySelector('.game-launcher').getBoundingClientRect(),t=document.querySelector('.game-launcher h2').getBoundingClientRect();return{x:h.left+scrollX,y:h.top+scrollY,width:h.width,height:t.bottom-h.top+20,scale:1}})()`);
+  const count=96,period=2*Math.PI/(1.33*.55)*1000,start=Date.now();
+  for(let i=0;i<count;i++){
+   await delay(Math.max(0,start+i*period/count-Date.now()));
+   const data=(await send('Page.captureScreenshot',{format:'png',clip,captureBeyondViewport:true})).data;
+   fs.writeFileSync(path.join(frames,'frame-'+String(i).padStart(3,'0')+'.png'),Buffer.from(data,'base64'));
+  }
+ }
+
  await evaluate(`window.lagophone.optimizationStatus=async()=>({ok:true,active:false,needsRecovery:false,remaining:0,checks:[],windows:{version:'11',build:26100}})`);await click('Твики');await evaluate(`window.scrollTo(0,0)`);await delay(180);assert.ok(await evaluate(`!!document.querySelector('.selection-float')`));
  await evaluate(`document.querySelector('.apply-guide').click()`);await delay(250);assert.equal(await evaluate(`!!document.querySelector('.selection-float')`),false);
  await evaluate(`window.scrollTo(0,0)`);await delay(180);assert.ok(await evaluate(`!!document.querySelector('.selection-float')`));
- console.log('PASS: actual button/center geometry; stable mounted button; white→gold particles→halo→horizon; native success boost and persistent orbit; OS reduced motion; rotating tilted ellipse and occluded back side at multiple angles; resize and scroll; focus/navigation pause; repeat/instant success; failure/cancellation; reload of saved game; sticky guide');
+ console.log('PASS: actual button/center geometry; stable mounted button; white→gold particles→halo→horizon; native success boost and persistent orbit; OS reduced motion; 3D outer ring, stationary central horizon and occluded back side at multiple angles; resize and scroll; focus/navigation pause; repeat/instant success; failure/cancellation; reload of saved game; sticky guide');
 })().catch(e=>{console.error(e);if(process.env.GITHUB_ACTIONS)console.log('::error title=Browser assertion details::'+String(e.stack||e).replaceAll('%','%25').replaceAll('\r','%0D').replaceAll('\n','%0A'));process.exitCode=1}).finally(()=>{clearTimeout(deadline);ws?.close();browser.kill('SIGKILL');server.kill();console.log('Browser snapshots: '+output)});

@@ -1,6 +1,6 @@
 {
   "name": "gtm-pc",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "private": true,
   "description": "GTM PC — Get The Most of PC. Windows optimization and game profiles.",
   "main": "electron/main.cjs",

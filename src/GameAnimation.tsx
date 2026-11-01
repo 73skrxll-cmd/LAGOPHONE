@@ -41,12 +41,12 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
    radius=Math.max(1,Math.min(98,(width-32)/3.6));
   }
   function ellipse(rx:number,ry:number,rotation:number,start=0,end=Math.PI*2){ctx!.beginPath();ctx!.ellipse(center.x,center.y,rx,ry,rotation,start,end)}
-  function ring(rx:number,ry:number,rotation:number,opacity:number,thickness:number,offset:number,side?:'back'|'front'){
+  function ring(rx:number,ry:number,rotation:number,opacity:number,thickness:number,offset:number){
    if(opacity<=0)return;
-   // Moving hot arcs give a visible direction of rotation without spinning the logo.
+   // The central horizon stays fixed; only the separate outer disk moves.
    ctx!.lineCap='butt';
-   for(let i=side==='back'?48:0;i<(side==='front'?48:96);i++){
-    const a=i*Math.PI*2/96,hot=(Math.cos(a-state!.angle-offset)+1)/2;
+   for(let i=0;i<96;i++){
+    const a=i*Math.PI*2/96,hot=(Math.cos(a-offset)+1)/2;
     ctx!.strokeStyle=gold(.18+.72*(1-hot),opacity*(.3+.7*hot));ctx!.lineWidth=thickness*(.55+.65*hot);
     ellipse(rx,ry,rotation,a,a+Math.PI*2/96+.001);ctx!.stroke();
    }
@@ -62,10 +62,15 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
    const completed=s.success!==null?s.time-s.success:-1;
    const boost=completed<0?0:completed<.22?smooth(completed/.22):1-smooth((completed-.65)/1.1);
    const speed=.28+(s.success===null?0:completed<0?0:1.05)+boost*4.5;
-   const tilt=-.27+s.angle*.55;
+   const yaw=-.8+s.angle*.55,inclination=.3;
+   const cosYaw=Math.cos(yaw),sinYaw=Math.sin(yaw),cosInclination=Math.cos(inclination),sinInclination=Math.sin(inclination);
+   // Rotate the disk about its vertical axis in 3D, then project it onto the screen.
+   // Its apparent slope changes while the central shadow and horizon stay fixed.
+   const nearStart=Math.atan2(sinYaw,cosInclination*cosYaw);
+   const diskPoint=(t:number,scale:number)=>({x:center.x+radius*scale*(cosYaw*Math.cos(t)+cosInclination*sinYaw*Math.sin(t)),y:center.y+radius*scale*sinInclination*Math.sin(t)});
    surface!.dataset.stage=phase==='error'?'error':completed>=0?(completed<1.7?'boost':'orbit'):horizon>.1?'horizon':halo>.05?'halo':'particles';
    surface!.dataset.speed=speed.toFixed(2);surface!.dataset.angle=s.angle.toFixed(3);
-   surface!.dataset.diskRotation=tilt.toFixed(4);surface!.dataset.horizonRadius=radius.toFixed(2);
+   surface!.dataset.diskYaw=yaw.toFixed(4);surface!.dataset.diskInclination=String(inclination);surface!.dataset.horizonRadius=radius.toFixed(2);
    surface!.dataset.origin=`${origin.x.toFixed(1)},${origin.y.toFixed(1)}`;surface!.dataset.target=`${center.x.toFixed(1)},${center.y.toFixed(1)}`;
    function disk(side:'back'|'front'){
     if(horizon<=0)return;
@@ -74,11 +79,19 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
      // The far half is occluded by the central shadow, even while it fades in.
      ctx!.beginPath();ctx!.rect(0,0,width,height);ctx!.moveTo(center.x+radius*.94,center.y);ctx!.arc(center.x,center.y,radius*.94,0,Math.PI*2);ctx!.clip('evenodd');
     }
-    const start=side==='back'?Math.PI:0,end=side==='back'?Math.PI*2:Math.PI;
-    ctx!.strokeStyle=gold(.62,horizon*.23);ctx!.lineWidth=9;
-    ellipse(radius*1.76,radius*.51,tilt,start,end);ctx!.stroke();
-    ring(radius*1.76,radius*.51,tilt,horizon,4.4,1.2,side);
-    ring(radius*1.83,radius*.56,tilt,horizon*.25,1,2,side);
+    // z(t) has its front/back crossings at nearStart and nearStart + PI.
+    const start=nearStart+(side==='back'?Math.PI:0),step=Math.PI/48;
+    ctx!.strokeStyle=gold(.62,horizon*.23);ctx!.lineWidth=9;ctx!.lineCap='round';ctx!.beginPath();
+    for(let i=0;i<=48;i++){const p=diskPoint(start+i*step,1.76);if(i===0)ctx!.moveTo(p.x,p.y);else ctx!.lineTo(p.x,p.y)}
+    ctx!.stroke();ctx!.lineCap='butt';
+    for(const [scale,opacity,thickness,offset] of [[1.76,horizon,4.4,1.2],[1.83,horizon*.25,1,2]]){
+     for(let i=0;i<48;i++){
+      const t=start+i*step,hot=(Math.cos(t-s.angle-offset)+1)/2;
+      const a=diskPoint(t,scale),b=diskPoint(t+step+.001,scale);
+      ctx!.strokeStyle=gold(.18+.72*(1-hot),opacity*(.3+.7*hot));ctx!.lineWidth=thickness*(.55+.65*hot);
+      ctx!.beginPath();ctx!.moveTo(a.x,a.y);ctx!.lineTo(b.x,b.y);ctx!.stroke();
+     }
+    }
     ctx!.restore();
    }
    ctx!.save();
@@ -102,7 +115,7 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
     ring(radius*.955,radius*.955,0,horizon*.6,.8,.8);
     disk('front');
     for(let i=0;i<18;i++){
-     const angle=s.angle*(1+i%3*.15)+i*2.39996,rx=radius*(1.13+i%3*.055),ry=rx;
+     const angle=i*2.39996,rx=radius*(1.13+i%3*.055),ry=rx;
      const x=center.x+Math.cos(angle)*rx,y=center.y+Math.sin(angle)*ry;
      ctx!.fillStyle=gold(.35,horizon*(.4+i%3*.2));ctx!.beginPath();ctx!.arc(x,y,i%3===0?1.7:1,0,Math.PI*2);ctx!.fill();
     }
