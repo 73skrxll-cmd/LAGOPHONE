@@ -12,6 +12,7 @@ on:
       - 'src/**'
       - 'electron/**'
       - 'shared/**'
+      - 'scripts/**'
       - 'assets/**'
       - 'index.html'
       - 'vite.config.ts'
@@ -25,8 +26,32 @@ permissions:
   contents: read
 
 jobs:
+  ui:
+    name: Game animation in Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:ui
+        env:
+          CHROMIUM_BIN: google-chrome
+          GTM_TEST_OUTPUT: /tmp/gtm-animation-ui
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: GTM-PC-animation-check
+          path: /tmp/gtm-animation-ui/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
   windows:
     name: Windows 10 and 11 x64
+    needs: ui
     runs-on: windows-latest
     timeout-minutes: 20
     steps:

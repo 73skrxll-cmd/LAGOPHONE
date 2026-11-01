@@ -15,7 +15,6 @@ function registerOptimizer(getWindow,activities,restart){
   const session=require('./optimizer-session.cjs').createOptimizerSession();
   let cachedStatus=null,cachedGameStatus=null,cachedPowerStatus=null,cachedLast=null,sidRequest=null;
   const games=new Map();
-  const shaders=require('./shader-preparation.cjs').createShaderPreparation({file:()=>path.join(app.getPath('userData'),'shader-tool.json')});
   const worker=app.isPackaged?path.join(process.resourcesPath,'app.asar.unpacked','electron','optimizer.ps1'):path.join(__dirname,'optimizer.ps1');
   const assertWindows=()=>{if(process.platform!=='win32')throw new Error('Оптимизация выполняется только в настольном приложении Windows.');};
   async function identity(){if(!sidRequest)sidRequest=ps('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value',15000).catch(error=>{sidRequest=null;throw error});return sidRequest;}
@@ -78,27 +77,6 @@ function registerOptimizer(getWindow,activities,restart){
     setPhase('windows');const result=await run('restore',{scope:'game'},true);await activities.add(optimizationEvents('restore',{scope:'game'},result));return result;
   })});
 
-  ipcMain.handle('game:shader-status',()=>shaders.status());
-  ipcMain.handle('game:shader-connect',async()=>{
-    assertWindows();if(session.isRunning())throw Error('Дождитесь текущей операции.');
-    const choice=await dialog.showOpenDialog(getWindow(),{title:'Выберите SCSKiller.exe официальной установки или cli/scskiller.exe',properties:['openFile'],filters:[{name:'SCSKiller',extensions:['exe']}]});
-    if(choice.canceled)return null;
-    const selected=choice.filePaths[0],candidate=path.join(path.dirname(selected),'cli','scskiller.exe');
-    let executable;try{if((await fs.stat(candidate)).isFile())executable=candidate}catch{}
-    if(!executable&&path.basename(path.dirname(selected)).toLowerCase()==='cli'&&path.basename(selected).toLowerCase()==='scskiller.exe')executable=selected;
-    if(!executable)throw Error('Рядом с выбранным файлом нет cli/scskiller.exe. Укажите CLI из официальной установки SCSKiller.');
-    const answer=await dialog.showMessageBox(getWindow(),{type:'question',message:'Подключить SCSKiller для подготовки шейдеров?',detail:executable+'\nБудут вызваны команды добавления игры, проверки и компиляции шейдеров. Получайте SCSKiller из официального репозитория BlueHeisenberg/SCSKiller.',buttons:['Отмена','Подключить'],defaultId:0,cancelId:0});
-    return answer.response===1?shaders.connect(executable):null;
-  });
-  ipcMain.handle('game:shader-prepare',async(_,id)=>{assertWindows();return session.exclusive('apply',async setPhase=>{
-    const executable=games.get(id);
-    if(!acceptsGame(id,executable))throw Error('Сначала выберите EXE игры.');
-    const name=path.basename(executable,path.extname(executable));
-    const count=await ps('@([Diagnostics.Process]::GetProcessesByName('+quote(name)+')).Count',15000);
-    if(Number(count)!==0)throw Error('Закройте игру перед подготовкой шейдеров. Настройки приоритета уже сохранены.');
-    setPhase('windows');
-    return shaders.prepare(executable,message=>{const window=getWindow();if(window&&!window.isDestroyed())window.webContents.send('game:shader-progress',message)});
-  })});
   ipcMain.handle('optimization:custom-game',async()=>{
     assertWindows();if(session.isRunning())throw Error('Дождитесь завершения операции.');
     const choice=await dialog.showOpenDialog(getWindow(),{title:'Другая игра',properties:['openFile'],filters:[{name:'Game executable',extensions:['exe']}]});
