@@ -7,6 +7,8 @@ import type { OptimizationInput, OptimizationStatus, OptimizationResult } from '
 declare global {
  interface Window {
   lagophone?: {
+   windowChrome?:boolean;
+   setWindowTheme?:(theme:string)=>Promise<void>;
    restartAcknowledge:()=>Promise<{ok:boolean}>;
    restartStatus:()=>Promise<RestartState>;
    restartLater:()=>Promise<{ok:boolean}>;

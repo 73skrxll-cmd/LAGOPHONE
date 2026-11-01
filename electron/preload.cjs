@@ -1,5 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('lagophone', {
+  windowChrome: process.platform==='win32',
+  setWindowTheme: theme => ipcRenderer.invoke('window:theme',theme),
   restartAcknowledge: () => ipcRenderer.invoke('restart:acknowledge'),
   restartStatus: () => ipcRenderer.invoke('restart:status'),
   restartLater: () => ipcRenderer.invoke('restart:later'),

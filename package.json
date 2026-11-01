@@ -1,6 +1,6 @@
 {
   "name": "gtm-pc",
-  "version": "0.9.3",
+  "version": "0.10.0",
   "private": true,
   "description": "GTM PC — Get The Most of PC. Windows optimization and game profiles.",
   "main": "electron/main.cjs",
@@ -9,7 +9,7 @@
     "dev": "vite --host 0.0.0.0",
     "desktop": "npm run build && electron .",
     "build": "tsc -b && vite build",
-    "test": "node electron/policy.test.cjs && node electron/optimization.test.cjs && node electron/windows-powershell.test.cjs && node electron/drivers.test.cjs && node electron/optimizer-session.test.cjs && node electron/activity.test.cjs && node electron/gpu-badge.test.cjs && node electron/restart.test.cjs && node electron/optimization-rating.test.cjs && node electron/windows-compatibility.test.cjs && node electron/optimization.windows.test.cjs && node electron/game-selection.test.cjs && node electron/branding.test.cjs",
+    "test": "node electron/policy.test.cjs && node electron/optimization.test.cjs && node electron/windows-powershell.test.cjs && node electron/drivers.test.cjs && node electron/optimizer-session.test.cjs && node electron/activity.test.cjs && node electron/gpu-badge.test.cjs && node electron/restart.test.cjs && node electron/optimization-rating.test.cjs && node electron/windows-compatibility.test.cjs && node electron/optimization.windows.test.cjs && node electron/game-selection.test.cjs && node electron/branding.test.cjs && node electron/window-chrome.test.cjs",
     "dist:win": "npm run build && electron-builder --win nsis --x64",
     "dist:portable": "npm run build && electron-builder --win portable --x64",
     "test:ui": "node scripts/game-animation.browser.cjs"

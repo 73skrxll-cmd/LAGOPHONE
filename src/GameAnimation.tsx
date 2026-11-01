@@ -55,11 +55,12 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
    if(width<=0||height<=0)return false;
    const s=state!;
    for(const paint of [ctx!,frontCtx!]){paint.setTransform(dpr,0,0,dpr,0,0);paint.clearRect(0,0,width,height)}
-   if(phase==='idle'){surface!.dataset.stage='idle';return false}
+   if(phase==='idle'){surface!.dataset.stage='idle';surface!.dataset.coreDark='false';return false}
    if(phase==='ready'&&s.success===null)s.success=Math.max(s.time,2.9);
    if(phase==='error'&&s.failed===null)s.failed=s.time;
    const fade=s.failed===null?1:1-smooth((s.time-s.failed)/.65);
    const halo=smooth((s.time-.95)/1.35)*fade,horizon=smooth((s.time-1.95)/1.05)*fade;
+   const coreDark=String(halo>.55);if(surface!.dataset.coreDark!==coreDark)surface!.dataset.coreDark=coreDark;
    const completed=s.success!==null?s.time-s.success:-1;
    const boost=completed<0?0:completed<.22?smooth(completed/.22):1-smooth((completed-.65)/1.1);
    const speed=.28+(s.success===null?0:completed<0?0:1.05)+boost*4.5;
