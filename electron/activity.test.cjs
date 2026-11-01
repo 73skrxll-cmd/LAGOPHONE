@@ -27,3 +27,13 @@ test('history write failures do not throw into successful system operations',asy
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lagophone-activity-error-'));
  try{const store=createActivityStore(dir);assert.equal(await store.add([{title:'fixture'}]),false);assert.ok((await store.list()).warning)}finally{await fs.rm(dir,{recursive:true,force:true})}
 });
+test('notification destinations persist through restart and old records resolve without external navigation',async()=>{
+ const {activityTarget,cleanTarget}=await import('../shared/activity-target.mjs');
+ assert.deepEqual(optimizationEvents('apply',{scope:'game',game:'fortnite'},{ok:true,report:[]})[0].target,{page:'gaming',game:'fortnite'});
+ assert.deepEqual(optimizationEvents('apply',{scope:'power'},{cancelled:true})[0].target,{page:'tweaks',section:'power'});
+ assert.deepEqual(activityTarget({kind:'apply',title:'Игровые настройки применены'}),{page:'gaming'});
+ assert.deepEqual(activityTarget({kind:'restore',title:'План питания восстановлен'}),{page:'tweaks',section:'power'});
+ assert.equal(cleanTarget({page:'https://bad.example/'}),null);
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'gtm-activity-route-'));
+ try{const file=path.join(dir,'activity.json');await createActivityStore(file).add([{kind:'apply',status:'success',title:'Game',detail:'Done',target:{page:'gaming',game:'fortnite'}}]);const row=(await createActivityStore(file).list()).items[0];assert.deepEqual(activityTarget(row),{page:'gaming',game:'fortnite'})}finally{await fs.rm(dir,{recursive:true,force:true})}
+});

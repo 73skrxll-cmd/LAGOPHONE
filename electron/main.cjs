@@ -3,7 +3,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { execFile } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
-const { apps, links, validateAction } = require('./policy.cjs');
+const { apps, links } = require('./policy.cjs');
 require('./branding.cjs').configureBranding(app);
 const {windowChromeOptions,applyWindowTheme}=require('./window-chrome.cjs');
 let win;
@@ -48,16 +48,8 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => app.quit());
 ipcMain.handle('system', () => system());
 ipcMain.handle('apps:installed',()=>require('./installed-apps.cjs').inspectInstalled());
-ipcMain.handle('action', async (_, id, version) => {
-  if(optimizer.isRunning()) throw new Error('Дождитесь завершения оптимизации или отката.');
-  const info = await system();
-  const action = validateAction(id, version, info.version);
-  const choice = await dialog.showMessageBox(win, { type:'question', title:'Подтверждение', message:action.title, detail:'Перед изменениями рекомендуется создать точку восстановления. Продолжить?', buttons:['Отмена','Продолжить'], defaultId:0, cancelId:0 });
-  if(choice.response !== 1) return 'Действие отменено.';
-  const message=await powershell(action.script);
-  await activities.add([{kind:'windows',status:'success',title:id==='temp'?'Очистка временных файлов завершена':'Выполнено действие Windows',detail:message}]);
-  return message;
-});
+const executeWindowsAction=require('./windows-actions.cjs').createWindowsActions({isRunning:()=>optimizer.isRunning(),system,run:powershell,activities});
+ipcMain.handle('action',(_,id,version)=>executeWindowsAction(id,version));
 ipcMain.handle('open', async (_, id) => {
   const url = Object.hasOwn(links,id) ? links[id] : Object.hasOwn(apps,id) ? apps[id].page : null;
   if (!url) throw new Error('Неизвестная ссылка');
@@ -84,7 +76,7 @@ ipcMain.handle('download', async (_, id) => {
     try { for await (const chunk of response.body) { await file.write(chunk); bytes+=chunk.length; if(!win.isDestroyed()) win.webContents.send('download-progress',{id,percent:total?Math.round(bytes/total*100):null,bytes}); } } finally {await file.close();}
     await fs.promises.rename(partial,choice.filePath);
     shell.showItemInFolder(choice.filePath);
-    await activities.add([{kind:'download',status:'success',title:'Скачан установщик '+item.file,detail:'Установщик сохранён. Автоматическая установка не запускалась.'}]);
+    await activities.add([{target:{page:'apps'},kind:'download',status:'success',title:'Скачан установщик '+item.file,detail:'Установщик сохранён. Автоматическая установка не запускалась.'}]);
     return 'Установщик сохранён. Перед запуском проверьте издателя в свойствах файла. Автоматическая установка не выполняется.';
   } catch(e) { if(created) await fs.promises.unlink(partial).catch(()=>{}); throw new Error('Не удалось сохранить установщик: '+e.message); }
   finally { downloading.delete(id); }

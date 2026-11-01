@@ -17,11 +17,13 @@ const friendlyError=(error:unknown)=>String((error as Error)?.message||error).re
 const fileName=(location:string)=>location.split(/[\\/]/).at(-1)||'Игра';
 type GameChoice={id:string;name:string;executables:string[]};
 function rememberedGame(){try{const id=localStorage.getItem('lagophone-selected-game');return (games.some(game=>game.id===id)||isCustom(id||''))?id!:''}catch{return ''}}
-export function GameOptimizer({native,active,version,mismatch,onCompleted}:{native:boolean;active:boolean;version:'10'|'11';mismatch:boolean;onCompleted:()=>void}){
+export function GameOptimizer({native,active,version,mismatch,onCompleted,activityRequest}:{activityRequest?:{game?:string;request:number};native:boolean;active:boolean;version:'10'|'11';mismatch:boolean;onCompleted:()=>void}){
  const [game,setGame]=useState(()=>lastView?.game||rememberedGame()),[gamePath,setGamePath]=useState(()=>lastView?.gamePath||''),[catalogOpen,setCatalogOpen]=useState(false),[query,setQuery]=useState(''),[busy,setBusy]=useState(false),[status,setStatus]=useState<OptimizationStatus|null>(null),[result,setResult]=useState<OptimizationResult|null>(()=>lastView?.result||null),[error,setError]=useState('');
  const [choosing,setChoosing]=useState(false);
  const [custom,setCustom]=useState<GameChoice|null>(()=>lastView?.custom||null);
  const requestVersion=useRef(0);
+ const visitedActivity=useRef(0);
+ useEffect(()=>{if(!active||!activityRequest?.game||activityRequest.request===visitedActivity.current||!status?.ok)return;if(!allGames.some(item=>item.id===activityRequest.game))return;visitedActivity.current=activityRequest.request;select(activityRequest.game)},[active,activityRequest?.request,status]);
  const launcher=useRef<HTMLElement>(null),emblem=useRef<HTMLDivElement>(null),optimizeButton=useRef<HTMLButtonElement>(null);
  const [animation,setAnimation]=useState<{run:number;phase:'idle'|'working'|'ready'|'error'}>({run:0,phase:'idle'});
  const resetAnimation=()=>setAnimation({run:0,phase:'idle'});

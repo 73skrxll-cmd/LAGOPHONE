@@ -3,15 +3,16 @@ const path=require('node:path');
 const {randomUUID}=require('node:crypto');
 const powerNames={balanced:'Сбалансированный',high:'Высокая производительность',ultimate:'Максимальная производительность',lagophone:'GTM PC Performance',keep:'Текущий'};
 function optimizationEvents(mode,payload,result){
+ const target=payload?.scope==='game'?{page:'gaming',game:payload.game}:payload?.scope==='power'?{page:'tweaks',section:'power'}:{page:'tweaks'};
  const report=Array.isArray(result.report)?result.report:[];
  const count=status=>new Set(report.filter(r=>r.status===status).map(r=>r.id)).size;
- if(result.cancelled)return [{kind:'cancel',status:'cancelled',title:mode==='apply'?'Применение отменено':'Восстановление отменено',detail:'Настройки этой операцией не изменялись.'}];
+ if(result.cancelled)return [{target,kind:'cancel',status:'cancelled',title:mode==='apply'?'Применение отменено':'Восстановление отменено',detail:'Настройки этой операцией не изменялись.'}];
  const success=result.ok===true;
  const title=mode==='restore'?(success?'Исходные настройки восстановлены':'Восстановление завершилось не полностью'):(success?(result.noChanges?'Новых изменений нет':'Выбранные твики применены'):(result.restored?'Применение не завершено — изменения отменены':'Применение завершилось с ошибкой'));
  const visibleTitle=payload?.scope==='game'?(mode==='restore'?'Игровые настройки восстановлены':success?(result.noChanges?'Игровые настройки уже действуют':'Игровые настройки применены'):'Игровая настройка завершилась не полностью'):payload?.scope==='power'?(mode==='restore'?'Настройка питания восстановлена':success?(result.noChanges?'План питания уже активен':'План питания применён'):'Не удалось применить план питания'):title;
- const events=[{kind:mode,status:success?'success':'error',title:visibleTitle,detail:result.error||`Применено: ${count('applied')}. Восстановлено: ${count('restored')}. Пропущено: ${count('skipped')}.`}];
- if(mode==='apply'&&success&&report.some(r=>r.id==='power'&&r.status==='applied'))events.push({kind:'power',status:'success',title:'Изменён план питания',detail:powerNames[payload?.power]||'Выбранный план'});
- if(mode==='restore'&&report.some(r=>r.id==='power'&&r.status==='restored'))events.push({kind:'power',status:'success',title:'Восстановлен прежний план питания',detail:'Возвращён план, сохранённый перед оптимизацией.'});
+ const events=[{target,kind:mode,status:success?'success':'error',title:visibleTitle,detail:result.error||`Применено: ${count('applied')}. Восстановлено: ${count('restored')}. Пропущено: ${count('skipped')}.`}];
+ if(mode==='apply'&&success&&report.some(r=>r.id==='power'&&r.status==='applied'))events.push({target:{page:'tweaks',section:'power'},kind:'power',status:'success',title:'Изменён план питания',detail:powerNames[payload?.power]||'Выбранный план'});
+ if(mode==='restore'&&report.some(r=>r.id==='power'&&r.status==='restored'))events.push({target:{page:'tweaks',section:'power'},kind:'power',status:'success',title:'Восстановлен прежний план питания',detail:'Возвращён план, сохранённый перед оптимизацией.'});
  return events;
 }
 function createActivityStore(fileOrResolver,{limit=80}={}){
@@ -33,9 +34,9 @@ function createActivityStore(fileOrResolver,{limit=80}={}){
  function enqueue(task){const result=queue.then(task);queue=result.catch(()=>{});return result;}
  return {
    async add(events){
-     try{return await enqueue(async()=>{
+     try{const {cleanTarget}=await import('../shared/activity-target.mjs');return await enqueue(async()=>{
        const current=await read();
-       const next=events.map(e=>({id:randomUUID(),at:new Date().toISOString(),kind:String(e.kind||'action').slice(0,40),status:['success','error','warning','cancelled'].includes(e.status)?e.status:'warning',title:String(e.title||'Действие').slice(0,200),detail:String(e.detail||'').slice(0,1000)})).reverse();
+       const next=events.map(e=>({id:randomUUID(),at:new Date().toISOString(),...(cleanTarget(e.target)?{target:cleanTarget(e.target)}:{}),kind:String(e.kind||'action').slice(0,40),status:['success','error','warning','cancelled'].includes(e.status)?e.status:'warning',title:String(e.title||'Действие').slice(0,200),detail:String(e.detail||'').slice(0,1000)})).reverse();
        await write([...next,...current].slice(0,limit));warning='';return true;
      })}catch{warning='Не удалось сохранить журнал действий.';return false}
    },

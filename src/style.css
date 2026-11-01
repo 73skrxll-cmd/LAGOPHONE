@@ -131,7 +131,7 @@ body{background:var(--page)}.app-shell,.welcome{position:relative;z-index:1;back
 /* Empty end-of-page space, without footer labels. */
 .workspace-end{height:44px;margin-top:24px;border-top:1px solid var(--line)}
 :root{color-scheme:dark;--scroll-thumb:#606865}
-:root[data-theme=white]{color-scheme:light;color:var(--neutral);background:var(--page);--green:#293d52;--accent-soft:#344b63;--accent-muted:#53657a;--accent-bg:#e9eef4;--accent-panel:#f5f7fa;--accent-border:#b9c5d1;--accent-contrast:#fff;--art-filter:grayscale(1);--page:#f5f6f8;--surface:#fff;--neutral:#17212b;--muted:#526477;--line:#d8dfe6;--panel:#fff;--scroll-thumb:#a7b1bc}
+:root[data-theme=white]{color-scheme:light;color:var(--neutral);background:var(--page);--green:#293d52;--accent-soft:#344b63;--accent-muted:#53657a;--accent-bg:#e0e5e8;--accent-panel:#eceeeb;--accent-border:#b9c5d1;--accent-contrast:#fff;--art-filter:grayscale(1);--page:#e8e9e6;--surface:#f3f4f1;--neutral:#17212b;--muted:#526477;--line:#d8dfe6;--panel:#f3f4f1;--scroll-thumb:#a7b1bc}
 :where([data-theme=white]) nav button:hover,:where([data-theme=white]) .tabs button:hover{background:var(--accent-bg)}
 :where([data-theme=white]) .hardware-card,:where([data-theme=white]) .uptime-card,:where([data-theme=white]) .quick-card,:where([data-theme=white]) .tool-card,:where([data-theme=white]) .application-card,:where([data-theme=white]) .driver-card,:where([data-theme=white]) .profile-card,:where([data-theme=white]) .feature-option,:where([data-theme=white]) .changes-list>label+label,:where([data-theme=white]) .report-row,:where([data-theme=white]) .manual-tools{border-color:var(--line)}
 :where([data-theme=white]) .search,:where([data-theme=white]) .components>div{background:var(--surface);border-color:var(--accent-border)}
@@ -170,3 +170,13 @@ body{background:var(--page)}.app-shell,.welcome{position:relative;z-index:1;back
 :where([data-theme=white]) .uptime-graph{color:#397848!important}
 :where([data-theme=white]) .driver-revision{color:#875313!important}
 :where([data-theme=white]) .restart-warning{color:#875313!important}
+/* Matte light theme has its own moving silk ribbons instead of stars. */
+.white-ribbon{fill:none;stroke-width:110;stroke-linecap:round;filter:blur(28px);transform-origin:50% 50%;animation:white-silk-drift 44s ease-in-out infinite alternate!important;will-change:transform}
+.ribbon-one{stroke:#a9bfca;opacity:.23}
+.ribbon-two{stroke:#c5baa9;opacity:.22;animation-duration:57s!important;animation-delay:-19s!important}
+.ribbon-three{stroke:#aebfb4;opacity:.16;animation-duration:68s!important;animation-delay:-34s!important}
+.theme-atmosphere[data-motion=false] .white-ribbon{animation-play-state:paused!important}
+@keyframes white-silk-drift{from{transform:translate(-35px,25px) rotate(-3deg)}to{transform:translate(40px,-25px) rotate(3deg)}}
+.activity-go{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:4px 7px;border:1px solid var(--accent-border);border-radius:5px;color:var(--accent-soft);font-size:9px}
+.activity-go:hover{background:var(--accent-bg)}
+.page-title h1{scroll-margin-top:52px}

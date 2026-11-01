@@ -107,14 +107,16 @@ function registerOptimizer(getWindow,activities,restart){
     const unavailable=plan.ids.filter(id=>status.availability?.[id]?.available===false);
     if(unavailable.length)throw new Error('Выбранные пункты недоступны на этом ПК. Обновите список настроек: '+unavailable.map(id=>catalog.steps.find(step=>step.id===id)?.name||id).join(', '));
     plan.ratingPlan.ids=plan.ratingPlan.ids.filter(id=>status.availability?.[id]?.available!==false);
+    if(plan.scope){
     setPhase('confirmation');
     const choice=await dialog.showMessageBox(getWindow(),{type:'warning',title:'Применить профиль?',message:'Изменений: '+plan.ids.length,detail:plan.ids.map(id=>{const step=catalog.steps.find(s=>s.id===id);const description={...step,...step.variants?.[actual.version]};return description.attention?'⚠ '+description.name+' — '+description.attention.consequence:description.name}).join('\n')+'\n\nИсходные значения будут сохранены до изменений. Windows запросит права администратора. При ошибке программа попытается выполнить откат; результат будет показан в отчёте.',buttons:['Отмена','Применить'],defaultId:0,cancelId:0});
     if(choice.response!==1){const result={ok:true,cancelled:true,report:[]};await activities.add(optimizationEvents('apply',input,result));return result;}
+    }
     setPhase('windows');
     const result=await run('apply',plan,true);
     if(restart&&!plan.scope)result.restart=await restart.afterApply({...plan,profile:result.profile||plan.profile},result,actual.version);
     await activities.add(optimizationEvents('apply',plan,result));return result;
-    } catch(error){await activities.add([{kind:'apply',status:'error',title:'Ошибка применения настроек',detail:error.message}]);throw error}
+    } catch(error){await activities.add([{target:input?.scope==='game'?{page:'gaming',game:input.game}:input?.scope==='power'?{page:'tweaks',section:'power'}:{page:'tweaks'},kind:'apply',status:'error',title:'Ошибка применения настроек',detail:error.message}]);throw error}
   });});
   ipcMain.handle('optimization:restore',()=>{assertWindows();return session.exclusive('restore',async setPhase=>{
     try {
