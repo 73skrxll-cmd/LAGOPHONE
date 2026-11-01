@@ -17,7 +17,7 @@ const friendlyError=(error:unknown)=>String((error as Error)?.message||error).re
 const fileName=(location:string)=>location.split(/[\\/]/).at(-1)||'Игра';
 type GameChoice={id:string;name:string;executables:string[]};
 function rememberedGame(){try{const id=localStorage.getItem('lagophone-selected-game');return (games.some(game=>game.id===id)||isCustom(id||''))?id!:''}catch{return ''}}
-export function GameOptimizer({native,active,version,mismatch,onCompleted,activityRequest}:{activityRequest?:{game?:string;request:number};native:boolean;active:boolean;version:'10'|'11';mismatch:boolean;onCompleted:()=>void}){
+export function GameOptimizer({native,active,version,mismatch,onCompleted,activityRequest,theme}:{activityRequest?:{game?:string;request:number};native:boolean;active:boolean;version:'10'|'11';mismatch:boolean;onCompleted:()=>void;theme:string}){
  const [game,setGame]=useState(()=>lastView?.game||rememberedGame()),[gamePath,setGamePath]=useState(()=>lastView?.gamePath||''),[catalogOpen,setCatalogOpen]=useState(false),[query,setQuery]=useState(''),[busy,setBusy]=useState(false),[status,setStatus]=useState<OptimizationStatus|null>(null),[result,setResult]=useState<OptimizationResult|null>(()=>lastView?.result||null),[error,setError]=useState('');
  const [choosing,setChoosing]=useState(false);
  const [custom,setCustom]=useState<GameChoice|null>(()=>lastView?.custom||null);
@@ -100,7 +100,7 @@ export function GameOptimizer({native,active,version,mismatch,onCompleted,activi
  const phase=status?.operation?.phase==='confirmation'?'Подтвердите игровые настройки в окне Windows':status?.operation?.phase==='windows'?'Windows применяет и проверяет параметры игры':'Подготавливаем игровые настройки';
  return <div className="game-optimizer">
   <section ref={launcher} className="game-launcher" aria-label="Оптимизация выбранной игры">
-   <GameAnimation game={game} run={animation.run} phase={animation.run?animation.phase:optimized?'ready':'idle'} active={active} launcher={launcher} button={optimizeButton} emblem={emblem}/>
+   <GameAnimation theme={theme} game={game} run={animation.run} phase={animation.run?animation.phase:optimized?'ready':'idle'} active={active} launcher={launcher} button={optimizeButton} emblem={emblem}/>
    <GameEmblem id={game} name={selected?.name||'GTM PC'} target={emblem}/>
    <h2>{selected?selected.name:'Выберите игру'}</h2>
    {!selected&&<p>Выберите игру или добавьте свою.</p>}

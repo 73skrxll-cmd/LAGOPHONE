@@ -1,5 +1,7 @@
 import {useEffect,useRef} from 'react';
 import type {RefObject} from 'react';
+import helmetUrl from '../assets/themes/golden-helm.png';
+import {paintHelmet} from './HelmetAnimation';
 
 type Phase='idle'|'working'|'ready'|'error';
 type Point={x:number;y:number};
@@ -13,7 +15,7 @@ const point=(a:Point,b:Point,c:Point,d:Point,t:number):Point=>{const u=1-t;retur
 
 // This is operation feedback. Its clock deliberately does not use OS motion
 // preferences or the application's ambient-effects switch. Hidden views pause it.
-export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{game:string;run:number;phase:Phase;active:boolean;launcher:RefObject<HTMLElement>;button:RefObject<HTMLButtonElement>;emblem:RefObject<HTMLDivElement>}){
+export function GameAnimation({game,run,phase,active,launcher,button,emblem,theme}:{game:string;run:number;phase:Phase;active:boolean;launcher:RefObject<HTMLElement>;button:RefObject<HTMLButtonElement>;emblem:RefObject<HTMLDivElement>;theme:string}){
  const canvas=useRef<HTMLCanvasElement>(null),foreground=useRef<HTMLCanvasElement>(null);
  const simulation=useRef<Simulation|null>(null);
  useEffect(()=>{
@@ -26,6 +28,7 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
   if(run===0&&phase==='ready'&&state.success===null){state.time=5;state.success=-10}
   let width=0,height=0,dpr=1,origin:Point={x:0,y:0},center:Point={x:0,y:0},radius=96;
   let frame=0,last=0,focused=document.hasFocus(),disposed=false;
+  const light=theme==='white',helmet=new Image();
   const sparks=Array.from({length:8},(_,i)=>{
    const sprite=document.createElement('canvas');sprite.width=24;sprite.height=24;
    const brush=sprite.getContext('2d')!;const light=brush.createRadialGradient(12,12,0,12,12,12);
@@ -38,7 +41,7 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
    for(const layer of [surface!,frontSurface!]){layer.width=Math.round(width*dpr);layer.height=Math.round(height*dpr)}
    center={x:logo.left+logo.width/2-bounds.left-host!.clientLeft,y:logo.top+logo.height/2-bounds.top-host!.clientTop};
    origin=source?{x:source.left+source.width/2-bounds.left-host!.clientLeft,y:source.top+4-bounds.top-host!.clientTop}:{...center};
-   radius=Math.max(1,Math.min(98,(width-32)/3.6));
+   radius=Math.max(1,Math.min(light?74:98,(width-32)/(light?3.9:3.6)));
   }
   function ellipse(rx:number,ry:number,rotation:number,start=0,end=Math.PI*2){ctx!.beginPath();ctx!.ellipse(center.x,center.y,rx,ry,rotation,start,end)}
   function ring(rx:number,ry:number,rotation:number,opacity:number,thickness:number,offset:number){
@@ -55,12 +58,13 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
    if(width<=0||height<=0)return false;
    const s=state!;
    for(const paint of [ctx!,frontCtx!]){paint.setTransform(dpr,0,0,dpr,0,0);paint.clearRect(0,0,width,height)}
-   if(phase==='idle'){surface!.dataset.stage='idle';surface!.dataset.coreDark='false';return false}
-   if(phase==='ready'&&s.success===null)s.success=Math.max(s.time,2.9);
+   surface!.dataset.variant=light?'helmet':'singularity';
+   if(phase==='idle'){surface!.dataset.stage='idle';surface!.dataset.coreDark='false';surface!.dataset.needleCount='0';return false}
+   if(phase==='ready'&&s.success===null)s.success=light?s.time:Math.max(s.time,2.9);
    if(phase==='error'&&s.failed===null)s.failed=s.time;
    const fade=s.failed===null?1:1-smooth((s.time-s.failed)/.65);
    const halo=smooth((s.time-.95)/1.35)*fade,horizon=smooth((s.time-1.95)/1.05)*fade;
-   const coreDark=String(halo>.55);if(surface!.dataset.coreDark!==coreDark)surface!.dataset.coreDark=coreDark;
+   const coreDark=String(!light&&halo>.55);if(surface!.dataset.coreDark!==coreDark)surface!.dataset.coreDark=coreDark;
    const completed=s.success!==null?s.time-s.success:-1;
    const boost=completed<0?0:completed<.22?smooth(completed/.22):1-smooth((completed-.65)/1.1);
    const speed=.28+(s.success===null?0:completed<0?0:1.05)+boost*4.5;
@@ -71,6 +75,8 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
    const nearStart=Math.atan2(sinYaw,cosInclination*cosYaw);
    const diskPoint=(t:number,scale:number)=>({x:center.x+radius*scale*(cosYaw*Math.cos(t)+cosInclination*sinYaw*Math.sin(t)),y:center.y+radius*scale*sinInclination*Math.sin(t)});
    surface!.dataset.stage=phase==='error'?'error':completed>=0?(completed<1.7?'boost':'orbit'):horizon>.1?'horizon':halo>.05?'halo':'particles';
+   if(light)surface!.dataset.stage=phase==='error'?'error':completed>=0?(completed<.7?'helmet':'needles'):'particles';
+   surface!.dataset.needleCount=light&&completed>=0?'7':'0';
    surface!.dataset.speed=speed.toFixed(2);surface!.dataset.angle=s.angle.toFixed(3);
    surface!.dataset.diskYaw=yaw.toFixed(4);surface!.dataset.diskInclination=String(inclination);surface!.dataset.horizonRadius=radius.toFixed(2);
    surface!.dataset.origin=`${origin.x.toFixed(1)},${origin.y.toFixed(1)}`;surface!.dataset.target=`${center.x.toFixed(1)},${center.y.toFixed(1)}`;
@@ -99,29 +105,35 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
     paint.restore();
    }
    ctx!.save();
-   if(halo>0){
-    const glow=ctx!.createRadialGradient(center.x,center.y,radius*.65,center.x,center.y,radius*1.9);
-    glow.addColorStop(0,'#ffcc7e00');glow.addColorStop(.34,`rgba(255,175,83,${halo*.12})`);glow.addColorStop(.58,`rgba(255,156,63,${halo*.06})`);glow.addColorStop(1,'#ffb96500');
-    ctx!.fillStyle=glow;ctx!.fillRect(center.x-radius*2,center.y-radius*2,radius*4,radius*4);
-   }
-   disk('back');
-   if(halo>0){
-    ctx!.fillStyle=`rgba(4,6,8,${halo*.88})`;ctx!.beginPath();ctx!.arc(center.x,center.y,radius*.94,0,Math.PI*2);ctx!.fill();
-    // A diffuse halo gathers before the narrow, white-hot event horizon appears.
-    ctx!.strokeStyle=gold(.7,halo*.19);ctx!.lineWidth=8+halo*5;
-    ellipse(radius*1.06,radius*1.06,0);ctx!.stroke();
-    ring(radius*1.1,radius*1.1,0,halo*.45,1,-1);
-   }
-   if(horizon>0){
-    ctx!.strokeStyle=gold(.62,horizon*.23);ctx!.lineWidth=9;
-    ellipse(radius,radius,0);ctx!.stroke();
-    ring(radius,radius,0,horizon,3.1,0);
-    ring(radius*.955,radius*.955,0,horizon*.6,.8,.8);
-    disk('front');
-    for(let i=0;i<18;i++){
-     const angle=i*2.39996,rx=radius*(1.13+i%3*.055),ry=rx;
-     const x=center.x+Math.cos(angle)*rx,y=center.y+Math.sin(angle)*ry;
-     ctx!.fillStyle=gold(.35,horizon*(.4+i%3*.2));ctx!.beginPath();ctx!.arc(x,y,i%3===0?1.7:1,0,Math.PI*2);ctx!.fill();
+   if(light){
+    // The same button-to-logo particles run while Windows works. A helmet is
+    // earned only by verified success; no dark core or accretion disk is drawn.
+    if(completed>=0)paintHelmet(ctx!,helmet,center,radius,s.angle*.28,smooth(completed/.7)*fade);
+   }else{
+    if(halo>0){
+     const glow=ctx!.createRadialGradient(center.x,center.y,radius*.65,center.x,center.y,radius*1.9);
+     glow.addColorStop(0,'#ffcc7e00');glow.addColorStop(.34,`rgba(255,175,83,${halo*.12})`);glow.addColorStop(.58,`rgba(255,156,63,${halo*.06})`);glow.addColorStop(1,'#ffb96500');
+     ctx!.fillStyle=glow;ctx!.fillRect(center.x-radius*2,center.y-radius*2,radius*4,radius*4);
+    }
+    disk('back');
+    if(halo>0){
+     ctx!.fillStyle=`rgba(4,6,8,${halo*.88})`;ctx!.beginPath();ctx!.arc(center.x,center.y,radius*.94,0,Math.PI*2);ctx!.fill();
+     // A diffuse halo gathers before the narrow, white-hot event horizon appears.
+     ctx!.strokeStyle=gold(.7,halo*.19);ctx!.lineWidth=8+halo*5;
+     ellipse(radius*1.06,radius*1.06,0);ctx!.stroke();
+     ring(radius*1.1,radius*1.1,0,halo*.45,1,-1);
+    }
+    if(horizon>0){
+     ctx!.strokeStyle=gold(.62,horizon*.23);ctx!.lineWidth=9;
+     ellipse(radius,radius,0);ctx!.stroke();
+     ring(radius,radius,0,horizon,3.1,0);
+     ring(radius*.955,radius*.955,0,horizon*.6,.8,.8);
+     disk('front');
+     for(let i=0;i<18;i++){
+      const angle=i*2.39996,rx=radius*(1.13+i%3*.055),ry=rx;
+      const x=center.x+Math.cos(angle)*rx,y=center.y+Math.sin(angle)*ry;
+      ctx!.fillStyle=gold(.35,horizon*(.4+i%3*.2));ctx!.beginPath();ctx!.arc(x,y,i%3===0?1.7:1,0,Math.PI*2);ctx!.fill();
+     }
     }
    }
    // Coordinates are measured from the real button and logo, including after resize.
@@ -164,9 +176,11 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
   function start(){if(disposed||!active||!focused||document.hidden)return;surface!.dataset.paused='false';if(!frame)frame=requestAnimationFrame(tick)}
   const blur=()=>{focused=false;stop()},focus=()=>{focused=true;start()},visibility=()=>{if(document.hidden)stop();else start()};
   const observer=new ResizeObserver(()=>{measure();if(!frame)draw()});observer.observe(host);observer.observe(target);if(button.current)observer.observe(button.current);
+  if(light){helmet.onload=()=>{if(!disposed){surface.dataset.helmetLoaded='true';draw()}};helmet.src=helmetUrl}
+  else surface.dataset.helmetLoaded='false';
   measure();draw();start();
   window.addEventListener('blur',blur);window.addEventListener('focus',focus);document.addEventListener('visibilitychange',visibility);
-  return()=>{disposed=true;stop();observer.disconnect();window.removeEventListener('blur',blur);window.removeEventListener('focus',focus);document.removeEventListener('visibilitychange',visibility)};
- },[game,run,phase,active,launcher,button,emblem]);
+  return()=>{disposed=true;helmet.onload=null;stop();observer.disconnect();window.removeEventListener('blur',blur);window.removeEventListener('focus',focus);document.removeEventListener('visibilitychange',visibility)};
+ },[game,run,phase,active,launcher,button,emblem,theme]);
  return <><canvas ref={canvas} className="game-animation" aria-hidden="true"/><canvas ref={foreground} className="game-animation-front" aria-hidden="true"/></>;
 }
