@@ -41,11 +41,11 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
    radius=Math.max(1,Math.min(98,(width-32)/3.6));
   }
   function ellipse(rx:number,ry:number,rotation:number,start=0,end=Math.PI*2){ctx!.beginPath();ctx!.ellipse(center.x,center.y,rx,ry,rotation,start,end)}
-  function ring(rx:number,ry:number,rotation:number,opacity:number,thickness:number,offset:number){
+  function ring(rx:number,ry:number,rotation:number,opacity:number,thickness:number,offset:number,side?:'back'|'front'){
    if(opacity<=0)return;
    // Moving hot arcs give a visible direction of rotation without spinning the logo.
    ctx!.lineCap='butt';
-   for(let i=0;i<96;i++){
+   for(let i=side==='back'?48:0;i<(side==='front'?48:96);i++){
     const a=i*Math.PI*2/96,hot=(Math.cos(a-state!.angle-offset)+1)/2;
     ctx!.strokeStyle=gold(.18+.72*(1-hot),opacity*(.3+.7*hot));ctx!.lineWidth=thickness*(.55+.65*hot);
     ellipse(rx,ry,rotation,a,a+Math.PI*2/96+.001);ctx!.stroke();
@@ -62,14 +62,33 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
    const completed=s.success!==null?s.time-s.success:-1;
    const boost=completed<0?0:completed<.22?smooth(completed/.22):1-smooth((completed-.65)/1.1);
    const speed=.28+(s.success===null?0:completed<0?0:1.05)+boost*4.5;
+   const tilt=-.27+s.angle*.55;
    surface!.dataset.stage=phase==='error'?'error':completed>=0?(completed<1.7?'boost':'orbit'):horizon>.1?'horizon':halo>.05?'halo':'particles';
    surface!.dataset.speed=speed.toFixed(2);surface!.dataset.angle=s.angle.toFixed(3);
+   surface!.dataset.diskRotation=tilt.toFixed(4);surface!.dataset.horizonRadius=radius.toFixed(2);
    surface!.dataset.origin=`${origin.x.toFixed(1)},${origin.y.toFixed(1)}`;surface!.dataset.target=`${center.x.toFixed(1)},${center.y.toFixed(1)}`;
+   function disk(side:'back'|'front'){
+    if(horizon<=0)return;
+    ctx!.save();
+    if(side==='back'){
+     // The far half is occluded by the central shadow, even while it fades in.
+     ctx!.beginPath();ctx!.rect(0,0,width,height);ctx!.moveTo(center.x+radius*.94,center.y);ctx!.arc(center.x,center.y,radius*.94,0,Math.PI*2);ctx!.clip('evenodd');
+    }
+    const start=side==='back'?Math.PI:0,end=side==='back'?Math.PI*2:Math.PI;
+    ctx!.strokeStyle=gold(.62,horizon*.23);ctx!.lineWidth=9;
+    ellipse(radius*1.76,radius*.51,tilt,start,end);ctx!.stroke();
+    ring(radius*1.76,radius*.51,tilt,horizon,4.4,1.2,side);
+    ring(radius*1.83,radius*.56,tilt,horizon*.25,1,2,side);
+    ctx!.restore();
+   }
    ctx!.save();
    if(halo>0){
     const glow=ctx!.createRadialGradient(center.x,center.y,radius*.65,center.x,center.y,radius*1.9);
     glow.addColorStop(0,'#ffcc7e00');glow.addColorStop(.34,`rgba(255,175,83,${halo*.12})`);glow.addColorStop(.58,`rgba(255,156,63,${halo*.06})`);glow.addColorStop(1,'#ffb96500');
     ctx!.fillStyle=glow;ctx!.fillRect(center.x-radius*2,center.y-radius*2,radius*4,radius*4);
+   }
+   disk('back');
+   if(halo>0){
     ctx!.fillStyle=`rgba(4,6,8,${halo*.88})`;ctx!.beginPath();ctx!.arc(center.x,center.y,radius*.94,0,Math.PI*2);ctx!.fill();
     // A diffuse halo gathers before the narrow, white-hot event horizon appears.
     ctx!.strokeStyle=gold(.7,halo*.19);ctx!.lineWidth=8+halo*5;
@@ -77,13 +96,11 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem}:{ga
     ring(radius*1.1,radius*1.1,0,halo*.45,1,-1);
    }
    if(horizon>0){
-    const tilt=-.27+Math.sin(s.angle*.32)*.065;
     ctx!.strokeStyle=gold(.62,horizon*.23);ctx!.lineWidth=9;
-    ellipse(radius,radius,0);ctx!.stroke();ellipse(radius*1.76,radius*.51,tilt);ctx!.stroke();
+    ellipse(radius,radius,0);ctx!.stroke();
     ring(radius,radius,0,horizon,3.1,0);
     ring(radius*.955,radius*.955,0,horizon*.6,.8,.8);
-    ring(radius*1.76,radius*.51,tilt,horizon,4.4,1.2);
-    ring(radius*1.83,radius*.56,tilt,horizon*.25,1,2);
+    disk('front');
     for(let i=0;i<18;i++){
      const angle=s.angle*(1+i%3*.15)+i*2.39996,rx=radius*(1.13+i%3*.055),ry=rx;
      const x=center.x+Math.cos(angle)*rx,y=center.y+Math.sin(angle)*ry;

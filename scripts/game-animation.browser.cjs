@@ -65,6 +65,20 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await click('Выбрать файл игры');assert.equal(await evaluate(`document.querySelector('.game-optimize').textContent.trim()`),'Оптимизировать');
  const shot=async name=>fs.writeFileSync(path.join(output,name+'.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
  const animation=()=>evaluate(`({...document.querySelector('.game-animation').dataset})`);
+ const diskDepth=async()=>{
+  const samples=await evaluate(`(()=>{
+   const canvas=document.querySelector('.game-animation'),ctx=canvas.getContext('2d'),d=canvas.dataset;
+   const [cx,cy]=d.target.split(',').map(Number),r=Number(d.horizonRadius),rotation=Number(d.diskRotation),scale=canvas.width/canvas.clientWidth;
+   const peak=(x,y)=>{const pixels=ctx.getImageData(Math.round(x*scale)-3,Math.round(y*scale)-3,7,7).data;let value=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>50)value=Math.max(value,pixels[i],pixels[i+1],pixels[i+2]);return value};
+   const at=t=>{const x=r*1.76*Math.cos(t),y=r*.51*Math.sin(t);return peak(cx+x*Math.cos(rotation)-y*Math.sin(rotation),cy+x*Math.sin(rotation)+y*Math.cos(rotation))};
+   const host=document.querySelector('.game-launcher').getBoundingClientRect(),heading=document.querySelector('.game-launcher h2').getBoundingClientRect();
+   return{rotation,back:[-.4,-.5,-.6].map(t=>at(t*Math.PI)),front:[.4,.5,.6].map(t=>at(t*Math.PI)),top:cy-r*1.83-6,bottom:cy+r*1.83+6,heading:heading.top-host.top};
+  })()`);
+  assert.ok(samples.back.every(value=>value<25),'Far side must be hidden inside the central shadow: '+JSON.stringify(samples));
+  assert.ok(samples.front.every(value=>value>50),'Near side must remain visible in front: '+JSON.stringify(samples));
+  assert.ok(samples.top>0&&samples.bottom<samples.heading,'The full orbit must fit above the game title at every rotation: '+JSON.stringify(samples));
+  return samples.rotation;
+ };
  const waitStage=async stages=>{for(let i=0;i<100;i++){if(stages.includes((await animation()).stage))return;await delay(50)}throw Error('Missing animation stage '+stages+': '+JSON.stringify(await animation()))};
  const originMatches=async()=>{const values=await evaluate(`(()=>{const c=document.querySelector('.game-animation'),host=document.querySelector('.game-launcher'),b=document.querySelector('.game-optimize').getBoundingClientRect(),e=document.querySelector('.emblem-logo').getBoundingClientRect(),h=host.getBoundingClientRect();return{actual:c.dataset.origin.split(',').map(Number),target:c.dataset.target.split(',').map(Number),expected:[b.x+b.width/2-h.x-host.clientLeft,b.y+4-h.y-host.clientTop],center:[e.x+e.width/2-h.x-host.clientLeft,e.y+e.height/2-h.y-host.clientTop]}})()`);for(let i=0;i<2;i++){assert.ok(Math.abs(values.actual[i]-values.expected[i])<.6,JSON.stringify(values));assert.ok(Math.abs(values.target[i]-values.center[i])<.6,JSON.stringify(values))}};
  const coloredPixels=()=>evaluate(`(()=>{const c=document.querySelector('.game-animation'),p=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let white=0,gold=0,total=0;for(let i=0;i<p.length;i+=4){if(p[i+3]<30)continue;total++;if(p[i+2]>225)white++;if(p[i]>200&&p[i+1]>125&&p[i+1]<230&&p[i+2]<200)gold++}return{white,gold,total}})()`);
@@ -103,11 +117,18 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await evaluate(`window.__outcome='throw';document.querySelector('.game-optimize').click()`);await delay(200);await evaluate(`window.__finish()`);await delay(150);assert.equal((await animation()).stage,'error');assert.ok(await evaluate(`document.querySelector('.optimization-message').textContent.includes('native test failure')`));
  await evaluate(`window.__outcome=null;document.querySelector('.game-optimize').click()`);await delay(3100);await evaluate(`window.__finish()`);await waitStage(['boost']);
  await send('Page.reload');await delay(800);await click('Игровая оптимизация');assert.equal((await animation()).stage,'orbit','Saved optimized game opens with a formed orbit, without emission');
+ let diskAngle=await diskDepth();
+ for(let i=0;i<3;i++){
+  await delay(800);const nextAngle=await diskDepth();
+  assert.ok(nextAngle-diskAngle>.3,'The tilted ellipse itself must rotate, in addition to its light highlights');diskAngle=nextAngle;
+  await shot('disk-depth-'+i);
+ }
+
  await evaluate(`document.querySelector('.effects-toggle').click();document.querySelector('[aria-label="Цветовая тема"]').value='black';document.querySelector('[aria-label="Цветовая тема"]').dispatchEvent(new Event('change',{bubbles:true}))`);await delay(200);
  const effectsOff=await animation();await delay(250);assert.notEqual((await animation()).angle,effectsOff.angle,'Operation animation continues with ambient effects switched off');
  await shot('ready');
  await evaluate(`window.lagophone.optimizationStatus=async()=>({ok:true,active:false,needsRecovery:false,remaining:0,checks:[],windows:{version:'11',build:26100}})`);await click('Твики');await evaluate(`window.scrollTo(0,0)`);await delay(180);assert.ok(await evaluate(`!!document.querySelector('.selection-float')`));
  await evaluate(`document.querySelector('.apply-guide').click()`);await delay(250);assert.equal(await evaluate(`!!document.querySelector('.selection-float')`),false);
  await evaluate(`window.scrollTo(0,0)`);await delay(180);assert.ok(await evaluate(`!!document.querySelector('.selection-float')`));
- console.log('PASS: actual button/center geometry; stable mounted button; white→gold particles→halo→horizon; native success boost and persistent orbit; OS reduced motion; resize and scroll; focus/navigation pause; repeat/instant success; failure/cancellation; reload of saved game; sticky guide');
+ console.log('PASS: actual button/center geometry; stable mounted button; white→gold particles→halo→horizon; native success boost and persistent orbit; OS reduced motion; rotating tilted ellipse and occluded back side at multiple angles; resize and scroll; focus/navigation pause; repeat/instant success; failure/cancellation; reload of saved game; sticky guide');
 })().catch(e=>{console.error(e);if(process.env.GITHUB_ACTIONS)console.log('::error title=Browser assertion details::'+String(e.stack||e).replaceAll('%','%25').replaceAll('\r','%0D').replaceAll('\n','%0A'));process.exitCode=1}).finally(()=>{clearTimeout(deadline);ws?.close();browser.kill('SIGKILL');server.kill();console.log('Browser snapshots: '+output)});
