@@ -1,7 +1,6 @@
 import {useEffect,useRef} from 'react';
 import type {RefObject} from 'react';
-import helmetUrl from '../assets/themes/golden-helm.png';
-import {paintHelmet} from './HelmetAnimation';
+import {createPrismMaterial,paintPrism} from './PrismAnimation';
 
 type Phase='idle'|'working'|'ready'|'error';
 type Point={x:number;y:number};
@@ -28,11 +27,12 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
   if(run===0&&phase==='ready'&&state.success===null){state.time=5;state.success=-10}
   let width=0,height=0,dpr=1,origin:Point={x:0,y:0},center:Point={x:0,y:0},radius=96;
   let frame=0,last=0,focused=document.hasFocus(),disposed=false;
-  const light=theme==='white',helmet=new Image();
+  const light=theme==='white',prism=light?createPrismMaterial():null;
+  const tint=(t:number,alpha=1)=>light?`rgba(${Math.round(mix(255,204,t))},${Math.round(mix(255,232,t))},255,${alpha})`:gold(t,alpha);
   const sparks=Array.from({length:8},(_,i)=>{
    const sprite=document.createElement('canvas');sprite.width=24;sprite.height=24;
    const brush=sprite.getContext('2d')!;const light=brush.createRadialGradient(12,12,0,12,12,12);
-   light.addColorStop(0,gold(i/7,.7));light.addColorStop(.18,gold(i/7,.28));light.addColorStop(1,gold(i/7,0));
+   light.addColorStop(0,tint(i/7,.7));light.addColorStop(.18,tint(i/7,.28));light.addColorStop(1,tint(i/7,0));
    brush.fillStyle=light;brush.fillRect(0,0,24,24);return sprite;
   });
   function measure(){
@@ -41,7 +41,7 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
    for(const layer of [surface!,frontSurface!]){layer.width=Math.round(width*dpr);layer.height=Math.round(height*dpr)}
    center={x:logo.left+logo.width/2-bounds.left-host!.clientLeft,y:logo.top+logo.height/2-bounds.top-host!.clientTop};
    origin=source?{x:source.left+source.width/2-bounds.left-host!.clientLeft,y:source.top+4-bounds.top-host!.clientTop}:{...center};
-   radius=Math.max(1,Math.min(light?74:98,(width-32)/(light?3.9:3.6)));
+   radius=Math.max(1,Math.min(light?80:98,(width-32)/(light?4.1:3.6)));
   }
   function ellipse(rx:number,ry:number,rotation:number,start=0,end=Math.PI*2){ctx!.beginPath();ctx!.ellipse(center.x,center.y,rx,ry,rotation,start,end)}
   function ring(rx:number,ry:number,rotation:number,opacity:number,thickness:number,offset:number){
@@ -58,14 +58,15 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
    if(width<=0||height<=0)return false;
    const s=state!;
    for(const paint of [ctx!,frontCtx!]){paint.setTransform(dpr,0,0,dpr,0,0);paint.clearRect(0,0,width,height)}
-   surface!.dataset.variant=light?'helmet':'singularity';
-   if(phase==='idle'){surface!.dataset.stage='idle';surface!.dataset.coreDark='false';surface!.dataset.needleCount='0';return false}
+   surface!.dataset.variant=light?'prism':'singularity';
+   if(phase==='idle'){surface!.dataset.stage='idle';surface!.dataset.coreDark='false';return false}
    if(phase==='ready'&&s.success===null)s.success=light?s.time:Math.max(s.time,2.9);
    if(phase==='error'&&s.failed===null)s.failed=s.time;
    const fade=s.failed===null?1:1-smooth((s.time-s.failed)/.65);
    const halo=smooth((s.time-.95)/1.35)*fade,horizon=smooth((s.time-1.95)/1.05)*fade;
-   const coreDark=String(!light&&halo>.55);if(surface!.dataset.coreDark!==coreDark)surface!.dataset.coreDark=coreDark;
    const completed=s.success!==null?s.time-s.success:-1;
+   const formation=Math.max(smooth((s.time-.7)/1.5),completed<0?0:.35+.65*smooth(completed/.8))*fade;
+   const coreDark=String(light?formation>.55:halo>.55);if(surface!.dataset.coreDark!==coreDark)surface!.dataset.coreDark=coreDark;
    const boost=completed<0?0:completed<.22?smooth(completed/.22):1-smooth((completed-.65)/1.1);
    const speed=.28+(s.success===null?0:completed<0?0:1.05)+boost*4.5;
    const yaw=-.8+s.angle*.55,inclination=.3;
@@ -75,8 +76,7 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
    const nearStart=Math.atan2(sinYaw,cosInclination*cosYaw);
    const diskPoint=(t:number,scale:number)=>({x:center.x+radius*scale*(cosYaw*Math.cos(t)+cosInclination*sinYaw*Math.sin(t)),y:center.y+radius*scale*sinInclination*Math.sin(t)});
    surface!.dataset.stage=phase==='error'?'error':completed>=0?(completed<1.7?'boost':'orbit'):horizon>.1?'horizon':halo>.05?'halo':'particles';
-   if(light)surface!.dataset.stage=phase==='error'?'error':completed>=0?(completed<.7?'helmet':'needles'):'particles';
-   surface!.dataset.needleCount=light&&completed>=0?'7':'0';
+   if(light)surface!.dataset.stage=phase==='error'?'error':completed>=0?(completed<1.2?'prism-bloom':'prism-orbit'):formation>.05?'prism-gather':'particles';
    surface!.dataset.speed=speed.toFixed(2);surface!.dataset.angle=s.angle.toFixed(3);
    surface!.dataset.diskYaw=yaw.toFixed(4);surface!.dataset.diskInclination=String(inclination);surface!.dataset.horizonRadius=radius.toFixed(2);
    surface!.dataset.origin=`${origin.x.toFixed(1)},${origin.y.toFixed(1)}`;surface!.dataset.target=`${center.x.toFixed(1)},${center.y.toFixed(1)}`;
@@ -106,9 +106,7 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
    }
    ctx!.save();
    if(light){
-    // The same button-to-logo particles run while Windows works. A helmet is
-    // earned only by verified success; no dark core or accretion disk is drawn.
-    if(completed>=0)paintHelmet(ctx!,helmet,center,radius,s.angle*.28,smooth(completed/.7)*fade);
+    paintPrism(ctx!,prism!,center,radius,s.time,s.angle,formation,completed);
    }else{
     if(halo>0){
      const glow=ctx!.createRadialGradient(center.x,center.y,radius*.65,center.x,center.y,radius*1.9);
@@ -146,9 +144,9 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
     const head=point(start,b,c,finish,t),tail=point(start,b,c,finish,Math.max(0,t-.025-.025*progress));
     const opacity=Math.min(1,progress*12)*(1-smooth((progress-.87)/.13))*fade;
     ctx!.globalAlpha=opacity;ctx!.drawImage(sparks[Math.round(smooth(progress)*7)],head.x-9,head.y-9,18,18);ctx!.globalAlpha=1;
-    ctx!.strokeStyle=gold(smooth(progress),opacity);ctx!.lineWidth=1+particle.seed*1.5;
+    ctx!.strokeStyle=tint(smooth(progress),opacity);ctx!.lineWidth=1+particle.seed*1.5;
     ctx!.beginPath();ctx!.moveTo(tail.x,tail.y);ctx!.lineTo(head.x,head.y);ctx!.stroke();
-    ctx!.fillStyle=gold(smooth(progress)*.8,opacity);ctx!.beginPath();ctx!.arc(head.x,head.y,1+particle.seed,0,Math.PI*2);ctx!.fill();
+    ctx!.fillStyle=tint(smooth(progress)*.8,opacity);ctx!.beginPath();ctx!.arc(head.x,head.y,1+particle.seed,0,Math.PI*2);ctx!.fill();
    }
    ctx!.restore();
    return fade>0;
@@ -176,11 +174,9 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
   function start(){if(disposed||!active||!focused||document.hidden)return;surface!.dataset.paused='false';if(!frame)frame=requestAnimationFrame(tick)}
   const blur=()=>{focused=false;stop()},focus=()=>{focused=true;start()},visibility=()=>{if(document.hidden)stop();else start()};
   const observer=new ResizeObserver(()=>{measure();if(!frame)draw()});observer.observe(host);observer.observe(target);if(button.current)observer.observe(button.current);
-  if(light){helmet.onload=()=>{if(!disposed){surface.dataset.helmetLoaded='true';draw()}};helmet.src=helmetUrl}
-  else surface.dataset.helmetLoaded='false';
   measure();draw();start();
   window.addEventListener('blur',blur);window.addEventListener('focus',focus);document.addEventListener('visibilitychange',visibility);
-  return()=>{disposed=true;helmet.onload=null;stop();observer.disconnect();window.removeEventListener('blur',blur);window.removeEventListener('focus',focus);document.removeEventListener('visibilitychange',visibility)};
+  return()=>{disposed=true;stop();observer.disconnect();window.removeEventListener('blur',blur);window.removeEventListener('focus',focus);document.removeEventListener('visibilitychange',visibility)};
  },[game,run,phase,active,launcher,button,emblem,theme]);
  return <><canvas ref={canvas} className="game-animation" aria-hidden="true"/><canvas ref={foreground} className="game-animation-front" aria-hidden="true"/></>;
 }

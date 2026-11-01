@@ -1,4 +1,4 @@
-const palettes={black:{color:'#121212',symbolColor:'#e2e2e2',page:'#090909'},white:{color:'#e9dfc5',symbolColor:'#30291d',page:'#ded4b5'}};
+const palettes={black:{color:'#121212',symbolColor:'#e2e2e2',page:'#090909'},white:{color:'#eef0eb',symbolColor:'#292e2b',page:'#eceee9'}};
 function windowChromeOptions(platform){return platform==='win32'?{titleBarStyle:'hidden',titleBarOverlay:{color:palettes.black.color,symbolColor:palettes.black.symbolColor,height:34}}:{}}
 function applyWindowTheme(window,theme){
  if(typeof theme!=='string'||!Object.hasOwn(palettes,theme))throw Error('Неизвестная тема окна.');

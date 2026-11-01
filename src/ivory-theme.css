@@ -1,21 +1,19 @@
 /* Keep the stored black/white IDs so existing theme preferences survive. */
 :root[data-theme=white]{
- --green:#755819;
- --accent-soft:#5d461d;
- --accent-muted:#695b3f;
- --accent-bg:#e1d4af;
- --accent-panel:#e8dfc6;
- --accent-border:#b9a676;
- --accent-contrast:#fff8e6;
- --page:#ded4b5;
- --surface:#eee6cf;
- --neutral:#30291d;
- --muted:#665c46;
- --line:#cbbd96;
- --panel:#eee6cf;
- --scroll-thumb:#a89a72;
- --ivory-diamond:url('../assets/themes/ivory-diamond.png');
- --ivory-damask:url('../assets/themes/ivory-damask.png');
+ --green:#3a433d;
+ --accent-soft:#3a433d;
+ --accent-muted:#626b63;
+ --accent-bg:#e1e6de;
+ --accent-panel:#eef1e9;
+ --accent-border:#c8d0c5;
+ --accent-contrast:#f9faf6;
+ --page:#eceee9;
+ --surface:#f4f5f0;
+ --neutral:#292e2b;
+ --muted:#5d665f;
+ --line:#dce1d8;
+ --panel:#f4f5f0;
+ --scroll-thumb:#abb5a8;
 }
 
 /* The icon is the entire trigger; the native select keeps keyboard access. */
@@ -29,52 +27,36 @@
 .os-selector .os-chevron{opacity:0;transition:opacity .16s ease}
 .os-selector:hover .os-chevron,.os-selector:focus-visible .os-chevron{opacity:1}
 
-/* Blue marks in the reference map to the exposed diamond cloth background. */
-.atmosphere-white{
- background-color:var(--page);
- background-image:linear-gradient(#e5dbc95c,#e5dbc95c),var(--ivory-diamond);
- background-size:auto,440px 440px;
-}
-.atmosphere-white .ambient-silk{opacity:.35;mix-blend-mode:soft-light}
-.atmosphere-white .ribbon-one{stroke:#bca16a}
-.atmosphere-white .ribbon-two{stroke:#d5c798}
-.atmosphere-white .ribbon-three{stroke:#b3ad7a}
-
-/* Purple marks map to jacquard panels throughout every app section and dialog. */
+/* The light theme shares the dark theme's plain surfaces and fine borders. */
+.atmosphere-white{background:var(--page)}
+.atmosphere-white .ambient-silk{opacity:.12}
+.atmosphere-white .ribbon-one{stroke:#b1b8ac}
+.atmosphere-white .ribbon-two{stroke:#c8c4b7}
+.atmosphere-white .ribbon-three{stroke:#b8c0b3}
 :root[data-theme=white] :is(
  .app-shell aside,.workspace>header,.desktop-titlebar,.os-card,.safe-card,
  .optimization-meter,.pc-studio,.hardware-card,.quick-card,.uptime-card,
  .rating-hero,.rating-levels>div,.rating-checks article,.rating-explanation,
  .windows-scope,.profile-card,.profile-composition,.feature-option,.config-card,
- .power-first,
- .changes-list>label,.apply-bar,.optimization-session-notice,.game-launcher,
- .game-path-step,.game-plan>div,.game-catalog,.game-catalog-card,
+ .power-first,.changes-list>label,.apply-bar,.optimization-session-notice,
+ .game-launcher,.game-path-step,.game-plan>div,.game-catalog,.game-catalog-card,
  .tool-card,.application-card,.driver-card,.driver-category,.catalog-explanation,
  .modal,.activity-panel,.selection-float,.notice,.toast,.restore-banner,.footnote
-){
- background-color:var(--surface);
- background-image:linear-gradient(#eee6cfbd,#eee6cfbd),var(--ivory-damask);
- background-size:auto,520px 520px;
- border-color:var(--accent-border);
-}
-:root[data-theme=white] :is(.app-shell aside,.workspace>header,.desktop-titlebar){
- background-image:linear-gradient(#e9dfc5b0,#e9dfc5b0),var(--ivory-damask);
-}
-:root[data-theme=white] :is(.hardware-card,.tool-card,.application-card,.driver-card,.profile-card):hover{border-color:#8f7740}
-:root[data-theme=white] :is(.profile-card.selected,.game-catalog-card.selected,nav button.active){border-color:#9d8247;background-color:var(--accent-bg)}
-:root[data-theme=white] .profile-card.selected{background-image:linear-gradient(#e1d4afbf,#e1d4afbf),var(--ivory-damask)}
-:root[data-theme=white] .selection-float{box-shadow:0 8px 28px #66512726}
-:root[data-theme=white] .modal-backdrop{background:#3b2b164d}
-:root[data-theme=white] :is(.modal,.notice,.toast,.activity-panel){box-shadow:0 12px 44px #624c292b}
+){background:var(--surface);border-color:var(--accent-border)}
+:root[data-theme=white] :is(.app-shell aside,.workspace>header,.desktop-titlebar){background:#eef0eb}
+:root[data-theme=white] :is(.hardware-card,.tool-card,.application-card,.driver-card,.profile-card):hover{border-color:#929f90}
+:root[data-theme=white] :is(.profile-card.selected,.game-catalog-card.selected,nav button.active){border-color:#a3afa0;background:var(--accent-bg)}
+:root[data-theme=white] .selection-float{box-shadow:0 8px 28px #33403514}
+:root[data-theme=white] .modal-backdrop{background:#202b244d}
+:root[data-theme=white] :is(.modal,.notice,.toast,.activity-panel){box-shadow:0 12px 44px #3340351f}
 :root[data-theme=white] .activity-list article+article{border-color:var(--line)}
-:root[data-theme=white] .emblem-logo{color:#4e391b;filter:drop-shadow(0 1px 1px #fff5d7)}
+:root[data-theme=white] .emblem-logo{color:#3a433d;filter:none}
 :root[data-theme=white] .emblem-logo .game-logo{color:inherit}
-:root[data-theme=white] :is(.game-path-step,.game-plan>div){background-image:linear-gradient(#eee6cfe0,#eee6cfe0),var(--ivory-damask)}
 :root[data-theme=white] .game-launcher{isolation:isolate}
 
 @media(max-width:800px){.theme-control{width:32px;height:32px;min-width:32px;padding:0}.theme-control>svg{width:17px}.theme-control select{max-width:none}}
 
-:root[data-theme=white] .game-emblem{height:300px;width:min(420px,100%)}
-:root[data-theme=white] .game-launcher:has(.game-animation[data-needle-count="7"]) .emblem-logo{color:#fff8df;filter:drop-shadow(0 1px 1px #241804) drop-shadow(0 0 2px #241804)}
-:root[data-theme=white] .game-launcher:has(.game-animation[data-needle-count="7"]) .emblem-logo .game-logo svg{max-width:64px;max-height:58px}
-:root[data-theme=white] .game-launcher:has(.game-animation[data-needle-count="7"]) .emblem-logo .game-text-logo{font-size:14px;max-width:76px;line-height:1.12}
+:root[data-theme=white] .game-emblem{height:280px;width:min(400px,100%)}
+:root[data-theme=white] .game-launcher:has(.game-animation[data-core-dark=true]) .emblem-logo{color:#fff8df;filter:drop-shadow(0 1px 1px #241804) drop-shadow(0 0 2px #241804)}
+:root[data-theme=white] .game-launcher:has(.game-animation[data-core-dark=true]) .emblem-logo .game-logo svg{max-width:104px;max-height:76px}
+:root[data-theme=white] .game-launcher:has(.game-animation[data-core-dark=true]) .emblem-logo .game-text-logo{font-size:20px;max-width:112px;line-height:1.12}
