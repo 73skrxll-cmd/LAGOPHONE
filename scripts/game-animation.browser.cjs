@@ -302,9 +302,12 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  `);
  await click('Пинг');await waitFor(`!!window.__pingProgress`,'Native ping subscription');
  assert.equal(await evaluate(`document.querySelectorAll('.ping-control-actions button').length`),1);assert.equal(await evaluate(`document.querySelector('.ping-controls .primary').textContent`),'Буст');
+ assert.equal(await evaluate(`document.querySelector('.ping-consent input').checked`),false);
+ assert.ok(await evaluate(`document.querySelector('.ping-consent-card').compareDocumentPosition(document.querySelector('.ping-controls')) & Node.DOCUMENT_POSITION_FOLLOWING`),'Consent is visible before Boost');
  await shot('ping-white-empty');
  await evaluate(`document.querySelector('.ping-consent input').click()`);
  await waitFor(`!document.querySelector('.ping-controls .primary').disabled`,'Consented comparison');
+ assert.ok(await evaluate(`document.querySelector('.ping-consent strong').textContent.includes('Условия приняты')`));
  await click('Буст');await waitFor(`!!document.querySelector('.ping-progress')`,'Ping progress');
  assert.equal(await evaluate(`document.querySelector('.ping-value').childNodes[0].textContent`),'0','Measured zero is preserved');
  assert.equal(await evaluate(`document.querySelector('[aria-label="Точка проверки"]').disabled`),true);
@@ -316,7 +319,7 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.ping-value')].slice(0,2).map(e=>e.childNodes[0].textContent)`),['65','45']);
  await shot('ping-white-comparison');
  await waitFor(`document.querySelector('.ping-provider-badge').textContent.includes('включён')`,'Owned route connected');
- assert.ok(await evaluate(`document.querySelector('.ping-workspace').textContent.includes('после закрытия GTM PC')`));
+ assert.ok(await evaluate(`document.querySelector('.ping-workspace').textContent.includes('даже если закрыть GTM PC')`));
  await click('Отключить буст');await waitFor(`!document.querySelector('.ping-provider-badge .is-live')`,'Route disconnected');
  await click('Сохранить отчёт');assert.equal(await evaluate('window.__pingExported'),true);
  await evaluate(`document.querySelector('[aria-label="Цветовая тема"]').value='black';document.querySelector('[aria-label="Цветовая тема"]').dispatchEvent(new Event('change',{bubbles:true}));window.scrollTo(0,0)`);await delay(150);await shot('ping-dark-comparison');

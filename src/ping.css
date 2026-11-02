@@ -5,3 +5,28 @@
 .ping-provider-links{grid-column:1/-1;display:flex;gap:17px}.ping-provider-links button{font-size:10px;color:var(--accent-muted);text-decoration:underline;text-underline-offset:3px}.ping-provider-links button:hover{color:var(--accent-soft)}
 .ping-services{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.ping-services button{padding:17px 20px;border:1px solid var(--accent-border);border-radius:10px;background:var(--surface);color:var(--accent-soft);font-size:13px;font-weight:650;text-align:left;transition:background .15s,border-color .15s}.ping-services button small{display:block;font-size:10px;font-weight:400;margin-top:7px;color:var(--accent-muted)}.ping-services button.is-selected{border-color:var(--accent-soft);background:var(--accent-panel)}.ping-services button:hover:not(:disabled){background:var(--accent-panel)}.ping-services button:focus-visible{outline:2px solid var(--accent-soft);outline-offset:3px}
 @media(max-width:800px){.ping-services{gap:8px}.ping-services button{padding:13px 12px;font-size:12px}.ping-services button small{font-size:9px}}
+
+/* Consent sits beside the action flow with a large native checkbox and a clickable card. */
+.ping-consent-card{border:2px solid var(--accent-soft);border-radius:12px;background:var(--accent-panel);overflow:hidden}
+.ping-consent-card .ping-consent{display:flex;align-items:center;gap:16px;padding:22px 24px;border:0;cursor:pointer;color:var(--neutral)}
+.ping-consent-card .ping-consent input{appearance:auto;flex:0 0 26px;width:26px;height:26px;margin:0;accent-color:var(--accent-soft);cursor:pointer}
+.ping-consent-card .ping-consent>span{flex:1;min-width:0}
+.ping-consent-card strong{display:block;font-size:16px;font-weight:750;line-height:1.45}
+.ping-consent-card small{display:block;font-size:12px;line-height:1.65;margin-top:7px;color:var(--accent-soft)}
+.ping-consent-card .ping-consent>svg{flex-shrink:0;visibility:hidden}
+.ping-consent-card.is-accepted .ping-consent>svg{visibility:visible}
+.ping-consent-card .ping-provider-links{padding:0 24px 18px 66px;flex-wrap:wrap}
+.ping-consent-card .ping-provider-links button{font-size:11px;color:var(--accent-soft)}
+.ping-consent-card:focus-within{outline:2px solid var(--neutral);outline-offset:4px}
+.ping-how{padding:16px 20px;border:1px solid var(--accent-border);border-radius:10px;color:var(--accent-soft);font-size:12px}
+.ping-how summary{cursor:pointer;font-weight:650}
+.ping-how p{margin-top:10px;line-height:1.7;color:var(--muted);max-width:620px}
+@media(max-width:800px){.ping-consent-card .ping-consent{padding:18px;gap:12px}.ping-consent-card strong{font-size:14px}.ping-consent-card .ping-provider-links{padding-left:56px}.ping-consent-card .ping-consent>svg{display:none}}
+
+.ping-start-guide{padding:20px 24px;border:1px solid var(--accent-border);border-radius:11px;background:var(--surface)}
+.ping-start-guide h3{font-size:14px;color:var(--neutral);margin-bottom:14px}
+.ping-start-guide ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;list-style:none;counter-reset:boost-step;padding:0;margin:0}
+.ping-start-guide li{counter-increment:boost-step;position:relative;padding-left:34px;font-size:12px;line-height:1.65;color:var(--accent-soft)}
+.ping-start-guide li::before{content:counter(boost-step);position:absolute;left:0;top:0;display:grid;place-items:center;width:24px;height:24px;border:1px solid var(--accent-border);border-radius:50%;color:var(--neutral);font-weight:750}
+.ping-start-guide b{display:block;color:var(--neutral);font-size:13px}
+@media(max-width:800px){.ping-start-guide ol{grid-template-columns:1fr;gap:14px}}
