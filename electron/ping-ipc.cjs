@@ -40,7 +40,7 @@ function registerPing(getWindow,activities,optimizer){
  })}
  handle('ping:status',consent=>controller.status(consent===true));
  handle('ping:measure',target=>controller.measure(target));
- handle('ping:compare',(target,consent)=>controller.compare(target,consent===true));
+ handle('ping:compare',(target,consent)=>controller.compare(target,consent===true,true));
  handle('ping:connect',(consent,options)=>controller.connect(consent===true,options));
  handle('ping:disconnect',()=>controller.disconnect());
  handle('ping:cancel',()=>controller.cancel());

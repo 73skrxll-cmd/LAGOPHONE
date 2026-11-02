@@ -63,10 +63,11 @@ function createPingController({probe,transport,exclusive=(_,task)=>task(),load=a
    const baseline=await measure(targetId,resolved.address,'baseline',signal);
    return store({id:randomUUID(),kind:'baseline',targetId,address:resolved.address,method:target.method,...(target.port?{port:target.port}:{}),createdAt:new Date(now()).toISOString(),baseline});
   }),
-  compare:(targetId,consent)=>enter('compare',targetId,async signal=>{
+  compare:(targetId,consent,activate=false)=>enter('compare',targetId,async signal=>{
    if(consent!==true)throw Error('Разрешите тестовое переключение всего трафика через WARP.');
    const {pingTarget,comparePingTrials}=await import('../shared/ping.mjs');const target=pingTarget(targetId);
    if(recoveryRequired||journal.owned)throw Error('Сначала отключите маршрут GTM PC и проверьте исходное подключение.');
+   if(transport.prepare){emitPhase('preparing',targetId);await transport.prepare(true,{signal})}
    const provider=await inspect(true);if(!provider.ready||provider.managed||provider.connected)throw Error(provider.error||'Сначала подготовьте WARP и оставьте его отключённым.');
    const resolved=await probe('resolve',{targetId},{signal}),address=resolved.address;
    await verifyRoute(targetId,address,false,signal);
@@ -86,6 +87,10 @@ function createPingController({probe,transport,exclusive=(_,task)=>task(),load=a
    const comparison=comparePingTrials(directBefore,routed,directAfter);
    const report=await store({id:randomUUID(),kind:'comparison',targetId,address,method:target.method,...(target.port?{port:target.port}:{}),createdAt:new Date(now()).toISOString(),directBefore,routed,directAfter,comparison});
    await onActivity({target:{page:'ping'},kind:'network',status:comparison.verdict==='improved'?'success':'warning',title:`${target.game}: сравнение маршрутов завершено`,detail:comparison.verdict==='improved'?`${target.method==='tcp'?'TCP-подключение':'ICMP до тестового сервера'} быстрее на ${comparison.gainMs} мс. Исходное подключение восстановлено.`:'Надёжное снижение задержки не подтверждено. Исходное подключение сохранено.'});
+   if(activate&&comparison.recommended==='tunnel'){
+    try{emitPhase('connecting',targetId,address);await ownRoute('manual',true);await verifyRoute(targetId,address,true,signal)}
+    catch(error){if(journal.owned){try{await restore()}catch{recoveryRequired=true}}throw error}
+   }
    return report;
   }),
   connect:(consent,options)=>enter('connect',options?.targetId||last?.targetId,async signal=>{

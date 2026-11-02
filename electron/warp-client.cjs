@@ -69,6 +69,31 @@ function createWarpClient({launch=execFile,platform=process.platform,trace=reque
   return execute(info.path,[...(consent?['--accept-tos']:[]),'--json',...args]);
  }
  return {
+  async prepare(consent,{signal}={}){
+   if(consent!==true)throw Error('Примите условия Cloudflare перед подготовкой.');
+   if(platform!=='win32')throw Error('Подготовка доступна только в Windows.');
+   const check=()=>{if(signal?.aborted)throw Error('Подготовка отменена.');};check();
+   let info=await discover(true);
+   if(info.installed&&!info.verified)throw Error('Подпись установленного WARP не подтверждена. Подготовка остановлена.');
+   if(!info.installed||!info.serviceRunning){
+    const script=require('./warp-setup.cjs').setupCommand(!info.installed);
+    await execute(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(),timeout:600000});
+    info=await discover(true);
+    if(!info.installed||!info.verified||!info.serviceRunning)throw Error('Служба WARP не готова. Возможно, Windows требуется перезагрузка.');
+   }
+   check();
+   const status=parseWarpStatus(JSON.parse(await cli(['status'],true)));
+   if(status==='registrationmissing'){
+    await cli(['registration','new'],true);check();
+   }
+   const registration=parseWarpRegistration(JSON.parse(await cli(['registration','show'],true)));
+   if(registration.managed)throw Error('Подключение управляется организацией.');
+   const settings=parseWarpSettings(JSON.parse(await cli(['settings','list'],true)));
+   if(settings.managed)throw Error('Подключение управляется организацией.');
+   if(!['disconnected','registrationmissing'].includes(status))throw Error('Сначала отключите существующее подключение WARP.');
+   if(!settings.traffic)await cli(['mode','warp+doh'],true);
+   check();const ready=await this.inspect(true);if(!ready.ready)throw Error(ready.error||'Компонент не готов.');return ready;
+  },
   async inspect(consent=false){
    const base={id:'cloudflare-warp',installed:false,ready:false,connected:false,managed:false,stateKnown:false,consumerVerified:false,connectionStatus:'unknown'};
    try{

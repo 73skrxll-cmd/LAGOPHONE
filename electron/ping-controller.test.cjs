@@ -87,3 +87,16 @@ test('manual route errors return the connection just like verified route errors'
  const f=fixture();f.transport.verify=async()=>{throw Error('tunnel proof failed')};
  await assert.rejects(f.controller.connect(true,{intent:'manual',targetId:'epic-download'}),/tunnel proof failed/);assert.equal(f.connected,false);assert.equal(f.disconnected,1);assert.equal(f.journal.owned,false);
 });
+
+test('Boost prepares once, runs A-B-A and keeps only an improved route enabled',async()=>{
+ const f=fixture();let prepared=0;f.transport.prepare=async consent=>{assert.equal(consent,true);prepared++};
+ const report=await f.controller.compare(targetId,true,true);
+ assert.equal(prepared,1);assert.equal(report.comparison.verdict,'improved');assert.equal(f.connected,true);assert.equal(f.issued,2);assert.equal(f.journal.reason,'manual');
+ await f.controller.disconnect();assert.equal(f.connected,false);
+ const g=fixture({probe:async(mode,payload,options,{normal})=>{const r=await normal(mode,payload,options);return mode==='measure'?{...r,samples:trial(65).samples}:r}});
+ await g.controller.compare(targetId,true,true);assert.equal(g.connected,false);assert.equal(g.issued,1);
+});
+test('Boost preparation failure never issues a connection command',async()=>{
+ const f=fixture();f.transport.prepare=async()=>{throw Error('UAC cancelled')};
+ await assert.rejects(f.controller.compare(targetId,true,true),/UAC cancelled/);assert.equal(f.issued,0);assert.equal(f.measured,0);
+});

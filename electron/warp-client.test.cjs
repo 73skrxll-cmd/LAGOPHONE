@@ -47,3 +47,26 @@ test('route proof must explicitly confirm active WARP; read failures cannot beco
  for(const trace of [{active:false,confirmed:true},{active:true,confirmed:false},{}])await assert.rejects(fixture({trace}).client.verify(),/не проходит/);
  assert.equal(await fixture().client.verify(),true);
 });
+
+test('automatic preparation requires consent and preserves connected or managed clients',async()=>{
+ const f=fixture();await assert.rejects(f.client.prepare(false));assert.equal(f.calls.length,0);
+ await f.client.prepare(true);assert.equal(f.calls.some(c=>c.args.includes('new')),false);
+ for(const setup of [{account:'Teams'},{status:'Connected'},{verified:false}]){
+  const g=fixture(setup);await assert.rejects(g.client.prepare(true));
+  assert.equal(g.calls.some(c=>c.args.includes('new')||c.args.includes('mode')||c.args.includes('connect')),false);
+ }
+});
+test('missing local registration is created via CLI without an account login',async()=>{
+ let registered=false;const commands=[];
+ const client=createWarpClient({platform:'win32',launch:(file,args,options,cb)=>{
+  commands.push(args);let result={};
+  if(args.includes('-EncodedCommand'))result={installed:true,verified:true,serviceRunning:true,path:'signed-warp.exe'};
+  else if(args.includes('status'))result={status:registered?'Disconnected':'RegistrationMissing'};
+  else if(args.includes('new'))registered=true;
+  else if(args.includes('registration'))result={account_type:'Free'};
+  else if(args.includes('settings'))result={mode:'warp+doh'};
+  queueMicrotask(()=>cb(null,JSON.stringify(result)));
+ }});
+ assert.equal((await client.prepare(true)).ready,true);
+ assert.equal(commands.filter(a=>a.includes('new')).length,1);
+});
