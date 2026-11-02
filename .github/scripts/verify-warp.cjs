@@ -18,6 +18,8 @@ const {windowsPowerShellExecutable}=require('../../electron/windows-powershell.c
   const report=await controller.compare('discord-api',true);
   await fs.writeFile('release/warp-network-check.json',JSON.stringify(report,null,2));
   console.log('Real A-B-A completed:',report.comparison.verdict,'gainMs:',report.comparison.gainMs);
- }catch(error){await fs.writeFile('release/warp-network-check.json',JSON.stringify({error:error.message,provider:await transport.inspect(true)},null,2));throw error}
+ }catch(error){
+  try{const {cli}=await transport.watchdogInfo();const {promisify}=require('node:util');const {execFile}=require('node:child_process');const result=await promisify(execFile)(cli,['--accept-tos','--json','status'],{windowsHide:true,timeout:15000});console.log('WARP status diagnostic:',result.stdout.slice(0,4096))}catch{}
+  await fs.writeFile('release/warp-network-check.json',JSON.stringify({error:error.message,provider:await transport.inspect(true)},null,2));throw error}
  finally{const state=await controller.status(true);if(state.provider.owned)await controller.disconnect()}
 })().catch(error=>{console.error(error.message);process.exitCode=1});
