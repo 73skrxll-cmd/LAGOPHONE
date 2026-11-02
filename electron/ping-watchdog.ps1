@@ -28,9 +28,11 @@ function Invoke-Cli([string]$Arguments){
 function PersonalRegistration {
  try{
   $registration=(Invoke-Cli '--accept-tos --json registration show')|ConvertFrom-Json
+  if($registration.managed -eq $true){return $false}
   $organizations=@(Fields $registration @('organization','organizationname','teamsorganization')|Where-Object {$null -ne $_ -and [string]$_ -notin @('','None','null')})
   if($organizations.Count -gt 0){return $false}
   $types=@(Fields $registration @('accounttype','registrationtype')|ForEach-Object {if($_ -is [string]){$_}elseif($_ -is [PSCustomObject]){$_.PSObject.Properties.Name}})
+  if($null -ne $registration.account.type){$types+=@($registration.account.type|ForEach-Object {if($_ -is [string]){$_}elseif($_ -is [PSCustomObject]){$_.PSObject.Properties.Name}})}
   if(@($types|Where-Object {$_ -in @('Teams','Team','Enterprise','ZeroTrust','Organization')}).Count -gt 0){return $false}
   return @($types|Where-Object {$_ -in @('Free','Unlimited','Limited','Consumer','Personal','Warp+','WarpPlus')}).Count -gt 0
  }catch{return $false}

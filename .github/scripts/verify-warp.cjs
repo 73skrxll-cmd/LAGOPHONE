@@ -22,7 +22,7 @@ const {windowsPowerShellExecutable}=require('../../electron/windows-powershell.c
   try{
    const {cli}=await transport.watchdogInfo();const {promisify}=require('node:util');const {execFile}=require('node:child_process');
    const safe=new Set(['Unable','Connected','Disconnected','Connecting','Disconnecting','RegistrationMissing','DaemonStartup','Free','Unlimited','Limited','Teams','warp','warp+doh','WarpWithDnsOverHttps','WarpWithDns','TunnelOnly','Mode']);
-   const redact=value=>Array.isArray(value)?value.map(redact):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,item])=>[key,redact(item)])):typeof value==='string'?(safe.has(value)?value:'<redacted>'):value;
+   const redact=value=>Array.isArray(value)?value.map(redact):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,item])=>[key,redact(item)])):typeof value==='string'?([...safe].some(item=>item.toLowerCase()===value.toLowerCase())?value:'<redacted>'):value;
    for(const args of [['status'],['settings','list'],['registration','show']]){
     try{const result=await promisify(execFile)(cli,['--accept-tos','--json',...args],{windowsHide:true,timeout:15000});console.log('WARP schema diagnostic',args.join(' '),JSON.stringify(redact(JSON.parse(result.stdout))))}catch{}
    }

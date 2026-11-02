@@ -76,3 +76,11 @@ test('official Windows unregistered daemon status is recognized without treating
  assert.throws(()=>parseWarpStatus({status:'Unable',reason:{Firewall:'Blocked'}}));
  assert.throws(()=>parseWarpStatus({status:'Unable',reason:{RegistrationMissing:'DaemonStartup',Other:'Unknown'}}));
 });
+
+test('official Windows settings and personal registration schemas are recognized and managed flag blocks switching',()=>{
+ assert.equal(parseWarpSettings({settings:{operation_mode:'warp'},sources:{operation_mode:'Default'}}).traffic,true);
+ assert.equal(parseWarpRegistration({managed:false,account:{type:'free'}}).managed,false);
+ assert.equal(parseWarpRegistration({managed:true,account:{type:'free'}}).managed,true);
+ assert.equal(parseWarpRegistration({managed:false,account:{type:'team'}}).managed,true);
+ assert.throws(()=>parseWarpRegistration({managed:false,account:{type:'unknown'}}));
+});

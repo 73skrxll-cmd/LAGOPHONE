@@ -31,7 +31,7 @@ function parseWarpStatus(data){
 }
 function parseWarpSettings(data){
  const known=[...trafficModes,'doh','dot','proxy','warpproxy'];
- const modes=[...new Set(fields(data,['mode','servicemode']).flatMap(value=>tokens(value)).map(normalize).filter(value=>known.includes(value)))];
+ const modes=[...new Set(fields(data,['mode','servicemode','operationmode']).flatMap(value=>tokens(value)).map(normalize).filter(value=>known.includes(value)))];
  if(modes.length!==1)throw Error('Не удалось определить режим WARP. Откройте официальный клиент и проверьте его настройки.');
  const mode=modes[0];
  const organizations=fields(data,['organization','organizationname','teamsorganization']).flatMap(value=>tokens(value)).filter(value=>value.trim()&&!['none','null'].includes(normalize(value)));
@@ -39,8 +39,8 @@ function parseWarpSettings(data){
 }
 function parseWarpRegistration(data){
  const organizations=fields(data,['organization','organizationname','teamsorganization']).flatMap(value=>tokens(value)).filter(value=>value&&!['none','null'].includes(normalize(value)));
- const types=fields(data,['accounttype','registrationtype']).flatMap(value=>tokens(value)).map(normalize);
- const managed=organizations.length>0||types.some(value=>['team','teams','enterprise','zerotrust','organization'].includes(value));
+ const types=[...fields(data,['accounttype','registrationtype']),...(data?.account?.type!==undefined?[data.account.type]:[])].flatMap(value=>tokens(value)).map(normalize);
+ const managed=fields(data,['managed']).some(value=>value===true)||organizations.length>0||types.some(value=>['team','teams','enterprise','zerotrust','organization'].includes(value));
  const consumer=types.some(value=>['free','unlimited','limited','consumer','personal','warp+','warpplus'].includes(value));
  if(!managed&&!consumer)throw Error('Не удалось подтвердить личную регистрацию WARP. Завершите настройку в официальном клиенте.');
  return {managed};
