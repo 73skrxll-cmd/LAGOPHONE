@@ -5,19 +5,17 @@ export type ActivityEntry={target?:ActivityTarget;id:string;at:string;kind:strin
 import type { DriverCategory } from '../shared/drivers.mjs';
 import type { System } from './main';
 import type { OptimizationInput, OptimizationStatus, OptimizationResult } from './Optimization';
+import type {SessionState,SessionSettings} from '../shared/ping-session.mjs';
 import type {PingState,PingReport,PingProgress} from '../shared/ping.mjs';
 declare global {
  interface Window {
   lagophone?: {
-   pingStatus:(consent?:boolean)=>Promise<PingState>;
-   pingMeasure:(targetId:string)=>Promise<PingReport>;
-   pingCompare:(targetId:string,consent:boolean)=>Promise<PingReport>;
-   pingConnect:(consent:boolean,options?:{intent:'manual';targetId:string})=>Promise<void>;
-   pingDisconnect:()=>Promise<void>;
-   pingCancel:()=>Promise<void>;
-   pingSetup:(page?:'setup'|'terms'|'privacy')=>Promise<void>;
-   pingExport:()=>Promise<boolean>;
-   onPingProgress:(callback:(progress:PingProgress)=>void)=>()=>void;
+   gamePingStatus:()=>Promise<SessionState>;
+   gamePingRefresh:()=>Promise<void>;
+   gamePingSettings:(input:Partial<SessionSettings>)=>Promise<SessionSettings>;
+   gamePingManual:(id:string)=>Promise<boolean>;
+   gamePingStart:()=>Promise<void>;
+   gamePingStop:()=>Promise<void>;
    windowChrome?:boolean;
    setWindowTheme?:(theme:string)=>Promise<void>;
    restartAcknowledge:()=>Promise<{ok:boolean}>;

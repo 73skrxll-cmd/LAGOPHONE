@@ -70,14 +70,14 @@ jobs:
         run: node .github/scripts/run-tests.cjs
         env:
           LAGOPHONE_WINDOWS_INTEGRATION: '1'
-      - name: Verify real WARP installation and network A-B-A on disposable Windows
-        run: node .github/scripts/verify-warp.cjs
+      - name: Verify real local diagnostics on disposable Windows
+        run: node .github/scripts/verify-network-session.cjs
       - name: Preserve real network measurements
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: GTM-PC-WARP-network-check
-          path: release/warp-network-check.json
+          name: GTM-PC-network-session-check
+          path: release/network-session-check.json
           if-no-files-found: ignore
       - name: Build installer
         run: npm run dist:win -- --publish never
@@ -151,14 +151,14 @@ jobs:
           if [[ "$version" == *-* ]]; then
             cat >> /tmp/release-notes.md <<'BETA'
 
-          ### Тестовый раздел «Пинг»: Fortnite, Discord и Epic Games
+          ### «Пинг»: PUBG, Fortnite и Escape from Tarkov
 
-          - Один реальный туннель официального личного Cloudflare WARP для всего ПК. Кнопка «Буст» автоматически устанавливает проверенный компонент, создаёт локальную регистрацию без аккаунта и выполняет замеры.
-          - Отдельные точки проверки: ICMP до EU-датацентров Fortnite; TCP 443 до Discord API/шлюза, сервиса Epic Launcher и CDN.
-          - Сравнение исходного пути, WARP и повтор исходного; возврат подключения после теста и диагностика ошибок.
-          - «Буст» оставляет маршрут включённым только после подтверждённого улучшения; иначе возвращает исходное подключение.
+          - Обнаружение игр, ручной выбор и запуск через штатный лаунчер; Tarkov требует нажатия «Играть» в BSG Launcher.
+          - Диагностика адаптера, шлюза, реального обмена и двух серий ICMP до контрольного узла. Пинг игрового сервера не подменяется внешним тестом.
+          - Добровольная пауза только BITS-загрузок текущего пользователя, журнал и восстановление после игры, остановки и сбоя.
+          - Нет автоматического WARP, платных API, подписки или обязательного аккаунта приложения.
 
-          Автотесты и сборка не подтверждают снижение задержки у конкретного провайдера. TCP-замеры не равны задержке голосового канала или скорости скачивания. Результат на подключении пользователя нужно проверить отдельно. Смена маршрута может прервать матч, звонок или загрузку; тестируйте вне активной сессии.
+          Проверки в CI выполнены на Windows Server runner, а не на физическом игровом ПК с Windows 10/11. Обнаружение установленных игр, запуск лаунчеров, Wi-Fi и завершение настоящей игровой сессии нужно дополнительно проверить на компьютере пользователя. Снижение задержки не гарантируется; без применимого действия выполняются только диагностика и запуск.
           BETA
           fi
           printf '\nКоммит: `%s`\n' "$GITHUB_SHA" >> /tmp/release-notes.md

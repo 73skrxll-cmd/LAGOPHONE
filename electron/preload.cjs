@@ -2,19 +2,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('lagophone', {
   windowChrome: process.platform==='win32',
   setWindowTheme: theme => ipcRenderer.invoke('window:theme',theme),
-  pingStatus: consent => ipcRenderer.invoke('ping:status',consent),
-  pingMeasure: target => ipcRenderer.invoke('ping:measure',target),
-  pingCompare: (target,consent) => ipcRenderer.invoke('ping:compare',target,consent),
-  pingConnect: (consent,options) => ipcRenderer.invoke('ping:connect',consent,options),
-  pingDisconnect: () => ipcRenderer.invoke('ping:disconnect'),
-  pingCancel: () => ipcRenderer.invoke('ping:cancel'),
-  pingSetup: page => ipcRenderer.invoke('ping:setup',page),
-  pingExport: () => ipcRenderer.invoke('ping:export'),
-  onPingProgress: callback => {
-    const listener=(_,value)=>callback(value);
-    ipcRenderer.on('ping:progress',listener);
-    return ()=>ipcRenderer.removeListener('ping:progress',listener);
-  },
+  gamePingStatus:()=>ipcRenderer.invoke('ping-game:status'),
+  gamePingRefresh:()=>ipcRenderer.invoke('ping-game:refresh'),
+  gamePingSettings:input=>ipcRenderer.invoke('ping-game:settings',input),
+  gamePingManual:id=>ipcRenderer.invoke('ping-game:manual',id),
+  gamePingStart:()=>ipcRenderer.invoke('ping-game:start'),
+  gamePingStop:()=>ipcRenderer.invoke('ping-game:stop'),
   restartAcknowledge: () => ipcRenderer.invoke('restart:acknowledge'),
   restartStatus: () => ipcRenderer.invoke('restart:status'),
   restartLater: () => ipcRenderer.invoke('restart:later'),
