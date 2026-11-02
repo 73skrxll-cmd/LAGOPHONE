@@ -1,10 +1,10 @@
 const {randomUUID}=require('node:crypto');
 const {gameSpec}=require('./ping-games.cjs');
-const DEFAULTS={gameId:'pubg',pauseBits:false,controlAddress:'1.1.1.1',downMbps:null,upMbps:null,manual:{}};
+const DEFAULTS={gameId:'pubg',pauseBits:false,bitsPromptDismissed:false,controlAddress:'1.1.1.1',downMbps:null,upMbps:null,manual:{}};
 function settingsFrom(value){
  const source=value&&typeof value==='object'?value:{};
  const speed=n=>typeof n==='number'&&Number.isFinite(n)&&n>0&&n<=100000?n:null;
- return {...DEFAULTS,gameId:['pubg','fortnite','tarkov'].includes(source.gameId)?source.gameId:'pubg',pauseBits:source.pauseBits===true,controlAddress:['1.1.1.1','8.8.8.8'].includes(source.controlAddress)?source.controlAddress:'1.1.1.1',downMbps:speed(source.downMbps),upMbps:speed(source.upMbps),manual:source.manual&&typeof source.manual==='object'&&!Array.isArray(source.manual)?source.manual:{}};
+ return {...DEFAULTS,gameId:['pubg','fortnite','tarkov'].includes(source.gameId)?source.gameId:'pubg',pauseBits:source.pauseBits===true,bitsPromptDismissed:source.bitsPromptDismissed===true,controlAddress:['1.1.1.1','8.8.8.8'].includes(source.controlAddress)?source.controlAddress:'1.1.1.1',downMbps:speed(source.downMbps),upMbps:speed(source.upMbps),manual:source.manual&&typeof source.manual==='object'&&!Array.isArray(source.manual)?source.manual:{}};
 }
 function createGameSession({run,discover,launch,load,write,watchdog,exclusive=(_,task)=>task(),now=Date.now,platform=process.platform,onChange=()=>{}}){
  let initialized=null,settings={...DEFAULTS},games=[],phase='idle',active=false,before=null,after=null,latest=null,comparison=null,message='',error='',bitsAvailable=0,bitsSupported=false,pausedCount=0,appliedCount=0,recoveryRequired=false,session=null,cancelled=false,polling=false,working=null;
@@ -36,7 +36,7 @@ function createGameSession({run,discover,launch,load,write,watchdog,exclusive=(_
     if(settings.pauseBits&&bits.jobs.length){phase='preparing';message='Приостанавливаем фоновые загрузки.';emit();const paused=await run('pause',{leaseId});pausedCount=paused.paused;appliedCount=pausedCount;check()}
     // A second equal series is measured even if no applicable changes exist.
     try{after=await run('measure',{controlAddress:settings.controlAddress});latest=after}catch(e){error='Диагностика недоступна: '+e.message}const {compareEndpoints}=await import('../shared/ping-session.mjs');comparison=compareEndpoints(before?.control,after?.control);check();
-    if((await run('processes')).games.length)throw Error('Игра уже запущена. Сессию не переключаем.');
+    if((await run('processes')).games.length)throw Error('Игра уже запущена. Сессию не переключаем.');check();
     phase='launching';message='Запускаем игру.';emit();await launch(game);active=true;phase='waiting';message=game.id==='tarkov'?'Лаунчер Tarkov открыт. Нажми «Играть» в лаунчере.':'Ожидаем появления процесса игры.';emit();
    }catch(e){error=e.message;try{await restore();session=null;active=false;phase='idle'}catch{recoveryRequired=true;phase='recovery';error+=' Не удалось восстановить часть загрузок.'}emit();throw Error(error)}
   });

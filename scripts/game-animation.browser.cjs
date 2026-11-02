@@ -300,6 +300,8 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await click('Пинг');await delay(200);
  assert.equal(await evaluate(`document.querySelector('.session-actions .primary').disabled`),true,'Missing game must be selected manually');
  await click('Указать игру');await waitFor(`!document.querySelector('.session-actions .primary').disabled`,'Manual game accepted');
+ assert.ok(await evaluate(`document.querySelector('.session-bits-prompt').textContent.includes('Найдены фоновые загрузки')`));
+ await click('Не сейчас');assert.equal(await evaluate(`window.__savedPingSettings.bitsPromptDismissed`),true);assert.equal(await evaluate(`window.__savedPingSettings.pauseBits`),false);
  await shot('ping-session-white');
  await click('Оптимизировать и запустить');await waitFor(`!![...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Остановить')`,'Session cancellation');
  await click('Остановить');await waitFor(`!!document.querySelector('.ping-error')`,'Clean session error');
