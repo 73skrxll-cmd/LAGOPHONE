@@ -1,4 +1,4 @@
-# GTM PC 0.13.0
+# GTM PC
 
 <p align="center"><img src="assets/brand.svg" width="112" alt="GTM PC"/><br/><strong>Get The Most of PC</strong></p>
 
@@ -10,7 +10,9 @@ Fortnite, Discord и Epic Games Launcher используют один тунн�
 
 Компонент WARP устанавливается и подготавливается отдельно через ссылку в приложении. Fortnite измеряется по ICMP; Discord API/шлюз, Epic Launcher/CDN — по времени установки TCP-соединения на 443. **TCP-замер не равен задержке голоса или скорости скачивания. Реальное улучшение на Skyline и живое управление Windows WARP нужно проверить на ПК пользователя.**
 
-[Тестовые сборки в GitHub Releases](https://github.com/73skrxll-cmd/LAGOPHONE/releases) · [Механизм и инструкция проверки](docs/ping-routing.md). Beta не заменяет стабильную 0.13.0 по `releases/latest`.
+**[⬇ Скачать GTM PC 0.14.0-beta.2 — установщик Windows](https://github.com/73skrxll-cmd/LAGOPHONE/releases/download/windows-45-1/GTM-PC-Setup-x64.exe)**
+
+[Portable beta без установки](https://github.com/73skrxll-cmd/LAGOPHONE/releases/download/windows-45-1/GTM-PC-Portable-x64.exe) · [Релиз и SHA256](https://github.com/73skrxll-cmd/LAGOPHONE/releases/tag/windows-45-1) · [Механизм и инструкция проверки](docs/ping-routing.md). Beta не заменяет стабильную 0.13.0 по `releases/latest`. Проверки Chromium и все 97 Windows-тестов пройдены; опубликованный установщик скачан и проверен по SHA256, версии, исходным модулям и значку.
 
 ## GTM PC 0.13.0 — минималистичная светлая тема и призматический свет
 
