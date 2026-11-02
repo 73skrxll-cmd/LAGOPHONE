@@ -55,7 +55,7 @@ function requestTrace({signal}={}){
 function createWarpClient({launch=execFile,platform=process.platform,trace=requestTrace}={}){
  let binary=null,discovery=null;
  function execute(file,args,options={}){
-  return new Promise((resolve,reject)=>launch(file,args,{windowsHide:true,timeout:15000,maxBuffer:256*1024,encoding:'utf8',...options},(error,out)=>error?reject(Error('Cloudflare WARP не выполнил запрос. Проверьте первоначальную настройку в официальном клиенте.')):resolve(String(out).trim())));
+  return new Promise((resolve,reject)=>launch(file,args,{windowsHide:true,timeout:15000,maxBuffer:256*1024,encoding:'utf8',...options},(error,out)=>error?reject(Error('Не удалось выполнить запрос к WARP. Повторите «Буст», проверьте сеть и разрешите запрос Windows при установке.')):resolve(String(out).trim())));
  }
  async function discover(force=false){
   if(platform!=='win32')return {installed:false,verified:false,serviceRunning:false};
@@ -73,7 +73,7 @@ function createWarpClient({launch=execFile,platform=process.platform,trace=reque
    if(consent!==true)throw Error('Примите условия Cloudflare перед подготовкой.');
    if(platform!=='win32')throw Error('Подготовка доступна только в Windows.');
    const check=()=>{if(signal?.aborted)throw Error('Подготовка отменена.');};check();
-   let info=await discover(true);
+   let info=await discover(true);check();
    if(info.installed&&!info.verified)throw Error('Подпись установленного WARP не подтверждена. Подготовка остановлена.');
    if(!info.installed||!info.serviceRunning){
     const script=require('./warp-setup.cjs').setupCommand(!info.installed);
@@ -83,7 +83,7 @@ function createWarpClient({launch=execFile,platform=process.platform,trace=reque
    }
    check();
    const status=parseWarpStatus(JSON.parse(await cli(['status'],true)));
-   if(status==='registrationmissing'){
+   check();if(status==='registrationmissing'){
     await cli(['registration','new'],true);check();
    }
    const registration=parseWarpRegistration(JSON.parse(await cli(['registration','show'],true)));
@@ -100,10 +100,10 @@ function createWarpClient({launch=execFile,platform=process.platform,trace=reque
     const info=await discover();base.installed=!!info.installed;if(typeof info.version==='string'&&/^[a-z0-9 .+_-]{1,60}$/i.test(info.version))base.version=info.version;
     if(!info.installed)return base;
     if(!info.verified)return {...base,error:'Подпись Cloudflare WARP не прошла проверку. Переустановите компонент с официального сайта.'};
-    if(!info.serviceRunning)return {...base,error:'Откройте официальный Cloudflare WARP и завершите первоначальную настройку.'};
+    if(!info.serviceRunning)return {...base,error:'Нажмите «Буст» для автоматического запуска сетевой службы.'};
     const status=parseWarpStatus(JSON.parse(await cli(['status'],consent)));
     base.connected=status==='connected';base.stateKnown=true;base.connectionStatus=status;
-    if(status==='registrationmissing')return {...base,error:'Завершите первоначальную настройку в официальном Cloudflare WARP.'};
+    if(status==='registrationmissing')return {...base,error:'Нажмите «Буст» для автоматической регистрации сетевого компонента.'};
     const settings=parseWarpSettings(JSON.parse(await cli(['settings','list'],consent)));
     const registration=parseWarpRegistration(JSON.parse(await cli(['registration','show'],consent)));
     const managed=settings.managed||registration.managed;
