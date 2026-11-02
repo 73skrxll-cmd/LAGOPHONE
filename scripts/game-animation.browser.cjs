@@ -13,7 +13,7 @@ const server=spawn(process.execPath,[path.join(root,'node_modules/vite/bin/vite.
 const browser=spawn(process.env.CHROMIUM_BIN||'chromium',['--headless','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--disable-background-networking','--remote-debugging-port='+debugPort,'--user-data-dir='+path.join(output,'profile'),'about:blank'],{stdio:['ignore','ignore',fs.openSync(path.join(output,'chromium.log'),'w')]});
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 let ws,launchError;browser.on('error',error=>{launchError=error});
-const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '+output);browser.kill('SIGKILL');server.kill();process.exit(1)},150000);
+const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '+output);browser.kill('SIGKILL');server.kill();process.exit(1)},180000);
 (async()=>{
  for(let i=0;i<100;i++){if(launchError)throw launchError;try{if((await fetch(origin)).ok)break}catch{}await delay(100)}
  let pages;
@@ -278,5 +278,79 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await evaluate(`document.querySelector('[aria-label="Цветовая тема"]').value='white';document.querySelector('[aria-label="Цветовая тема"]').dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('.os-selector').click()`);await waitFor(`!!document.querySelector('.welcome')`,'Light welcome');assert.ok(await evaluate(`getComputedStyle(document.querySelector('.os-card')).backgroundImage==='none'`));await shot('ivory-welcome');
  await evaluate(`document.querySelectorAll('.os-card')[1].click()`);await waitFor(`!!document.querySelector('.app-shell')`,'Return from light welcome');await click('Система');await evaluate(`window.scrollTo(0,0)`);await shot('ivory-system');
  await click('Игровая оптимизация');await click('Выбрать другую игру');await evaluate(`document.querySelector('[aria-label="Выбрать Dota 2"]').click()`);await waitStage(['prism-orbit']);await shot('prism-dota');
- console.log('PASS: minimalist light surfaces in every section, palette-only picker and hover arrow; prismatic light gathering, native success bloom and rotating diffraction rays, failure/cancel/pause; dark black hole preserved; blank draggable titlebar; activity links including legacy records, selected game, power and manual tools; single styled confirmation; all earlier UI and layer regressions');
+
+ // Ping controls use an explicit native fixture. No network or WARP service is
+ // changed by this browser test, and fixture RTTs are never shipped in the UI.
+ await click('Пинг');await waitFor(`!!document.querySelector('.ping-workspace')`,'Ping preview');
+ assert.equal(await evaluate(`document.querySelector('.ping-controls .primary').disabled`),true);
+ assert.ok(await evaluate(`document.querySelector('.ping-workspace').textContent.includes('В предпросмотре результаты не подставляются')`));
+ assert.deepEqual(await evaluate(`[...document.querySelectorAll('.ping-value')].map(e=>e.childNodes[0].textContent)`),['—','—']);
+ await click('Система');
+ const {comparePingTrials}=await import(pathToFileURL(path.join(root,'shared/ping.mjs')).href);
+ const trial=value=>({address:'3.64.1.1',method:'icmp',samples:Array.from({length:50},(_,sequence)=>({sequence,at:'2026-11-02T00:00:00Z',status:'success',rttMs:value}))});
+ const pingReport={id:'browser-fixture',targetId:'fortnite-de',address:'3.64.1.1',method:'icmp',kind:'comparison',createdAt:new Date().toISOString(),directBefore:trial(65),routed:trial(45),directAfter:trial(65),comparison:comparePingTrials(trial(65),trial(45),trial(65))};
+ await evaluate(`
+ window.__pingState={supported:true,running:false,operation:null,provider:{id:'cloudflare-warp',installed:false,ready:false,connected:false,managed:false},last:null,recoveryRequired:false};
+ window.lagophone.pingStatus=async()=>structuredClone(window.__pingState);
+ window.lagophone.onPingProgress=callback=>{window.__pingProgress=callback;return()=>{window.__pingProgress=null}};
+ window.lagophone.pingSetup=async page=>{window.__pingSetup=page||'setup'};
+ window.lagophone.pingExport=async()=>{window.__pingExported=true};
+ window.lagophone.pingCompare=async(target,consent)=>{if(!consent)throw Error('Consent missing');window.__pingRequest=target;window.__pingState.running=true;window.__pingProgress({phase:'connecting',targetId:target,address:'3.64.1.1',count:50});window.__pingProgress({phase:'baseline',targetId:target,address:'3.64.1.1',count:50,sample:{sequence:0,status:'success',rttMs:0,at:'2026-11-02T00:00:00Z'}});return new Promise((resolve,reject)=>{window.__pingFinish=()=>{window.__pingState.running=false;window.__pingState.last=${JSON.stringify(pingReport)};resolve(window.__pingState.last)};window.__pingReject=reject})};
+ window.lagophone.pingCancel=async()=>{window.__pingState.running=false;window.__pingProgress({phase:'restoring',targetId:'fortnite-de',address:'3.64.1.1',count:50});window.__pingReject(Error('Проверка отменена. Исходное подключение восстановлено.'))};
+ window.lagophone.pingConnect=async(consent,options)=>{window.__pingConnectOptions=options;window.__pingState.provider.connected=true;window.__pingState.provider.owned=true};
+ window.lagophone.pingDisconnect=async()=>{window.__pingState.provider.connected=false;window.__pingState.provider.owned=false};
+ `);
+ await click('Пинг');await waitFor(`!!window.__pingProgress`,'Native ping subscription');
+ await click('Подготовить WARP');assert.equal(await evaluate('window.__pingSetup'),'setup');
+ await shot('ping-white-empty');
+ await evaluate(`window.__pingState.provider={id:'cloudflare-warp',installed:true,ready:true,connected:false,managed:false};document.querySelector('.ping-consent input').click()`);
+ await waitFor(`!document.querySelector('.ping-controls .primary').disabled`,'Consented comparison');
+ await click('Сравнить маршруты');await waitFor(`!!document.querySelector('.ping-progress')`,'Ping progress');
+ assert.equal(await evaluate(`document.querySelector('.ping-value').childNodes[0].textContent`),'0','Measured zero is preserved');
+ assert.equal(await evaluate(`document.querySelector('[aria-label="Точка проверки"]').disabled`),true);
+ await click('Остановить и вернуть подключение');await waitFor(`!document.querySelector('.ping-progress')&&!!document.querySelector('.ping-error')`,'Cancellation result');
+ assert.equal(await evaluate(`!!document.querySelector('.ping-verdict.is-better')`),false);
+ await click('Сравнить маршруты');await evaluate(`window.__pingFinish()`);await waitFor(`!!document.querySelector('.ping-verdict.is-better')`,'Measured comparison result');
+ assert.equal(await evaluate(`window.__pingRequest`),'fortnite-de');
+ assert.ok(await evaluate(`document.querySelector('.ping-verdict').textContent.includes('20 мс')`));
+ assert.deepEqual(await evaluate(`[...document.querySelectorAll('.ping-value')].slice(0,2).map(e=>e.childNodes[0].textContent)`),['65','45']);
+ await shot('ping-white-comparison');
+ await click('Включить проверенный маршрут');await waitFor(`document.querySelector('.ping-provider-badge').textContent.includes('включён')`,'Owned route connected');
+ assert.ok(await evaluate(`document.querySelector('.ping-workspace').textContent.includes('после закрытия GTM PC')`));
+ await click('Отключить маршрут GTM PC');await waitFor(`!document.querySelector('.ping-provider-badge .is-live')`,'Route disconnected');
+ await click('Сохранить отчёт');assert.equal(await evaluate('window.__pingExported'),true);
+ await evaluate(`document.querySelector('[aria-label="Цветовая тема"]').value='black';document.querySelector('[aria-label="Цветовая тема"]').dispatchEvent(new Event('change',{bubbles:true}));window.scrollTo(0,0)`);await delay(150);await shot('ping-dark-comparison');
+ await send('Emulation.setDeviceMetricsOverride',{width:960,height:680,deviceScaleFactor:1,mobile:false});
+ assert.ok(await evaluate(`document.documentElement.scrollWidth<=document.documentElement.clientWidth`),'Ping fits minimum window width');await shot('ping-dark-minimum');
+ await evaluate(`document.querySelector('[aria-label="Точка проверки"]').value='fortnite-fr';document.querySelector('[aria-label="Точка проверки"]').dispatchEvent(new Event('change',{bubbles:true}))`);await delay(120);
+ assert.equal(await evaluate(`!!document.querySelector('.ping-verdict')`),false,'Different target clears prior result');
+ assert.deepEqual(await evaluate(`[...document.querySelectorAll('.ping-value')].map(e=>e.childNodes[0].textContent)`),['—','—']);
+
+ // One global route with independent service targets, never three pretend VPNs.
+ assert.equal(await evaluate(`document.querySelectorAll('.ping-services button').length`),3);
+ await evaluate(`document.querySelectorAll('.ping-services button')[1].click()`);await delay(150);
+ assert.deepEqual(await evaluate(`[...document.querySelector('[aria-label="Точка проверки"]').options].map(o=>o.value)`),['discord-api','discord-gateway']);
+ assert.ok(await evaluate(`document.querySelector('.ping-value small').textContent.includes('TCP')`));
+ assert.ok(await evaluate(`document.querySelector('.ping-stats dt').textContent.includes('Сбои')`));
+ assert.ok(await evaluate(`document.querySelector('.ping-bottom').textContent.includes('не задержка голосового канала')`));
+ assert.equal(await evaluate(`!!document.querySelector('.ping-verdict')`),false);
+ await click('Включить маршрут для ПК');await waitFor(`!!document.querySelector('.ping-provider-badge .is-live')`,'Manual Discord route without Fortnite gain');
+ assert.deepEqual(await evaluate(`window.__pingConnectOptions`),{intent:'manual',targetId:'discord-api'});
+ assert.equal(await evaluate(`!!document.querySelector('.ping-verdict')`),false,'Manual route cannot invent improvement');
+ await shot('ping-discord-dark');
+ await evaluate(`document.querySelectorAll('.ping-services button')[2].click()`);await delay(120);
+ assert.ok(await evaluate(`!!document.querySelector('.ping-provider-badge .is-live')`),'Choosing an Epic target leaves the shared route connected');
+ assert.deepEqual(await evaluate(`[...document.querySelector('[aria-label="Точка проверки"]').options].map(o=>o.value)`),['epic-launcher','epic-download']);
+ assert.ok(await evaluate(`document.querySelector('.ping-bottom').textContent.includes('не показывает скорость скачивания')`));
+ await click('Отключить маршрут GTM PC');
+ await evaluate(`document.querySelector('[aria-label="Точка проверки"]').value='epic-download';document.querySelector('[aria-label="Точка проверки"]').dispatchEvent(new Event('change',{bubbles:true}))`);await delay(100);
+ await click('Включить маршрут для ПК');assert.deepEqual(await evaluate(`window.__pingConnectOptions`),{intent:'manual',targetId:'epic-download'});await click('Отключить маршрут GTM PC');
+ const tcpTrial=value=>({...trial(value),targetId:'epic-download',method:'tcp',port:443});
+ const tcpReport={...pingReport,targetId:'epic-download',method:'tcp',port:443,directBefore:tcpTrial(65),routed:tcpTrial(45),directAfter:tcpTrial(65),comparison:comparePingTrials(tcpTrial(65),tcpTrial(45),tcpTrial(65))};
+ await evaluate(`window.lagophone.pingCompare=async(target,consent)=>{window.__pingRequest=target;window.__pingState.last=${JSON.stringify(tcpReport)};return window.__pingState.last}`);
+ await click('Сравнить маршруты');await waitFor(`!!document.querySelector('.ping-verdict.is-better')`,'TCP comparison');
+ assert.equal(await evaluate(`window.__pingRequest`),'epic-download');assert.ok(await evaluate(`document.querySelector('.ping-verdict h3').textContent.includes('TCP-подключение')`));
+ await send('Emulation.setDeviceMetricsOverride',{width:1440,height:960,deviceScaleFactor:1,mobile:false});
+ await evaluate(`document.querySelector('[aria-label="Цветовая тема"]').value='white';document.querySelector('[aria-label="Цветовая тема"]').dispatchEvent(new Event('change',{bubbles:true}));window.scrollTo(0,0)`);await delay(180);await shot('ping-epic-white');
+ console.log('PASS: minimalist light surfaces in every section, palette-only picker and hover arrow; prismatic light gathering, native success bloom and rotating diffraction rays, failure/cancel/pause; dark black hole preserved; blank draggable titlebar; activity links including legacy records, selected game, power and manual tools; single styled confirmation; all earlier UI and layer regressions; Ping Fortnite/Discord/Epic targets, TCP semantics, manual whole-PC routing without Fortnite result, service switch preserves route');
 })().catch(e=>{console.error(e);if(process.env.GITHUB_ACTIONS)console.log('::error title=Browser assertion details::'+String(e.stack||e).replaceAll('%','%25').replaceAll('\r','%0D').replaceAll('\n','%0A'));process.exitCode=1}).finally(()=>{clearTimeout(deadline);ws?.close();browser.kill('SIGKILL');server.kill();console.log('Browser snapshots: '+output)});

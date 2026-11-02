@@ -140,7 +140,24 @@ jobs:
           Node.js и npm пользователю не нужны. EXE пока без цифровой подписи.
           Сборка прошла тесты, включая применение и точный откат реестра на одноразовом Windows runner.
           NOTES
+          if [[ "$version" == *-* ]]; then
+            cat >> /tmp/release-notes.md <<'BETA'
+
+          ### Тестовый раздел «Пинг»: Fortnite, Discord и Epic Games
+
+          - Один реальный туннель официального личного Cloudflare WARP для всего ПК. Компонент WARP подготавливается отдельно через ссылку в приложении.
+          - Отдельные точки проверки: ICMP до EU-датацентров Fortnite; TCP 443 до Discord API/шлюза, сервиса Epic Launcher и CDN.
+          - Сравнение исходного пути, WARP и повтор исходного; возврат подключения после теста и диагностика ошибок.
+          - «Включить маршрут для ПК» позволяет проверить игру, голос и загрузки без предварительного выигрыша в тесте Fortnite.
+
+          Автотесты и сборка не подтверждают снижение задержки у конкретного провайдера. TCP-замеры не равны задержке голосового канала или скорости скачивания. Проверку Windows WARP и результата на Skyline нужно выполнить на ПК пользователя. Смена маршрута может прервать матч, звонок или загрузку; тестируйте вне активной сессии.
+          BETA
+          fi
           printf '\nКоммит: `%s`\n' "$GITHUB_SHA" >> /tmp/release-notes.md
           gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$title" --notes-file /tmp/release-notes.md --draft
           gh release upload "$tag" release/GTM-PC-Setup-x64.exe release/GTM-PC-Portable-x64.exe release/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY"
-          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          if [[ "$version" == *-* ]]; then
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          fi

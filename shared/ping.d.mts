@@ -1,0 +1,17 @@
+export type PingSample={sequence:number;at:string;status:'success'|'timeout'|'unreachable'|'error';rttMs:number|null};
+export type PingSummary={sent:number;received:number;lost:number;lossPct:number|null;minMs:number|null;maxMs:number|null;meanMs:number|null;medianMs:number|null;p95Ms:number|null;jitterMs:number|null};
+export type PingMethod='icmp'|'tcp';
+export type PingTrial={targetId?:string;host?:string;address:string;method:PingMethod;port?:number;samples:PingSample[];startedAt?:string;finishedAt?:string};
+export type PingComparison={directBefore:PingSummary;tunnel:PingSummary;directAfter:PingSummary;verdict:'inconclusive'|'unstable'|'not-improved'|'improved';recommended:'direct'|'tunnel';gainMs:number|null;gainPct:number|null;reason:string};
+export type PingTarget={id:string;service:string;game:string;region:string;host:string;method:PingMethod;port?:number};
+export const PING_SERVICES:ReadonlyArray<{id:string;title:string;eyebrow:string;notice:string}>;
+export const PING_TARGETS:ReadonlyArray<PingTarget>;
+export const EPIC_PING_SOURCE:string;
+export function pingTarget(id:unknown):PingTarget;
+export function summarizePing(samples:PingSample[]):PingSummary;
+export function comparePingTrials(before:PingTrial,routed:PingTrial,after:PingTrial):PingComparison;
+export type PingProviderState={id:'cloudflare-warp';installed:boolean;ready:boolean;connected:boolean;managed:boolean;owned?:boolean;mode?:string;version?:string;error?:string};
+export type PingOperation={kind:'measure'|'compare'|'connect'|'disconnect';phase:string;targetId?:string;startedAt:string};
+export type PingReport={id:string;targetId:string;address:string;method:PingMethod;port?:number;createdAt:string;kind:'baseline'|'comparison';baseline?:PingTrial;directBefore?:PingTrial;routed?:PingTrial;directAfter?:PingTrial;comparison?:PingComparison};
+export type PingState={supported:boolean;running:boolean;operation:PingOperation|null;provider:PingProviderState;last:PingReport|null;lastFailure?:{kind:string;targetId?:string;phase:string;at:string;message:string}|null;recoveryRequired:boolean;warning?:string};
+export type PingProgress={phase:'baseline'|'routed'|'repeat'|'connecting'|'restoring';targetId:string;address:string;sample?:PingSample;count:number};

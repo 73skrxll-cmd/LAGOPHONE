@@ -2,6 +2,19 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('lagophone', {
   windowChrome: process.platform==='win32',
   setWindowTheme: theme => ipcRenderer.invoke('window:theme',theme),
+  pingStatus: consent => ipcRenderer.invoke('ping:status',consent),
+  pingMeasure: target => ipcRenderer.invoke('ping:measure',target),
+  pingCompare: (target,consent) => ipcRenderer.invoke('ping:compare',target,consent),
+  pingConnect: (consent,options) => ipcRenderer.invoke('ping:connect',consent,options),
+  pingDisconnect: () => ipcRenderer.invoke('ping:disconnect'),
+  pingCancel: () => ipcRenderer.invoke('ping:cancel'),
+  pingSetup: page => ipcRenderer.invoke('ping:setup',page),
+  pingExport: () => ipcRenderer.invoke('ping:export'),
+  onPingProgress: callback => {
+    const listener=(_,value)=>callback(value);
+    ipcRenderer.on('ping:progress',listener);
+    return ()=>ipcRenderer.removeListener('ping:progress',listener);
+  },
   restartAcknowledge: () => ipcRenderer.invoke('restart:acknowledge'),
   restartStatus: () => ipcRenderer.invoke('restart:status'),
   restartLater: () => ipcRenderer.invoke('restart:later'),
