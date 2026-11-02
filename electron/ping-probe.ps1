@@ -1,4 +1,4 @@
-param([ValidateSet('resolve','measure','route')][string]$Mode,[string]$PayloadBase64)
+﻿param([ValidateSet('resolve','measure','route')][string]$Mode,[string]$PayloadBase64)
 $ErrorActionPreference='Stop'
 [Console]::OutputEncoding=New-Object System.Text.UTF8Encoding($false)
 function Emit($value){[Console]::Out.WriteLine(($value|ConvertTo-Json -Depth 8 -Compress))}

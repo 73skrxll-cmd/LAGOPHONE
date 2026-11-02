@@ -15,7 +15,7 @@ test('PowerShell checks actual selected adapter and rejects ambiguous or invalid
   const encoded=Buffer.from(JSON.stringify({targetId:'fortnite-de',address})).toString('base64');
   const result=run(`function Find-NetRoute{[CmdletBinding()]param([string]$RemoteIPAddress);${indexes.map(i=>`[PSCustomObject]@{InterfaceIndex=${i}}`).join(';')}};function Get-NetAdapter{[CmdletBinding()]param([switch]$IncludeHidden);[PSCustomObject]@{ifIndex=42;Name=${quote(description)};InterfaceDescription=${quote(description)}}};. ${quote(probe)} -Mode route -PayloadBase64 ${quote(encoded)};exit $LASTEXITCODE`);
   assert.ok(result.stdout.trim(),result.stderr);const event=JSON.parse(result.stdout.trim());
-  if(expected===null){assert.equal(result.status,1);assert.equal(event.type,'error')}else{assert.equal(result.status,0,result.stdout+result.stderr);assert.equal(event.type,'route');assert.equal(event.viaWarp,expected)}
+  if(expected===null){assert.equal(result.status,1);assert.equal(event.type,'error');assert.equal(event.message,'Не удалось выполнить измерение задержки или проверить маршрут. Повторите попытку.')}else{assert.equal(result.status,0,result.stdout+result.stderr);assert.equal(event.type,'route');assert.equal(event.viaWarp,expected)}
  }
 });
 test('TCP worker measures the fixed public endpoint, closes sockets and records timeouts/errors honestly',{skip:!ps},()=>{
