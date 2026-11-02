@@ -6,16 +6,18 @@ $journalPath=$(if($SessionPathBase64){[Text.Encoding]::UTF8.GetString([Convert]:
 function Emit($value){[Console]::WriteLine(($value|ConvertTo-Json -Depth 12 -Compress))}
 function Journal($value){$temporary=$journalPath+'.'+[Guid]::NewGuid().ToString('N')+'.tmp';try{$value|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $temporary -Encoding UTF8;if(Test-Path -LiteralPath $journalPath){[IO.File]::Replace($temporary,$journalPath,($journalPath+'.backup'));Remove-Item -LiteralPath ($journalPath+'.backup') -Force -ErrorAction SilentlyContinue}else{[IO.File]::Move($temporary,$journalPath)}}finally{Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue}}
 function BitsJobs {Import-Module BitsTransfer -ErrorAction Stop;return @(Get-BitsTransfer -ErrorAction Stop)}
-function Restore {
+function Restore([string]$expectedLease='') {
  if(-not(Test-Path -LiteralPath $journalPath)){return @{restored=0;remaining=0}}
  $state=Get-Content -LiteralPath $journalPath -Raw|ConvertFrom-Json
- if(-not $state.owned){return @{restored=0;remaining=0}}
+ if(-not $state.owned -or ($expectedLease -and $state.leaseId -ne $expectedLease)){return @{restored=0;remaining=0}}
  $restored=0;$remaining=@();$jobs=@();if(@($state.jobs).Count){$jobs=@(BitsJobs)}
  foreach($entry in @($state.jobs)){
   if(-not $entry.intent){continue}
+  $current=Get-Content -LiteralPath $journalPath -Raw|ConvertFrom-Json;if($current.leaseId -ne $state.leaseId){return @{restored=$restored;remaining=0}}
   $job=$jobs|Where-Object {$_.JobId.ToString() -eq $entry.id}|Select-Object -First 1
   try{if($job -and [string]$job.JobState -eq 'Suspended'){Resume-BitsTransfer -BitsJob $job -Asynchronous -ErrorAction Stop|Out-Null;$restored++}}catch{$remaining+=@($entry)}
  }
+ $current=Get-Content -LiteralPath $journalPath -Raw|ConvertFrom-Json;if($current.leaseId -ne $state.leaseId){return @{restored=$restored;remaining=0}}
  $state.jobs=@($remaining);$state.owned=$remaining.Count -gt 0;Journal $state
  return @{restored=$restored;remaining=$remaining.Count}
 }
@@ -68,7 +70,7 @@ try{
    try{$state=Get-Content -LiteralPath $journalPath -Raw|ConvertFrom-Json}catch{Start-Sleep -Milliseconds 300;continue}
    if(-not $state.owned -or $state.leaseId -ne $LeaseId){exit}
    $parent=Get-Process -Id $ParentId -ErrorAction SilentlyContinue
-   if(-not $parent -or $parent.StartTime.Ticks -ne $ticks -or [DateTime]::UtcNow -gt $deadline){[void](Restore);exit}
+   if(-not $parent -or $parent.StartTime.Ticks -ne $ticks -or [DateTime]::UtcNow -gt $deadline){[void](Restore $LeaseId);exit}
    Start-Sleep -Seconds 3
   }
  }

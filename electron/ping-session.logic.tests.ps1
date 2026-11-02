@@ -16,6 +16,7 @@ try{
  $saved=Get-Content $filename -Raw|ConvertFrom-Json;if($saved.owned){throw 'Completed restoration still owns jobs'}
  # Crash after a durable intent but before completion must also restore our suspended job.
  $script:fake[0].JobState='Suspended';Journal @{owned=$true;leaseId='crash';jobs=@(@{id=$script:fake[0].JobId.ToString();state='Transferring';intent=$true})}
+ if((Restore 'old-lease').restored -ne 0 -or $script:fake[0].JobState -ne 'Suspended'){throw 'Old watchdog modified a new lease'}
  if((Restore).remaining -ne 0 -or $script:fake[0].JobState -ne 'Queued'){throw 'Crash restoration failed'}
  Write-Output 'BITS transaction logic passed: pre-suspended jobs, durable intents, failure, retry and crash recovery.'
 }finally{Remove-Item -LiteralPath $directory -Recurse -Force}
