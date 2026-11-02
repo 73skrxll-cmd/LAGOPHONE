@@ -4,7 +4,7 @@ $ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue'
 $data=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($PayloadBase64))|ConvertFrom-Json
 $journalPath=$(if($SessionPathBase64){[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($SessionPathBase64))}else{$null})
 function Emit($value){[Console]::WriteLine(($value|ConvertTo-Json -Depth 12 -Compress))}
-function Journal($value){$temporary=$journalPath+'.'+[Guid]::NewGuid().ToString('N')+'.tmp';try{$value|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $temporary -Encoding UTF8;Move-Item -LiteralPath $temporary -Destination $journalPath -Force}finally{Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue}}
+function Journal($value){$temporary=$journalPath+'.'+[Guid]::NewGuid().ToString('N')+'.tmp';try{$value|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $temporary -Encoding UTF8;if(Test-Path -LiteralPath $journalPath){[IO.File]::Replace($temporary,$journalPath,($journalPath+'.backup'));Remove-Item -LiteralPath ($journalPath+'.backup') -Force -ErrorAction SilentlyContinue}else{[IO.File]::Move($temporary,$journalPath)}}finally{Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue}}
 function BitsJobs {Import-Module BitsTransfer -ErrorAction Stop;return @(Get-BitsTransfer -ErrorAction Stop)}
 function Restore {
  if(-not(Test-Path -LiteralPath $journalPath)){return @{restored=0;remaining=0}}
@@ -65,7 +65,7 @@ try{
  if($Mode -eq 'watch'){
   $parent=Get-Process -Id $ParentId -ErrorAction SilentlyContinue;$ticks=$(if($parent){$parent.StartTime.Ticks}else{0});$deadline=[DateTime]::UtcNow.AddHours(12)
   while($true){
-   try{$state=Get-Content -LiteralPath $journalPath -Raw|ConvertFrom-Json}catch{exit 1}
+   try{$state=Get-Content -LiteralPath $journalPath -Raw|ConvertFrom-Json}catch{Start-Sleep -Milliseconds 300;continue}
    if(-not $state.owned -or $state.leaseId -ne $LeaseId){exit}
    $parent=Get-Process -Id $ParentId -ErrorAction SilentlyContinue
    if(-not $parent -or $parent.StartTime.Ticks -ne $ticks -or [DateTime]::UtcNow -gt $deadline){[void](Restore);exit}
