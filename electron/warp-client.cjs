@@ -22,6 +22,8 @@ function tokens(value){
  }return strings(value);
 }
 function parseWarpStatus(data){
+ // Official Windows 2026 client reports an unregistered daemon as Unable.
+ if(data?.status==='Unable'&&data.reason&&Object.keys(data.reason).length===1&&Object.hasOwn(data.reason,'RegistrationMissing'))return 'registrationmissing';
  const candidates=typeof data==='string'?[data]:fields(data,['status','state','connectionstatus']).flatMap(value=>typeof value==='object'&&value?Object.keys(value):strings(value));
  const found=[...new Set(candidates.map(normalize).filter(value=>['connected','disconnected','connecting','disconnecting','registrationmissing'].includes(value)))];
  if(found.length!==1)throw Error('Неизвестный формат состояния Cloudflare WARP.');

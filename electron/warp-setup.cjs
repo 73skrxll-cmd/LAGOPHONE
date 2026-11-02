@@ -1,7 +1,7 @@
 // Pinned official x64 MSI; hash from microsoft/winget-pkgs Cloudflare.Warp 26.8.2115.0.
 // Download and validation run inside the elevated process; never execute an unverified MSI.
 function setupCommand(install){
- const inner=`$ErrorActionPreference='Stop';try {
+ const inner=`$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';try {
  ${install?`[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
  $dir=Join-Path $env:ProgramFiles ('GTM-PC-WARP-'+[Guid]::NewGuid().ToString('N'));New-Item -ItemType Directory -Path $dir|Out-Null
  try {

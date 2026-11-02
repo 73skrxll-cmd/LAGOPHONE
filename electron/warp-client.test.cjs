@@ -70,3 +70,9 @@ test('missing local registration is created via CLI without an account login',as
  assert.equal((await client.prepare(true)).ready,true);
  assert.equal(commands.filter(a=>a.includes('new')).length,1);
 });
+
+test('official Windows unregistered daemon status is recognized without treating other Unable states as ready',()=>{
+ assert.equal(parseWarpStatus({status:'Unable',reason:{RegistrationMissing:'DaemonStartup'}}),'registrationmissing');
+ assert.throws(()=>parseWarpStatus({status:'Unable',reason:{Firewall:'Blocked'}}));
+ assert.throws(()=>parseWarpStatus({status:'Unable',reason:{RegistrationMissing:'DaemonStartup',Other:'Unknown'}}));
+});
