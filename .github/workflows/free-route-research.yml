@@ -1,0 +1,27 @@
+name: Research anonymous free VPN infrastructure
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/free-route-research/**', '.github/workflows/free-route-research.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check official anonymous metadata and fresh certificate without exporting keys
+        run: node .github/free-route-research/probe.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: free-route-research-${{ runner.os }}
+          path: research-output/*.json
+          retention-days: 14
