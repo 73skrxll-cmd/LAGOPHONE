@@ -88,7 +88,7 @@ try{
   try{$config=[Text.Encoding]::UTF8.GetString($bytes);$meta=ValidateConfig $config
    $stage='ownership';$dir=Join-Path $private $name;if(Test-Path -LiteralPath $dir){throw 'Tunnel already exists'};if(Get-Service -Name ('WireGuardTunnel$'+$name) -ErrorAction SilentlyContinue){throw 'Tunnel already exists'}
    $parent=Get-Process -Id $ParentId -ErrorAction Stop
-   [void](New-Item -ItemType Directory -Path $dir);$owner=@{leaseId=$LeaseId;sid=(Identity);parentId=$ParentId;parentStart=$parent.StartTime.Ticks;helperId=$PID;stopFile=(Join-Path ([IO.Path]::GetDirectoryName($source)) ('gtm-proton-stop-'+$LeaseId+'.json'));dns=$meta.dns}
+   [void](New-Item -ItemType Directory -Path $dir);$owner=@{leaseId=$LeaseId;sid=(Identity);parentId=$ParentId;parentStart=$parent.StartTime.Ticks;helperId=$PID;helperStart=(Get-Process -Id $PID).StartTime.Ticks;stopFile=(Join-Path ([IO.Path]::GetDirectoryName($source)) ('gtm-proton-stop-'+$LeaseId+'.json'));dns=$meta.dns}
    AtomicJson (Join-Path $dir 'owner.json') $owner
    $conf=Join-Path $dir ($name+'.conf');[IO.File]::WriteAllText($conf,$config,(New-Object Text.UTF8Encoding($false)))
    $stage='watchdog';$watchArgs=@('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',('"'+$PSCommandPath+'"'),'-Mode','watch','-LeaseId',$LeaseId,'-ExpectedSid',$ExpectedSid)
@@ -105,14 +105,16 @@ try{
   while($true){
    if(-not(Test-Path -LiteralPath (Join-Path $private ($name+'/owner.json')))){exit}
    $parent=Get-Process -Id $owner.parentId -ErrorAction SilentlyContinue
-   if(-not $parent -or $parent.StartTime.Ticks -ne $owner.parentStart -or [DateTime]::UtcNow -gt $deadline -or ((Test-Path -LiteralPath $owner.stopFile) -and -not(Get-Process -Id $owner.helperId -ErrorAction SilentlyContinue))){Cleanup $name $LeaseId;exit}
+   $helper=Get-Process -Id $owner.helperId -ErrorAction SilentlyContinue;$installing=$helper -and $helper.StartTime.Ticks -eq $owner.helperStart
+   $stopRequested=-not $parent -or $parent.StartTime.Ticks -ne $owner.parentStart -or [DateTime]::UtcNow -gt $deadline -or (Test-Path -LiteralPath $owner.stopFile)
+   if($stopRequested -and -not $installing){Cleanup $name $LeaseId;exit}
    $state=State $name;AtomicJson (Join-Path $public ($name+'.json')) $state
-   if(-not $state.serviceRunning -and ([DateTime]::UtcNow-$started).TotalSeconds -gt 100){Cleanup $name $LeaseId;exit}
+   if(-not $state.serviceRunning -and -not $installing -and ([DateTime]::UtcNow-$started).TotalSeconds -gt 100){Cleanup $name $LeaseId;exit}
    Start-Sleep -Seconds 3
   }
  }
 }catch{
- if($Mode -eq 'connect' -and $name){try{Cleanup $name $LeaseId}catch{}}
+ if($Mode -in @('connect','watch') -and $name){try{Cleanup $name $LeaseId}catch{}}
  $result=@{ok=$false;code=$stage;error=('WireGuard: операция не выполнена ('+$stage+'). Проверь установку компонента и разрешение Windows.')}
  if($ResponseId -match '^[a-f0-9]{32}$' -and (Test-Path -LiteralPath $public)){try{Response $result}catch{}}else{Json $result};exit 1
 }

@@ -21,7 +21,7 @@ function createGameSession({run,discover,launch,load,write,watchdog,transport=nu
  const check=()=>{if(cancelled)throw Error('Запуск отменён.');};
  async function saveSettings(input){await init();if(active||working)throw Error('Сначала останови сессию.');const manual=settings.manual;settings=settingsFrom({...settings,...input,manual});await write('settings',settings);emit();return settings}
  async function start(options={}){
-  await init();if(platform!=='win32')throw Error('Запуск доступен в приложении Windows 10/11.');if(active||working)throw Error('Сессия уже запущена.');if(recoveryRequired)throw Error('Сначала восстанови фоновые загрузки.');
+  await init();if(platform!=='win32')throw Error('Запуск доступен в приложении Windows 10/11.');if(active||working)throw Error('Сессия уже запущена.');if(recoveryRequired)throw Error('Сначала восстанови настройки сессии.');
   const selectedMode=options?.mode||(transport?settings.connectionMode:'diagnostic');if(!['tunnel','direct','gearup','diagnostic'].includes(selectedMode))throw Error('Неизвестный режим запуска.');
   const task=exclusive('ping-game',async()=>{
    cancelled=false;lastFailure=null;await write('failure',null);launchState='idle';scenario=selectedMode;currentCheck=null;error='';message='Проверяем подключение.';phase='diagnosing';before=null;after=null;latest=null;comparison=null;appliedCount=0;emit();
@@ -42,7 +42,7 @@ function createGameSession({run,discover,launch,load,write,watchdog,transport=nu
     if(appliedCount>0){try{after=await run('measure',{controlAddress:settings.controlAddress});latest=after}catch(e){error='Диагностика недоступна: '+e.message}const {compareEndpoints}=await import('../shared/ping-session.mjs');const compared=compareEndpoints(before?.control,after?.control);if(compared.verdict!=='inconclusive')comparison=compared}check();
     if((await run('processes')).games.length)throw Error('Игра уже запущена. Сессию не переключаем.');if(selectedMode==='tunnel'&&!(await transport.status()).connected)throw Error('Маршрут потерян до запуска игры. Подключение не засчитано.');check();
     phase='launching';launchState='sending';message='Отправляем запрос штатному лаунчеру.';emit();await launch(game);launchState='request-sent';active=true;phase='waiting';session.startedAt=now();session.lastMeasureAt=now()-45001;message=game.id==='tarkov'?'Запрос отправлен BSG Launcher. Нажми «Играть» в лаунчере.':'Запрос отправлен Epic/Steam. Ожидаем процесс игры.';currentCheck={id:randomUUID(),at:new Date(now()).toISOString(),gameId:game.id,mode:selectedMode,processDetected:false,normal:'not-tested',creative:'not-tested',source:'user-report',country:transport?(await transport.status()).country:null,gamePingMs:null};checks.push(currentCheck);checks=checks.slice(-30);await write('checks',checks);emit();
-   }catch(e){lastFailure={at:new Date(now()).toISOString(),phase,code:e.code||'SESSION_ERROR',gameId:settings.gameId};await write('failure',lastFailure).catch(()=>{});launchState='failed';error=e.message;try{await restore();session=null;active=false;phase='idle'}catch{recoveryRequired=true;phase='recovery';error+=' Не удалось восстановить часть загрузок.'}emit();throw Error(error)}
+   }catch(e){lastFailure={at:new Date(now()).toISOString(),phase,code:e.code||'SESSION_ERROR',gameId:settings.gameId};await write('failure',lastFailure).catch(()=>{});launchState='failed';error=e.message;try{await restore();session=null;active=false;phase='idle'}catch{recoveryRequired=true;phase='recovery';error+=' Не удалось восстановить часть настроек сессии.'}emit();throw Error(error)}
   });
   working=task;try{return await task}finally{working=null}
  }
@@ -52,11 +52,11 @@ function createGameSession({run,discover,launch,load,write,watchdog,transport=nu
    const processes=await run('processes');if(!active||!session)return;
    const spec=gameSpec(session.gameId),running=processes.games.some(p=>p.name.toLowerCase()===spec.process.toLowerCase()&&(!session.gamePath||!p.path||p.path.toLowerCase()===session.gamePath.toLowerCase()));
    if(running){session.seen=true;launchState='process-detected';phase='running';message='Процесс игры обнаружен. Результат входа в матч отмечается отдельно ниже.';if(currentCheck&&!currentCheck.processDetected){currentCheck.processDetected=true;await write('checks',checks)}}
-   else if(session.seen){await finish('Игра завершена. Фоновые загрузки восстановлены.');return}
+   else if(session.seen){await finish('Игра завершена. Наше подключение и паузы загрузок восстановлены.');return}
    else if(now()-session.startedAt>10*60*1000){launchState='timeout';await finish('Ошибка запуска: процесс игры не появился за 10 минут. Настройки восстановлены.');error='Истёк срок ожидания запуска игры.';return}
    if(session.mode==='tunnel'&&transport&&!(await transport.status()).connected){phase='connection-lost';message='Туннель потерян. Регион не переключаем. Останови подключение; вход в матч не подтверждён.';error=message;return}
    if(active&&session&&now()-session.lastMeasureAt>45000){session.lastMeasureAt=now();const report=await run('measure',{controlAddress:settings.controlAddress});if(active){latest=report;if(currentCheck){currentCheck.control=report.control;await write('checks',checks)}}}
-  }catch(e){error=e.message;message='Сессию можно остановить и восстановить загрузки.'}finally{polling=false;emit()}
+  }catch(e){error=e.message;message='Сессию можно остановить и восстановить настройки.'}finally{polling=false;emit()}
  }
  return {
   init,isRunning:()=>!!working||active||recoveryRequired,
