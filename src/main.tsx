@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { Activity, ArrowDownToLine, ArrowRight, ArrowUpRight, Bell, Box, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock3, Cpu, Download, ExternalLink, Fan, Gamepad2, Gauge, HardDrive, Info, Layers3, LayoutGrid, MemoryStick, Monitor, Moon, RefreshCw, Search, Settings2, ShieldCheck, Sparkles, Trash2, Undo2, X, Zap } from 'lucide-react';
 import './style.css';
 import './ivory-theme.css';
+import './visual-effects.css';
 import {Computer} from './Computer';
 import {MonitorPanel} from './Monitor';
 import {Atmosphere,useVisualEffects} from './Atmosphere';
+import {WindowsLogo,WindowsSelection} from './WindowsSelection';
 import {RestartFlow} from './RestartFlow';
 import type {RestartRequest} from './bridge';
 import {HardwareLogo} from './HardwareLogo';
@@ -45,7 +47,6 @@ const applications=[
  {id:'firefox',name:'Firefox',category:'Интернет',desc:'Браузер с акцентом на приватность.',letter:'◔',color:'#ffad76',direct:true},
  {id:'vlc',name:'VLC media player',category:'Мультимедиа',desc:'Открытый плеер для видео и музыки.',letter:'△',color:'#f6b366',direct:false},
 ];
-function WindowsLogo({eleven=false}:{eleven?:boolean}){return <span className={'windows-logo '+(!eleven?'tilted':'')}><i/><i/><i/><i/></span>}
 
 function App(){
  const [theme,setTheme]=useTheme();
@@ -69,18 +70,18 @@ function App(){
   if(target){target.setAttribute('tabindex','-1');target.scrollIntoView({block:activityRoute.section?'center':'start',behavior:'auto'});target.focus({preventScroll:true})}
  });return()=>cancelAnimationFrame(frame)},[activityRoute,page]);
  const screenTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
- const [leavingScreen,setLeavingScreen]=useState(false);
+ const [leavingScreen,setLeavingScreen]=useState(false),[osSelection,setOsSelection]=useState<Version|null>(null);
  useEffect(()=>()=>{if(screenTimer.current!==null)clearTimeout(screenTimer.current)},[]);
  function showVersion(next:Version|null){
   if(screenTimer.current!==null){clearTimeout(screenTimer.current);screenTimer.current=null}
-  setLeavingScreen(false);setVersion(next);if(next){try{localStorage.setItem('lagophone-windows-version',next)}catch{}}
+  setLeavingScreen(false);setOsSelection(null);setVersion(next);if(next){try{localStorage.setItem('lagophone-windows-version',next)}catch{}}
  }
  function chooseVersion(next:Version|null){
   if(screenTimer.current!==null||next===version)return;
   if(!effects.enabled){showVersion(next);return}
-  setLeavingScreen(true);
-  // One short timeout changes screens; all intermediate frames are CSS opacity.
-  screenTimer.current=setTimeout(()=>showVersion(next),effects.reduced?80:140);
+  setOsSelection(next);setLeavingScreen(true);
+  // Only this visual screen transition waits; no Windows setting is applied.
+  screenTimer.current=setTimeout(()=>showVersion(next),effects.reduced?90:next?680:140);
  }
  useEffect(()=>{const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape'){setHelp(false);setConfirm(null)}};document.addEventListener('keydown',onKey);return()=>document.removeEventListener('keydown',onKey)},[]);
  const native=!!window.lagophone&&!system.demo;
@@ -117,10 +118,10 @@ function App(){
  const brandsFor=(category:string)=>componentBrands.filter(brand=>brand.category===category);
  const mismatch=native&&version!==system.version;
  const visibleApps=applications.filter(a=>(category==='Все приложения'||a.category===category)&&(a.name+' '+a.desc).toLowerCase().includes(query.toLowerCase()));
- const atmosphere=<Atmosphere theme={theme} running={effects.running}/>;
+ const atmosphere=<><Atmosphere theme={theme} running={effects.running}/>{osSelection&&<WindowsSelection version={osSelection} reduced={effects.reduced}/>}</>;
  const restartFlow=<RestartFlow native={native} revision={activityRevision} request={restartRequest} onVersion={showVersion}/>;
- if(!version)return <><WindowBar/>{atmosphere}{restartFlow}<div className="welcome screen-stage" data-screen-phase={leavingScreen?'leaving':'idle'} data-transitions={effects.enabled} data-reduced-motion={effects.reduced} aria-busy={leavingScreen}><div className="welcome-theme"><ThemeSelector value={theme} onChange={setTheme} effects={effects.enabled} onEffectsChange={effects.setEnabled}/></div><div className="welcome-content"><div className="welcome-brand"><div className="welcome-emblem"><BrandMark/></div><b>GTM PC</b><small className="brand-motto">Get The Most of PC</small></div><h1>Больше возможностей.<br/><span>Меньше лишнего.</span></h1><p>Выберите вашу операционную систему.<br/>Мы подберём совместимые инструменты и настройки.</p><div className="os-options">{(['10','11'] as Version[]).map(v=><button key={v} onClick={()=>chooseVersion(v)} disabled={leavingScreen} className="os-card"><WindowsLogo eleven={v==='11'}/><h2>Windows {v}</h2><span>{v==='10'?'Настройки Windows 10 и ленты «Новости и интересы».':'Настройки Windows 11 и панели виджетов.'}</span><b>Выбрать систему <ArrowRight size={18}/></b>{system.version===v&&native&&<small><Check size={12}/> Обнаружена на этом ПК</small>}</button>)}</div><div className="welcome-safe"><ShieldCheck size={16}/> Прозрачные действия. Полный контроль за изменениями.</div>{system.demo&&<div className="demo-welcome">Предпросмотр интерфейса · характеристики демонстрационные</div>}</div></div></>;
- return <><WindowBar/>{atmosphere}{restartFlow}<div className="app-shell screen-stage" data-screen-phase={leavingScreen?'leaving':'idle'} data-transitions={effects.enabled} data-reduced-motion={effects.reduced} aria-busy={leavingScreen}><aside><a className="brand" href="#" onClick={e=>{e.preventDefault();setPage('system')}}><BrandMark/><span>GTM PC<small>GET THE MOST OF PC</small></span></a><div className="side-label">РАБОЧЕЕ ПРОСТРАНСТВО</div><nav>{navigation.map(n=><button key={n.id} onClick={()=>{setPage(n.id);setQuery('')}} className={page===n.id?'active':''} aria-current={page===n.id?'page':undefined}><n.icon size={19}/>{n.title}{page===n.id&&<span className="active-dot"/>}</button>)}</nav><div className="sidebar-bottom"><div className="safe-card"><div><ShieldCheck size={19}/><b>Всё под контролем</b></div><p>Ваши настройки меняются<br/>только с вашего разрешения.</p><button onClick={()=>setHelp(true)}>Как это работает <CircleHelp size={15}/></button></div><div className="side-version"><small>Версия 0.17.0-beta.1</small></div></div></aside>
+ if(!version)return <><WindowBar/>{atmosphere}{restartFlow}<div className="welcome screen-stage" data-screen-phase={leavingScreen?'leaving':'idle'} data-transitions={effects.enabled} data-reduced-motion={effects.reduced} aria-busy={leavingScreen}><div className="welcome-theme"><ThemeSelector value={theme} onChange={setTheme} effects={effects.enabled} onEffectsChange={effects.setEnabled}/></div><div className="welcome-content"><div className="welcome-brand"><div className="welcome-emblem"><BrandMark/></div><b>GTM PC</b><small className="brand-motto">Get The Most of PC</small></div><h1>Больше возможностей.<br/><span>Меньше лишнего.</span></h1><p>Выберите вашу операционную систему.<br/>Мы подберём совместимые инструменты и настройки.</p><div className="os-options">{(['10','11'] as Version[]).map(v=><button key={v} onClick={()=>chooseVersion(v)} disabled={leavingScreen} className={'os-card'+(osSelection===v?' is-selecting':'')}><WindowsLogo eleven={v==='11'}/><h2>Windows {v}</h2><span>{v==='10'?'Настройки Windows 10 и ленты «Новости и интересы».':'Настройки Windows 11 и панели виджетов.'}</span><b>Выбрать систему <ArrowRight size={18}/></b>{system.version===v&&native&&<small><Check size={12}/> Обнаружена на этом ПК</small>}</button>)}</div><div className="welcome-safe"><ShieldCheck size={16}/> Прозрачные действия. Полный контроль за изменениями.</div>{system.demo&&<div className="demo-welcome">Предпросмотр интерфейса · характеристики демонстрационные</div>}</div></div></>;
+ return <><WindowBar/>{atmosphere}{restartFlow}<div className="app-shell screen-stage" data-screen-phase={leavingScreen?'leaving':'idle'} data-transitions={effects.enabled} data-reduced-motion={effects.reduced} aria-busy={leavingScreen}><aside><a className="brand" href="#" onClick={e=>{e.preventDefault();setPage('system')}}><BrandMark/><span>GTM PC<small>GET THE MOST OF PC</small></span></a><div className="side-label">РАБОЧЕЕ ПРОСТРАНСТВО</div><nav>{navigation.map(n=><button key={n.id} onClick={()=>{setPage(n.id);setQuery('')}} className={page===n.id?'active':''} aria-current={page===n.id?'page':undefined}><n.icon size={19}/>{n.title}{page===n.id&&<span className="active-dot"/>}</button>)}</nav><div className="sidebar-bottom"><div className="safe-card"><div><ShieldCheck size={19}/><b>Всё под контролем</b></div><p>Ваши настройки меняются<br/>только с вашего разрешения.</p><button onClick={()=>setHelp(true)}>Как это работает <CircleHelp size={15}/></button></div><div className="side-version"><small>Версия 0.18.0-beta.1</small></div></div></aside>
  <div className="workspace"><header><div className="breadcrumb">Рабочее пространство <ChevronRight size={14}/><span>{navigation.find(n=>n.id===page)?.title}</span></div><div className="header-actions"><ThemeSelector value={theme} onChange={setTheme} effects={effects.enabled} onEffectsChange={effects.setEnabled}/><button className="os-selector" onClick={()=>chooseVersion(null)} disabled={leavingScreen}><WindowsLogo eleven={version==='11'}/> Windows {version}<ChevronDown className="os-chevron" size={13}/></button><i/><ActivityMenu revision={activityRevision} native={native} onNavigate={visitActivity}/></div></header>
  <main className="section-stage" data-page={page} data-transitions={effects.enabled} data-reduced-motion={effects.reduced}><div className="page-title"><div><div className="eyebrow">{page==='system'?'ОБЗОР ВАШЕГО УСТРОЙСТВА':page==='monitor'?'ПРОВЕРКА НАСТРОЕК WINDOWS':page==='tweaks'?'ПРОСТЫЕ ДЕЙСТВИЯ. ПОЛНЫЙ КОНТРОЛЬ.':page==='apps'?'ВСЁ НУЖНОЕ ПОД РУКОЙ':'ПРОВЕРЕННЫЕ ИСТОЧНИКИ'}</div><h1>{page==='system'?'Ваш компьютер':page==='monitor'?'Мониторинг оптимизации':page==='tweaks'?'Твики системы':page==='gaming'?'Игровая оптимизация':page==='apps'?'Полезные приложения':'Приложения и драйверы'}<span className="title-dot">.</span></h1>{page!=='gaming'&&<p>{page==='system'?'Всё, что нужно знать о вашей системе, в одном месте.':page==='monitor'?'Уровень настройки системы и конкретные шаги к следующему результату.':page==='tweaks'?'Настройте Windows под себя. Каждое изменение — ваш выбор.':page==='gaming'?'Выберите игру. Настройте её приоритет. Возвращайтесь за следующей победой.':page==='apps'?'Знакомые инструменты для работы, общения и отдыха.':'Поддерживайте оборудование и системные компоненты в актуальном состоянии.'}</p>}</div>{page==='system'?<button className="button secondary" onClick={()=>{void refresh();void refreshOptimization()}} disabled={loading}><RefreshCw size={15} className={loading?'spin':''}/>{loading?'Обновление…':'Обновить данные'}</button>:<span className="compat"><CheckCircle2 size={14}/> Windows {version}</span>}</div>
  {system.demo&&<div className="demo-bar"><Info size={15}/><span>Предпросмотр интерфейса. Характеристики ниже — пример, а не данные вашего ПК.</span><span>DEMO</span></div>}

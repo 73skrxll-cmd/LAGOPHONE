@@ -1,6 +1,6 @@
 import {useEffect,useRef} from 'react';
 import type {RefObject} from 'react';
-import {createPrismMaterial,paintPrism} from './PrismAnimation';
+import {createSnowflakeMaterial,paintSnowflake} from './SnowflakeAnimation';
 
 type Phase='idle'|'working'|'ready'|'error';
 type Point={x:number;y:number};
@@ -27,7 +27,7 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
   if(run===0&&phase==='ready'&&state.success===null){state.time=5;state.success=-10}
   let width=0,height=0,dpr=1,origin:Point={x:0,y:0},center:Point={x:0,y:0},radius=96;
   let frame=0,last=0,focused=document.hasFocus(),disposed=false;
-  const light=theme==='white',prism=light?createPrismMaterial():null;
+  const light=theme==='white',snow=light?createSnowflakeMaterial():null;
   const tint=(t:number,alpha=1)=>light?`rgba(${Math.round(mix(255,204,t))},${Math.round(mix(255,232,t))},255,${alpha})`:gold(t,alpha);
   const sparks=Array.from({length:8},(_,i)=>{
    const sprite=document.createElement('canvas');sprite.width=24;sprite.height=24;
@@ -58,7 +58,7 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
    if(width<=0||height<=0)return false;
    const s=state!;
    for(const paint of [ctx!,frontCtx!]){paint.setTransform(dpr,0,0,dpr,0,0);paint.clearRect(0,0,width,height)}
-   surface!.dataset.variant=light?'prism':'singularity';
+   surface!.dataset.variant=light?'snowflake':'singularity';if(light)surface!.dataset.snowflakeArms='6';else delete surface!.dataset.snowflakeArms;
    if(phase==='idle'){surface!.dataset.stage='idle';surface!.dataset.coreDark='false';return false}
    if(phase==='ready'&&s.success===null)s.success=light?s.time:Math.max(s.time,2.9);
    if(phase==='error'&&s.failed===null)s.failed=s.time;
@@ -76,7 +76,7 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
    const nearStart=Math.atan2(sinYaw,cosInclination*cosYaw);
    const diskPoint=(t:number,scale:number)=>({x:center.x+radius*scale*(cosYaw*Math.cos(t)+cosInclination*sinYaw*Math.sin(t)),y:center.y+radius*scale*sinInclination*Math.sin(t)});
    surface!.dataset.stage=phase==='error'?'error':completed>=0?(completed<1.7?'boost':'orbit'):horizon>.1?'horizon':halo>.05?'halo':'particles';
-   if(light)surface!.dataset.stage=phase==='error'?'error':completed>=0?(completed<1.2?'prism-bloom':'prism-orbit'):formation>.05?'prism-gather':'particles';
+   if(light)surface!.dataset.stage=phase==='error'?'error':completed>=0?(completed<1.2?'snow-bloom':'snow-orbit'):formation>.05?'snow-gather':'particles';
    surface!.dataset.speed=speed.toFixed(2);surface!.dataset.angle=s.angle.toFixed(3);
    surface!.dataset.diskYaw=yaw.toFixed(4);surface!.dataset.diskInclination=String(inclination);surface!.dataset.horizonRadius=radius.toFixed(2);
    surface!.dataset.origin=`${origin.x.toFixed(1)},${origin.y.toFixed(1)}`;surface!.dataset.target=`${center.x.toFixed(1)},${center.y.toFixed(1)}`;
@@ -106,7 +106,7 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
    }
    ctx!.save();
    if(light){
-    paintPrism(ctx!,prism!,center,radius,s.time,s.angle,formation,completed);
+    paintSnowflake(ctx!,snow!,center,radius,s.time,s.angle,formation,completed);
    }else{
     if(halo>0){
      const glow=ctx!.createRadialGradient(center.x,center.y,radius*.65,center.x,center.y,radius*1.9);
@@ -143,10 +143,12 @@ export function GameAnimation({game,run,phase,active,launcher,button,emblem,them
     const c={x:center.x+particle.side*(130+particle.seed*100),y:center.y+85};
     const head=point(start,b,c,finish,t),tail=point(start,b,c,finish,Math.max(0,t-.025-.025*progress));
     const opacity=Math.min(1,progress*12)*(1-smooth((progress-.87)/.13))*fade;
+    if(light){ctx!.save();ctx!.globalAlpha=opacity;ctx!.translate(head.x,head.y);ctx!.rotate(particle.seed*Math.PI*2+progress*2);const size=8+particle.seed*7;ctx!.drawImage(snow!.particle,-size/2,-size/2,size,size);ctx!.restore()}else{
     ctx!.globalAlpha=opacity;ctx!.drawImage(sparks[Math.round(smooth(progress)*7)],head.x-9,head.y-9,18,18);ctx!.globalAlpha=1;
     ctx!.strokeStyle=tint(smooth(progress),opacity);ctx!.lineWidth=1+particle.seed*1.5;
     ctx!.beginPath();ctx!.moveTo(tail.x,tail.y);ctx!.lineTo(head.x,head.y);ctx!.stroke();
     ctx!.fillStyle=tint(smooth(progress)*.8,opacity);ctx!.beginPath();ctx!.arc(head.x,head.y,1+particle.seed,0,Math.PI*2);ctx!.fill();
+    }
    }
    ctx!.restore();
    return fade>0;

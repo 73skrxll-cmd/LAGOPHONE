@@ -29,10 +29,6 @@
 
 /* The light theme shares the dark theme's plain surfaces and fine borders. */
 .atmosphere-white{background:var(--page)}
-.atmosphere-white .ambient-silk{opacity:.12}
-.atmosphere-white .ribbon-one{stroke:#b1b8ac}
-.atmosphere-white .ribbon-two{stroke:#c8c4b7}
-.atmosphere-white .ribbon-three{stroke:#b8c0b3}
 :root[data-theme=white] :is(
  .app-shell aside,.workspace>header,.desktop-titlebar,.os-card,.safe-card,
  .optimization-meter,.pc-studio,.hardware-card,.quick-card,.uptime-card,
@@ -57,6 +53,6 @@
 @media(max-width:800px){.theme-control{width:32px;height:32px;min-width:32px;padding:0}.theme-control>svg{width:17px}.theme-control select{max-width:none}}
 
 :root[data-theme=white] .game-emblem{height:280px;width:min(400px,100%)}
-:root[data-theme=white] .game-launcher:has(.game-animation[data-core-dark=true]) .emblem-logo{color:#fff8df;filter:drop-shadow(0 1px 1px #241804) drop-shadow(0 0 2px #241804)}
+:root[data-theme=white] .game-launcher:has(.game-animation[data-core-dark=true]) .emblem-logo{color:#f2fbff;filter:drop-shadow(0 1px 1px #182b3b) drop-shadow(0 0 2px #182b3b)}
 :root[data-theme=white] .game-launcher:has(.game-animation[data-core-dark=true]) .emblem-logo .game-logo svg{max-width:104px;max-height:76px}
 :root[data-theme=white] .game-launcher:has(.game-animation[data-core-dark=true]) .emblem-logo .game-text-logo{font-size:20px;max-width:112px;line-height:1.12}

@@ -170,13 +170,6 @@ body{background:var(--page)}.app-shell,.welcome{position:relative;z-index:1;back
 :where([data-theme=white]) .uptime-graph{color:#397848!important}
 :where([data-theme=white]) .driver-revision{color:#875313!important}
 :where([data-theme=white]) .restart-warning{color:#875313!important}
-/* Matte light theme has its own moving silk ribbons instead of stars. */
-.white-ribbon{fill:none;stroke-width:110;stroke-linecap:round;filter:blur(28px);transform-origin:50% 50%;animation:white-silk-drift 44s ease-in-out infinite alternate!important;will-change:transform}
-.ribbon-one{stroke:#a9bfca;opacity:.23}
-.ribbon-two{stroke:#c5baa9;opacity:.22;animation-duration:57s!important;animation-delay:-19s!important}
-.ribbon-three{stroke:#aebfb4;opacity:.16;animation-duration:68s!important;animation-delay:-34s!important}
-.theme-atmosphere[data-motion=false] .white-ribbon{animation-play-state:paused!important}
-@keyframes white-silk-drift{from{transform:translate(-35px,25px) rotate(-3deg)}to{transform:translate(40px,-25px) rotate(3deg)}}
 .activity-go{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:4px 7px;border:1px solid var(--accent-border);border-radius:5px;color:var(--accent-soft);font-size:9px}
 .activity-go:hover{background:var(--accent-bg)}
 .page-title h1{scroll-margin-top:52px}
