@@ -1,0 +1,167 @@
+{
+  "at": "2026-11-03T12:19:47.349Z",
+  "system": "linux",
+  "source": "LEAP official client vendor.conf at 99585a3e2041d0145a73ce550646cd7cb3a2d322",
+  "matchmakingVerified": false,
+  "providers": [
+    {
+      "provider": "riseup",
+      "officialApi": "https://api.black.riseup.net/",
+      "metadata": {
+        "status": 200,
+        "error": null,
+        "gateways": 21,
+        "udpGateways": 21,
+        "regions": [
+          "NL",
+          "US",
+          "CA",
+          "FR"
+        ],
+        "optionNames": [
+          "auth",
+          "cipher",
+          "data-ciphers",
+          "dev",
+          "float",
+          "keepalive",
+          "key-direction",
+          "nobind",
+          "persist-key",
+          "rcvbuf",
+          "sndbuf",
+          "tls-cipher",
+          "tls-version-min",
+          "verb"
+        ]
+      },
+      "certificate": {
+        "status": 200,
+        "error": null,
+        "validNow": true,
+        "privateKeyMatches": true,
+        "matchesShippedServerCA": false,
+        "note": "Client and server CAs may legitimately differ; this field does not establish a TLS failure.",
+        "expires": "Dec  1 12:19:36 2026 GMT",
+        "issuer": "CN=LEAP Root CA (client certificates only!)",
+        "pemCertificates": 1
+      },
+      "shippedRoots": [
+        {
+          "expires": "Apr 28 00:00:00 2024 GMT",
+          "expired": true
+        },
+        {
+          "expires": "Nov  2 19:10:37 2026 GMT",
+          "expired": true
+        }
+      ],
+      "handshakes": [
+        {
+          "host": "vpn04-ams.riseup.net",
+          "country": "NL",
+          "protocol": "udp",
+          "port": 1194,
+          "tlsVerified": false,
+          "connected": false,
+          "certificateExpired": true,
+          "issuerUnavailable": false,
+          "timedOut": true,
+          "milestones": [
+            "2026-11-03 12:19:48 VERIFY ERROR: depth=1, error=certificate has expired: CN=[redacted], serial=1",
+            "2026-11-03 12:19:48 TLS Error: TLS object -> incoming plaintext read error",
+            "2026-11-03 12:19:48 TLS Error: TLS handshake failed"
+          ]
+        },
+        {
+          "host": "vpn06-ams.riseup.net",
+          "country": "NL",
+          "protocol": "udp",
+          "port": 1194,
+          "tlsVerified": false,
+          "connected": false,
+          "certificateExpired": true,
+          "issuerUnavailable": false,
+          "timedOut": true,
+          "milestones": [
+            "2026-11-03 12:19:49 VERIFY ERROR: depth=1, error=certificate has expired: CN=[redacted], serial=1",
+            "2026-11-03 12:19:49 TLS Error: TLS object -> incoming plaintext read error",
+            "2026-11-03 12:19:49 TLS Error: TLS handshake failed"
+          ]
+        }
+      ],
+      "bootstrap": [
+        {
+          "url": "https://api.black.riseup.net/ca.crt",
+          "status": 200,
+          "error": null,
+          "roots": [
+            {
+              "subject": "CN=LEAP Root CA",
+              "expires": "Nov  2 19:10:37 2026 GMT",
+              "expired": true,
+              "fingerprint": "DD:91:9B:75:13:B4:A1:36:8F:AA:20:E3:8C:D3:31:41:56:80:56:77:F4:8B:78:7C:DD:9B:4A:92:DE:C6:4E:B0"
+            }
+          ]
+        },
+        {
+          "url": "https://black.riseup.net/ca.crt",
+          "status": 200,
+          "error": null,
+          "roots": [
+            {
+              "subject": "CN=LEAP Root CA",
+              "expires": "Nov  2 19:10:37 2026 GMT",
+              "expired": true,
+              "fingerprint": "DD:91:9B:75:13:B4:A1:36:8F:AA:20:E3:8C:D3:31:41:56:80:56:77:F4:8B:78:7C:DD:9B:4A:92:DE:C6:4E:B0"
+            }
+          ]
+        },
+        {
+          "url": "https://black.riseup.net/provider.json",
+          "status": 200,
+          "error": null,
+          "roots": [],
+          "provider": {
+            "api_uri": "https://api.black.riseup.net:4430",
+            "ca_cert_uri": "https://black.riseup.net/ca.crt",
+            "ca_cert_fingerprint": "SHA256: dd919b7513b4a1368faa20e38cd3314156805677f48b787cdd9b4a92dec64eb0",
+            "api_version": "3"
+          }
+        },
+        {
+          "url": "https://api.black.riseup.net/provider.json",
+          "status": 200,
+          "error": null,
+          "roots": [],
+          "provider": {
+            "api_uri": "https://api.black.riseup.net:4430",
+            "ca_cert_uri": "https://black.riseup.net/ca.crt",
+            "ca_cert_fingerprint": "SHA256: dd919b7513b4a1368faa20e38cd3314156805677f48b787cdd9b4a92dec64eb0",
+            "api_version": "3"
+          }
+        },
+        {
+          "url": "https://0xacab.org/leap/bitmask-vpn/-/raw/main/providers/riseup/riseup-ca.crt",
+          "status": 302,
+          "error": null
+        }
+      ]
+    },
+    {
+      "provider": "calyx",
+      "officialApi": "https://api.calyx.net:4430/",
+      "metadata": {
+        "status": null,
+        "error": "ENOTFOUND"
+      },
+      "certificate": null,
+      "shippedRoots": [
+        {
+          "expires": "Jul  2 00:00:00 2023 GMT",
+          "expired": true
+        }
+      ]
+    }
+  ]
+}

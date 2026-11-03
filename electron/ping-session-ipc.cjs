@@ -4,6 +4,7 @@ const fs=require('node:fs/promises'),path=require('node:path');
 const {windowsPowerShellExecutable,windowsPowerShellEnvironment}=require('./windows-powershell.cjs');
 const {discoverGames,acceptsManual,gameSpec}=require('./ping-games.cjs');
 const {createProtonTunnel}=require('./proton-tunnel.cjs');
+const {createGameRoute}=require('./game-route.cjs');
 const {inspectLogs,fetchEpicStatus,buildSupportReport}=require('./ping-support.cjs');
 const {createGameSession}=require('./ping-session.cjs');
 function registerGameSession(getWindow,optimizer){
@@ -20,8 +21,8 @@ function registerGameSession(getWindow,optimizer){
   }));
  }
  const tunnelWorker=app.isPackaged?path.join(process.resourcesPath,'app.asar.unpacked','electron','wireguard-tunnel.ps1'):path.join(__dirname,'wireguard-tunnel.ps1');
- const transport=createProtonTunnel({directory:app.getPath('userData'),worker:tunnelWorker,networkCheck:run});
- const session=createGameSession({run,write,transport,load:async()=>({settings:await read('settings'),journal:await read('journal'),checks:await read('checks'),failure:await read('failure')}),
+ const transport=createGameRoute({legacyRecovery:createProtonTunnel({directory:app.getPath('userData'),worker:tunnelWorker,networkCheck:run})});
+ const session=createGameSession({run,write,transport,startGate:()=>transport.assertAvailable(),load:async()=>({settings:{...await read('settings'),gameId:'fortnite',connectionMode:'tunnel',pauseBits:false,vpnConsent:false},journal:await read('journal'),checks:await read('checks'),failure:await read('failure')}),
   discover:async manual=>process.platform==='win32'?discoverGames(await run('roots'),manual):[],
   exclusive:(mode,task)=>optimizer.exclusive(mode,task),
   launch:async game=>{
@@ -45,8 +46,7 @@ function registerGameSession(getWindow,optimizer){
   const file=choice.filePaths[0];if(!acceptsManual(id,file)||!(await fs.stat(file)).isFile())throw Error('Выбери файл выбранной игры'+(id==='tarkov'?' или BsgLauncher.exe.':'.'));
   await session.manual(id,file);return true;
  });
- handle('ping-game:vpn-import',async()=>{if(session.isRunning())throw Error('Сначала останови сессию.');const choice=await dialog.showOpenDialog(getWindow(),{title:'Твой профиль WireGuard из кабинета Proton VPN Free',properties:['openFile'],filters:[{name:'WireGuard',extensions:['conf']}]});if(choice.canceled)return false;const file=choice.filePaths[0];if((await fs.stat(file)).size>32768)throw Error('Профиль слишком большой.');await transport.importProfile(await fs.readFile(file,'utf8'));return true});
- const links={proton:'https://account.protonvpn.com/downloads',wireguard:'https://www.wireguard.com/install/',terms:'https://proton.me/legal/terms',epic:'https://status.epicgames.com'};
+ const links={epic:'https://status.epicgames.com',research:'https://github.com/73skrxll-cmd/LAGOPHONE/blob/main/docs/free-game-route.md'};
  handle('ping-game:setup',async page=>{if(!Object.hasOwn(links,page))throw Error('Неизвестная ссылка.');await shell.openExternal(links[page])});
  handle('ping-game:match',input=>session.markMatch(input));
  async function legacyInfo(){try{const file=path.join(app.getPath('userData'),'ping-route.json');const j=JSON.parse(await fs.readFile(file,'utf8'));return {owned:j.owned===true,connectIssued:j.connectIssued===true,knownOriginalDisconnected:j.owned===true&&j.connectIssued===true&&['trial','manual'].includes(j.reason)&&['warp','warpwithdns','warpwithdnsoverhttps','warpwithdnsovertls','warpdoh','warpdot','warp+doh','warp+dot','tunnelonly'].includes(j.mode)&&typeof j.leaseId==='string'&&/^[a-f0-9-]{36}$/i.test(j.leaseId),mode:j.mode}}catch{return {owned:false,available:false}}}

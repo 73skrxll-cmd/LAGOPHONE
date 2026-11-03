@@ -6,7 +6,7 @@ function settingsFrom(value){
  const speed=n=>typeof n==='number'&&Number.isFinite(n)&&n>0&&n<=100000?n:null;
  return {...DEFAULTS,gameId:['pubg','fortnite','tarkov'].includes(source.gameId)?source.gameId:'pubg',pauseBits:source.pauseBits===true,bitsPromptDismissed:source.bitsPromptDismissed===true,controlAddress:['1.1.1.1','8.8.8.8'].includes(source.controlAddress)?source.controlAddress:'1.1.1.1',downMbps:speed(source.downMbps),upMbps:speed(source.upMbps),connectionMode:['tunnel','diagnostic'].includes(source.connectionMode)?source.connectionMode:'tunnel',vpnConsent:source.vpnConsent===true,manual:source.manual&&typeof source.manual==='object'&&!Array.isArray(source.manual)?source.manual:{}};
 }
-function createGameSession({run,discover,launch,load,write,watchdog,transport=null,exclusive=(_,task)=>task(),now=Date.now,platform=process.platform,onChange=()=>{}}){
+function createGameSession({run,discover,launch,load,write,watchdog,transport=null,startGate=null,exclusive=(_,task)=>task(),now=Date.now,platform=process.platform,onChange=()=>{}}){
  let initialized=null,settings={...DEFAULTS},games=[],phase='idle',active=false,before=null,after=null,latest=null,comparison=null,message='',error='',bitsAvailable=0,bitsSupported=false,pausedCount=0,appliedCount=0,recoveryRequired=false,session=null,cancelled=false,polling=false,working=null,launchState='idle',scenario=null,checks=[],currentCheck=null,lastFailure=null;
  const emit=()=>onChange();
  async function init(){return initialized||(initialized=(async()=>{
@@ -21,7 +21,7 @@ function createGameSession({run,discover,launch,load,write,watchdog,transport=nu
  const check=()=>{if(cancelled)throw Error('Запуск отменён.');};
  async function saveSettings(input){await init();if(active||working)throw Error('Сначала останови сессию.');const manual=settings.manual;settings=settingsFrom({...settings,...input,manual});await write('settings',settings);emit();return settings}
  async function start(options={}){
-  await init();if(platform!=='win32')throw Error('Запуск доступен в приложении Windows 10/11.');if(active||working)throw Error('Сессия уже запущена.');if(recoveryRequired)throw Error('Сначала восстанови настройки сессии.');
+  await init();if(platform!=='win32')throw Error('Запуск доступен в приложении Windows 10/11.');if(active||working)throw Error('Сессия уже запущена.');if(recoveryRequired)throw Error('Сначала восстанови настройки сессии.');if(startGate)await startGate();
   const selectedMode=options?.mode||(transport?settings.connectionMode:'diagnostic');if(!['tunnel','direct','gearup','diagnostic'].includes(selectedMode))throw Error('Неизвестный режим запуска.');
   const task=exclusive('ping-game',async()=>{
    cancelled=false;lastFailure=null;await write('failure',null);launchState='idle';scenario=selectedMode;currentCheck=null;error='';message='Проверяем подключение.';phase='diagnosing';before=null;after=null;latest=null;comparison=null;appliedCount=0;emit();

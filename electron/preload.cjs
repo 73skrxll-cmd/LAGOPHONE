@@ -7,7 +7,6 @@ contextBridge.exposeInMainWorld('lagophone', {
   gamePingSettings:input=>ipcRenderer.invoke('ping-game:settings',input),
   gamePingManual:id=>ipcRenderer.invoke('ping-game:manual',id),
   gamePingStart:options=>ipcRenderer.invoke('ping-game:start',options),
-  gamePingVpnImport:()=>ipcRenderer.invoke('ping-game:vpn-import'),
   gamePingSetup:page=>ipcRenderer.invoke('ping-game:setup',page),
   gamePingMatch:input=>ipcRenderer.invoke('ping-game:match',input),
   gamePingReport:()=>ipcRenderer.invoke('ping-game:report'),

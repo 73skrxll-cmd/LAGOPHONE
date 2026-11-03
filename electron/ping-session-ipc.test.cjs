@@ -18,5 +18,5 @@ test('actual session IPC validates the main frame, forwards explicit modes and s
  await handlers['ping-game:start'](trusted,{mode:'direct'});assert.deepEqual(calls,[{mode:'direct'}]);
  const uri=epicLaunchUri({CatalogNamespace:'real-namespace',CatalogItemId:'real-item',AppName:'real-artifact'});await dependencies.launch({id:'fortnite',launchUri:uri});assert.deepEqual(opened,[uri]);assert.equal(opened[0].includes('Shipping.exe'),false);
  await assert.rejects(dependencies.launch({id:'fortnite',path:'D:\\Fortnite\\Shipping.exe'}),/запроса запуска/);assert.equal(opened.length,1);
- await assert.rejects(handlers['ping-game:setup'](trusted,'https://attacker.example'));assert.equal(await handlers['ping-game:vpn-import'](trusted),false);
+ await assert.rejects(handlers['ping-game:setup'](trusted,'https://attacker.example'));assert.equal(handlers['ping-game:vpn-import'],undefined);assert.throws(()=>dependencies.startGate(),{code:'ROUTE_UNAVAILABLE'});
 });
