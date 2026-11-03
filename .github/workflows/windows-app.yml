@@ -66,30 +66,10 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Install signed official WireGuard for native component tests (no VPN profile)
-        shell: pwsh
-        run: |
-          $ProgressPreference = 'SilentlyContinue'
-          $msi = Join-Path $env:RUNNER_TEMP 'wireguard.msi'
-          Invoke-WebRequest -Uri 'https://download.wireguard.com/windows-client/wireguard-amd64-1.1.1.msi' -OutFile $msi
-          if ((Get-FileHash $msi -Algorithm SHA256).Hash -ne '7BFED60AD61B785C914B38B61555A975488E1D3EC472DBFB2FCDF498FCA75242') { throw 'WireGuard checksum mismatch' }
-          $signature = Get-AuthenticodeSignature $msi
-          if ($signature.Status -ne 'Valid') { throw 'WireGuard signature invalid' }
-          $install = Start-Process msiexec.exe -ArgumentList @('/i', ('"' + $msi + '"'), '/qn', '/norestart', 'DO_NOT_LAUNCH=1') -Wait -PassThru
-          if ($install.ExitCode -notin @(0,3010)) { throw 'WireGuard install failed' }
       - name: Test validation, PowerShell and real registry rollback on disposable runner
         run: node .github/scripts/run-tests.cjs
         env:
           LAGOPHONE_WINDOWS_INTEGRATION: '1'
-      - name: Verify real local diagnostics on disposable Windows
-        run: node .github/scripts/verify-network-session.cjs
-      - name: Preserve real network measurements
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: GTM-PC-network-session-check
-          path: release/network-session-check.json
-          if-no-files-found: ignore
       - name: Build installer
         run: npm run dist:win -- --publish never
         env:
@@ -162,14 +142,10 @@ jobs:
           if [[ "$version" == *-* ]]; then
             cat >> /tmp/release-notes.md <<'BETA'
 
-          ### «Пинг»: сценарий с ручными профилями удалён
+          ### Подготовка следующего этапа визуальных эффектов
 
-          - Удалены аккаунты Proton, установка WireGuard пользователем, импорт .conf и прежние панели диагностики из раздела.
-          - Сначала Fortnite; PUBG/Tarkov пока недоступны. Подтверждённого бесплатного узла без регистрации нет, поэтому подключение заблокировано в интерфейсе и основном процессе.
-          - Реальные OpenVPN UDP/TLS-подключения двух Riseup-узлов отклонены из-за просроченного CA. Calyx API вернул ENOTFOUND на Windows/Linux. Бесплатная публичная интеграция GearUP не найдена.
-          - Сохранены восстановление собственного старого подключения и безопасный локальный отчёт. Чужие VPN/профили не удаляются.
+          Удалены сетевой раздел, его Windows-компоненты, IPC, фоновые процессы и исследовательские проверки. Сохранены игровая оптимизация, существующие анимации и их проверки в Chromium.
 
-          Это исправление интерфейса и ограничений запуска, не готовый игровой бустер. Вход в Creative/обычный матч и рабочий маршрут с подключения пользователя не подтверждены. Результаты: docs/free-game-route.md в репозитории.
           BETA
           fi
           printf '\nКоммит: `%s`\n' "$GITHUB_SHA" >> /tmp/release-notes.md

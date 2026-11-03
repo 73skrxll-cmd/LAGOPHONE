@@ -11,8 +11,6 @@ ipcMain.handle('window:theme',(event,theme)=>{if(process.platform!=='win32'||!wi
 const activities=require('./activity.cjs').createActivityStore(()=>path.join(app.getPath('userData'),'activity.json'));
 const restart=require('./restart-ipc.cjs').createWindowsRestart({inspect:()=>optimizer.status()});
 const optimizer = require('./optimizer-ipc.cjs').registerOptimizer(() => win,activities,restart);
-const gameSession=require('./ping-session-ipc.cjs').registerGameSession(()=>win,optimizer);
-// Game sessions use local diagnostics; the previous automatic WARP IPC is not registered.
 restart.register(()=>win,optimizer);
 ipcMain.handle('activity:list',()=>activities.list());
 ipcMain.handle('activity:clear',()=>activities.clear());
@@ -40,9 +38,7 @@ app.whenReady().then(async () => {
   if(process.argv.includes('--lagophone-after-restart')){try{if(await restart.startup()){app.quit();return}}catch{ /* The UI offers a retry if Windows could not be inspected. */ }}
   win = new BrowserWindow({ ...windowChromeOptions(process.platform), show:false, width: 1440, height: 960, minWidth: 960, minHeight: 680, backgroundColor: '#090909', icon:path.join(__dirname,'../assets/brand.png'), title: 'GTM PC', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname,'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   win.once('ready-to-show',()=>win.show());
-  let closingSession=false;
-  win.on('close',e=>{if(gameSession.isRunning()){e.preventDefault();if(!closingSession){closingSession=true;void gameSession.stop().then(()=>{closingSession=false;win.close()}).catch(error=>{closingSession=false;void dialog.showMessageBox(win,{type:'error',message:error.message})})}}});
-  win.on('close', e => { if(!gameSession.isRunning()&&optimizer.isMutating()){e.preventDefault();void dialog.showMessageBox(win,{type:'info',message:gameSession.isRunning()?'Дождитесь завершения проверки сети.':'Дождитесь завершения оптимизации или отката.',detail:gameSession.isRunning()?'В разделе «Пинг» можно остановить тест. Сначала программа вернёт исходное подключение.':'Сейчас сохраняются и проверяются настройки Windows.'});} });
+  win.on('close', e => { if(optimizer.isMutating()){e.preventDefault();void dialog.showMessageBox(win,{type:'info',message:'Дождитесь завершения оптимизации или отката.',detail:'Сейчас сохраняются и проверяются настройки Windows.'});} });
   win.loadFile(path.join(__dirname,'../dist/index.html'));
   // Update only an existing, consented RunOnce target; do not delay the window.
   if(!process.argv.includes('--lagophone-after-restart'))void restart.refreshStartup().catch(()=>{});

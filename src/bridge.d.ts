@@ -5,22 +5,9 @@ export type ActivityEntry={target?:ActivityTarget;id:string;at:string;kind:strin
 import type { DriverCategory } from '../shared/drivers.mjs';
 import type { System } from './main';
 import type { OptimizationInput, OptimizationStatus, OptimizationResult } from './Optimization';
-import type {SessionState,SessionSettings} from '../shared/ping-session.mjs';
-import type {PingState,PingReport,PingProgress} from '../shared/ping.mjs';
 declare global {
  interface Window {
   lagophone?: {
-   gamePingStatus:()=>Promise<SessionState>;
-   gamePingRefresh:()=>Promise<void>;
-   gamePingSettings:(input:Partial<SessionSettings>)=>Promise<SessionSettings>;
-   gamePingManual:(id:string)=>Promise<boolean>;
-   gamePingStart:(options?:{mode:'tunnel'|'diagnostic'|'direct'|'gearup'})=>Promise<void>;
-   gamePingSetup:(page:'epic'|'research')=>Promise<void>;
-   gamePingMatch:(input:{kind:'normal'|'creative';result:'success'|'failure'|'not-tested';gamePingMs?:number|null})=>Promise<void>;
-   gamePingReport:()=>Promise<boolean>;
-   gamePingLegacy:()=>Promise<{owned:boolean;knownOriginalDisconnected?:boolean}>;
-   gamePingLegacyStop:()=>Promise<boolean>;
-   gamePingStop:()=>Promise<void>;
    windowChrome?:boolean;
    setWindowTheme?:(theme:string)=>Promise<void>;
    restartAcknowledge:()=>Promise<{ok:boolean}>;

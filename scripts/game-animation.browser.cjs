@@ -279,33 +279,8 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await evaluate(`document.querySelectorAll('.os-card')[1].click()`);await waitFor(`!!document.querySelector('.app-shell')`,'Return from light welcome');await click('Система');await evaluate(`window.scrollTo(0,0)`);await shot('ivory-system');
  await click('Игровая оптимизация');await click('Выбрать другую игру');await evaluate(`document.querySelector('[aria-label="Выбрать Dota 2"]').click()`);await waitStage(['prism-orbit']);await shot('prism-dota');
 
- // No route is available: UI must never offer the retired profile wizard or fake launch.
- await click('Пинг');await waitFor(`!!document.querySelector('.ping-session-workspace')`,'Unavailable route page');
- assert.equal(await evaluate(`document.querySelector('.session-actions .primary').disabled`),true);
- assert.equal(await evaluate(`/Proton|WireGuard|\\.conf|Импортировать|Диагностика и запуск/.test(document.querySelector('.ping-session-workspace').textContent)`),false);
- assert.equal(await evaluate(`!!document.querySelector('.session-metrics')||!!document.querySelector('.session-result')||!!document.querySelector('.session-vpn-setup')`),false);
- assert.deepEqual(await evaluate(`[...document.querySelectorAll('.ping-services button')].map(b=>b.childNodes[0].textContent)`),['Fortnite','PUBG','Escape from Tarkov']);
- assert.equal(await evaluate(`document.querySelectorAll('.ping-services button')[1].disabled&&document.querySelectorAll('.ping-services button')[2].disabled`),true);
- await click('Система');
- await evaluate(`window.__routeOwned=false;window.__routeStarted=false;window.__routeStopped=false;
- window.lagophone.gamePingStatus=async()=>({phase:'idle',recoveryRequired:false,games:[{id:'fortnite',installed:true}],tunnel:{owned:window.__routeOwned,available:false,connected:true,profileReady:true,verified:true}});
- window.lagophone.gamePingLegacy=async()=>({owned:false});
- window.lagophone.gamePingStart=async()=>{window.__routeStarted=true};
- window.lagophone.gamePingStop=async()=>{window.__routeOwned=false;window.__routeStopped=true};
- window.lagophone.gamePingSetup=async page=>{window.__setupPage=page};
- window.lagophone.gamePingReport=async()=>{window.__supportExported=true;return true};`);
- await click('Пинг');await delay(200);
- assert.equal(await evaluate(`document.querySelector('.session-actions .primary').disabled`),true,'A saved old profile or connected process cannot enable a missing route');
- assert.equal(await evaluate(`document.querySelectorAll('.session-actions button')[1].disabled`),true);
- assert.equal(await evaluate(`!!document.querySelector('.session-tunnel-proof')`),false);
- await shot('ping-route-unavailable-light');
- await evaluate(`document.querySelector('.session-options').open=true`);
- await click('Проверенные источники и результаты');assert.equal(await evaluate(`window.__setupPage`),'research');
- await click('Собрать отчёт проверки');assert.equal(await evaluate(`window.__supportExported`),true);
- await evaluate(`window.__routeOwned=true`);await click('Система');await click('Пинг');
- await click('Отключить');assert.equal(await evaluate(`window.__routeStopped`),true);assert.equal(await evaluate(`window.__routeStarted`),false);
- await evaluate(`document.querySelector('[aria-label="Цветовая тема"]').value='black';document.querySelector('[aria-label="Цветовая тема"]').dispatchEvent(new Event('change',{bubbles:true}));window.scrollTo(0,0)`);await delay(150);await shot('ping-route-unavailable-dark');
- await send('Emulation.setDeviceMetricsOverride',{width:960,height:680,deviceScaleFactor:1,mobile:false});
- assert.ok(await evaluate(`document.documentElement.scrollWidth<=document.documentElement.clientWidth`),'Unavailable route fits minimum window width');await shot('ping-route-unavailable-minimum');
- console.log('PASS: minimalist light surfaces in every section, palette-only picker and hover arrow; prismatic light gathering, native success bloom and rotating diffraction rays, failure/cancel/pause; dark black hole preserved; blank draggable titlebar; activity links including legacy records, selected game, power and manual tools; single styled confirmation; all earlier UI and layer regressions; Ping retired setup removed, unavailable route cannot launch, recovery and safe report, Fortnite first, dark/light/minimum width');
+ // Navigation and bridge contain only the remaining sections.
+ assert.deepEqual(await evaluate(`[...document.querySelectorAll('aside nav button')].map(b=>b.textContent.trim())`),['Система','Мониторинг','Твики','Игровая оптимизация','Полезные приложения','Приложения и драйверы']);
+ assert.equal(await evaluate(`Object.keys(window.lagophone).some(key=>key.startsWith('gamePing'))`),false);
+ console.log('PASS: minimalist light surfaces in every section, palette-only picker and hover arrow; prismatic light gathering, native success bloom and rotating diffraction rays, failure/cancel/pause; dark black hole preserved; blank draggable titlebar; activity links including legacy records, selected game, power and manual tools; single styled confirmation; all earlier UI and layer regressions; six-section navigation with removed network page; animation regressions preserved');
 })().catch(e=>{console.error(e);if(process.env.GITHUB_ACTIONS)console.log('::error title=Browser assertion details::'+String(e.stack||e).replaceAll('%','%25').replaceAll('\r','%0D').replaceAll('\n','%0A'));process.exitCode=1}).finally(()=>{clearTimeout(deadline);ws?.close();browser.kill('SIGKILL');server.kill();console.log('Browser snapshots: '+output)});
