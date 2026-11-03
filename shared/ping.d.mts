@@ -1,7 +1,7 @@
 export type PingSample={sequence:number;at:string;status:'success'|'timeout'|'unreachable'|'error';rttMs:number|null};
 export type PingSummary={sent:number;received:number;lost:number;lossPct:number|null;minMs:number|null;maxMs:number|null;meanMs:number|null;medianMs:number|null;p95Ms:number|null;jitterMs:number|null};
 export type PingMethod='icmp'|'tcp';
-export type PingTrial={targetId?:string;host?:string;address:string;method:PingMethod;port?:number;samples:PingSample[];startedAt?:string;finishedAt?:string};
+export type PingTrial={targetId?:string;host?:string;address:string;method:PingMethod;port?:number;samples:PingSample[];resolutionMs?:number;measuredAt?:string;interfaceIndex?:number;startedAt?:string;finishedAt?:string};
 export type PingComparison={directBefore:PingSummary;tunnel:PingSummary;directAfter:PingSummary;verdict:'inconclusive'|'unstable'|'not-improved'|'improved';recommended:'direct'|'tunnel';gainMs:number|null;gainPct:number|null;reason:string};
 export type PingTarget={id:string;service:string;game:string;region:string;host:string;method:PingMethod;port?:number};
 export const PING_SERVICES:ReadonlyArray<{id:string;title:string;eyebrow:string;notice:string}>;

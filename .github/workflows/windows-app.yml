@@ -66,6 +66,17 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Install signed official WireGuard for native component tests (no VPN profile)
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          $msi = Join-Path $env:RUNNER_TEMP 'wireguard.msi'
+          Invoke-WebRequest -Uri 'https://download.wireguard.com/windows-client/wireguard-amd64-1.1.1.msi' -OutFile $msi
+          if ((Get-FileHash $msi -Algorithm SHA256).Hash -ne '7BFED60AD61B785C914B38B61555A975488E1D3EC472DBFB2FCDF498FCA75242') { throw 'WireGuard checksum mismatch' }
+          $signature = Get-AuthenticodeSignature $msi
+          if ($signature.Status -ne 'Valid') { throw 'WireGuard signature invalid' }
+          $install = Start-Process msiexec.exe -ArgumentList @('/i', ('"' + $msi + '"'), '/qn', '/norestart', 'DO_NOT_LAUNCH=1') -Wait -PassThru
+          if ($install.ExitCode -notin @(0,3010)) { throw 'WireGuard install failed' }
       - name: Test validation, PowerShell and real registry rollback on disposable runner
         run: node .github/scripts/run-tests.cjs
         env:
@@ -151,14 +162,15 @@ jobs:
           if [[ "$version" == *-* ]]; then
             cat >> /tmp/release-notes.md <<'BETA'
 
-          ### «Пинг»: PUBG, Fortnite и Escape from Tarkov
+          ### «Пинг»: свой бесплатный удалённый узел через WireGuard
 
-          - Обнаружение игр, ручной выбор и запуск через штатный лаунчер; Tarkov требует нажатия «Играть» в BSG Launcher.
-          - Диагностика адаптера, шлюза, реального обмена и двух серий ICMP до контрольного узла. Пинг игрового сервера не подменяется внешним тестом.
-          - Добровольная пауза только BITS-загрузок текущего пользователя, журнал и восстановление после игры, остановки и сбоя.
-          - Нет автоматического WARP, платных API, подписки или обязательного аккаунта приложения.
+          - Полный туннель через личный профиль Proton VPN Free и отдельно установленный официальный WireGuard. Нужны первоначальный бесплатный аккаунт, свой профиль и согласие на туннель всего ПК.
+          - Проверки handshake, маршрутов Epic/DNS, политики IPv6, смены выходного IP и страны до отправки запроса запуска. Регион во время игры не переключается.
+          - Штатный Epic URI из манифеста или фактической папки установки. Shipping.exe не запускается напрямую.
+          - Контрольные сценарии обычного подключения/GearUP/GTM и пользовательские отметки обычного матча/Creative. Поддержка безопасного отчёта без токенов, ключей и сырых логов.
+          - Целочисленный нулевой ICMP RTT показан как <1 мс. Нет сравнения «результата оптимизации» без применённых действий.
 
-          Проверки в CI выполнены на Windows Server runner, а не на физическом игровом ПК с Windows 10/11. Обнаружение установленных игр, запуск лаунчеров, Wi-Fi и завершение настоящей игровой сессии нужно дополнительно проверить на компьютере пользователя. Снижение задержки не гарантируется; без применимого действия выполняются только диагностика и запуск.
+          CI проверяет Windows-компонент WireGuard, DPAPI, логику проверок/восстановления и сборку. Собственный бесплатный профиль и компьютер пользователя здесь недоступны: реальный handshake с его сервером, доступность Epic, вход в обычный матч/Creative и снижение игрового пинга не подтверждены. Принимаются только личные профили; общих ключей, подписок и случайных прокси нет.
           BETA
           fi
           printf '\nКоммит: `%s`\n' "$GITHUB_SHA" >> /tmp/release-notes.md

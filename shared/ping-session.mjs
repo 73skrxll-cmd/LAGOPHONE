@@ -1,9 +1,21 @@
 import {summarizePing} from './ping.mjs';
 export const SESSION_GAMES=Object.freeze([{id:'pubg',name:'PUBG'},{id:'fortnite',name:'Fortnite'},{id:'tarkov',name:'Escape from Tarkov'}]);
+export function formatRtt(value,resolutionMs=1){
+ if(typeof value!=='number'||!Number.isFinite(value)||value<0)return 'Нет данных';
+ if(resolutionMs>=1)return value<1?'<1 мс':`${Math.round(value)} мс`;
+ return `${value} мс`;
+}
+export function normalizeTrial(trial){
+ if(!trial||trial.method!=='icmp'||typeof trial.address!=='string'||!Array.isArray(trial.samples)||trial.samples.length>200)return null;
+ const samples=trial.samples.map((s,i)=>{
+  const success=s?.status==='success'&&s.sequence===i&&typeof s.rttMs==='number'&&Number.isFinite(s.rttMs)&&s.rttMs>=0&&s.rttMs<=60000;
+  return {...s,sequence:i,status:success?'success':['timeout','unreachable','error'].includes(s?.status)?s.status:'error',rttMs:success?s.rttMs:null};
+ });return {...trial,resolutionMs:1,samples};
+}
 export function summarizeEndpoint(trial){
- if(!trial?.address||!Array.isArray(trial.samples))return null;
- const summary=summarizePing(trial.samples);
- return {...summary,unansweredPct:summary.lossPct,method:'icmp',address:trial.address};
+ const normalized=normalizeTrial(trial);if(!normalized)return null;
+ const summary=summarizePing(normalized.samples);
+ return {...summary,resolutionMs:1,unansweredPct:summary.lossPct,method:'icmp',address:normalized.address};
 }
 export function compareEndpoints(before,after){
  if(!before?.address||before.address!==after?.address||before.method!=='icmp'||after.method!=='icmp'||before.interfaceIndex!==after.interfaceIndex)return {verdict:'inconclusive',deltaMs:null,reason:'different-target-or-interface'};
@@ -14,9 +26,9 @@ export function compareEndpoints(before,after){
 }
 export function findings(report,settings={}){
  const list=[],gateway=summarizeEndpoint(report?.gateway),control=summarizeEndpoint(report?.control),network=report?.network;
- if(gateway?.received)list.push({kind:'fact',text:`Роутер ${gateway.address}: ${gateway.medianMs} мс, колебания ${gateway.jitterMs??'—'} мс.`});
+ if(gateway?.received)list.push({kind:'fact',text:`Роутер ${gateway.address}: ${formatRtt(gateway.medianMs)}, колебания ${formatRtt(gateway.jitterMs)}.`});
  if(gateway&&gateway.received===0)list.push({kind:'fact',text:'Роутер не ответил на ICMP. Это не доказывает потерю игровых пакетов.'});
- if(control?.received)list.push({kind:'fact',text:`Контрольный узел ${control.address}: ${control.medianMs} мс. Это не пинг в игре.`});
+ if(control?.received)list.push({kind:'fact',text:`Контрольный узел ${control.address}: ${formatRtt(control.medianMs)}. Это не пинг в игре.`});
  if(network?.wifi&&gateway?.jitterMs>5)list.push({kind:'hypothesis',text:'Колебания до роутера могут быть связаны с Wi-Fi. Проверь Ethernet или сигнал рядом с роутером.'});
  if(network?.wifi&&network.signalPct!==null&&network.signalPct<45)list.push({kind:'fact',text:`Уровень сигнала Wi-Fi: ${network.signalPct}%. Причина задержки по одному значению не установлена.`});
  const rx=report?.traffic?.rxMbps,tx=report?.traffic?.txMbps;

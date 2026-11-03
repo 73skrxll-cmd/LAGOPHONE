@@ -3,10 +3,10 @@ const {createGameSession,settingsFrom}=require('./ping-session.cjs');
 const {acceptsManual,steamLibraries,discoverGames}=require('./ping-games.cjs');
 const trial=(n,address='1.1.1.1',iface=3)=>({address,interfaceIndex:iface,method:'icmp',samples:Array.from({length:20},(_,sequence)=>({sequence,status:'success',rttMs:n,at:'2026-11-02T00:00:00Z'}))});
 const report=n=>({control:trial(n),gateway:trial(1,'192.168.1.1'),network:{interfaceIndex:3,name:'Wi-Fi',wifi:true,signalPct:70},traffic:{rxMbps:1,txMbps:0},at:'2026-11-02T00:00:00Z'});
-function fixture({pauseBits=false,restoreFails=false,launchFails=false,measureFails=false,loaded={},processes=[]}={}){
+function fixture({pauseBits=false,restoreFails=false,launchFails=false,measureFails=false,loaded={},processes=[],transport=null}={}){
  const calls=[],writes=[];let time=0,watch=false,measure=0,restored=0,processRows=processes;
  const games=[{id:'pubg',installed:true,path:'C:\\PUBG\\TslGame.exe'},{id:'tarkov',installed:true,launcher:'C:\\BSG\\BsgLauncher.exe'}];
- const controller=createGameSession({platform:'win32',now:()=>time,load:async()=>({settings:{pauseBits},...loaded}),write:async(name,value)=>{writes.push({name,value:structuredClone(value)})},discover:async()=>games,
+ const controller=createGameSession({transport,platform:'win32',now:()=>time,load:async()=>({settings:{pauseBits},...loaded}),write:async(name,value)=>{writes.push({name,value:structuredClone(value)})},discover:async()=>games,
   watchdog:async()=>{watch=true;calls.push('watchdog')},launch:async()=>{calls.push('launch');if(launchFails)throw Error('launcher failed')},run:async(mode)=>{
    calls.push(mode);if(mode==='restore'){restored++;return {remaining:restoreFails?1:0}}if(mode==='processes')return {games:processRows};if(mode==='bits')return {supported:true,jobs:[{id:'job',state:'Transferring'}]};if(mode==='pause'){assert.equal(watch,true);assert.ok(writes.some(w=>w.name==='journal'&&w.value.owned));return {paused:1}}if(mode==='measure'){if(measureFails)throw Error('no IPv4 route');return report(++measure===1?20:18);}throw Error(mode);
   }});
@@ -49,5 +49,26 @@ test('selected game and download preference persist across controller reloads',a
 });
 
 test('unavailable diagnostics do not invent readings or prevent opening the launcher',async()=>{
- const f=fixture({measureFails:true});await f.controller.start();const state=await f.controller.status();assert.equal(state.active,true);assert.equal(state.latest,null);assert.equal(state.comparison.verdict,'inconclusive');assert.match(state.error,/Диагностика недоступна/);assert.ok(f.calls.includes('launch'));await f.controller.stop();
+ const f=fixture({measureFails:true});await f.controller.start();const state=await f.controller.status();assert.equal(state.active,true);assert.equal(state.latest,null);assert.equal(state.comparison,null);assert.match(state.error,/Диагностика недоступна/);assert.ok(f.calls.includes('launch'));await f.controller.stop();
+});
+
+test('control launch applies neither tunnel nor BITS and no unchanged series is called optimization',async()=>{
+ const f=fixture({pauseBits:true});await f.controller.start({mode:'direct'});const state=await f.controller.status();assert.equal(f.calls.includes('pause'),false);assert.equal(f.calls.includes('measure'),false);assert.equal(state.comparison,null);assert.equal(state.launchState,'request-sent');await f.controller.stop();
+});
+
+test('tunnel must be verified before launching, process detection never marks a match, and exit restores even after tunnel loss',async()=>{
+ let connected=false,owned=false,stops=0;
+ const transport={init:async()=>{},status:async()=>({connected,owned,country:connected?'NL':null}),connect:async consent=>{assert.equal(consent,true);owned=true;connected=true},disconnect:async()=>{stops++;owned=false;connected=false},cancel:()=>{}};
+ const f=fixture({transport,loaded:{settings:{vpnConsent:true,pauseBits:true}}});await f.controller.start();let state=await f.controller.status();
+ assert.equal(connected,true);assert.ok(f.calls.includes('launch'));assert.equal(f.calls.includes('pause'),false);assert.equal(f.calls.includes('measure'),false);assert.equal(state.currentCheck.normal,'not-tested');
+ f.processes=[{name:'TslGame.exe',path:'C:\\PUBG\\TslGame.exe'}];await f.controller.tick();state=await f.controller.status();assert.equal(state.launchState,'process-detected');assert.equal(state.currentCheck.normal,'not-tested');
+ connected=false;await f.controller.tick();assert.equal((await f.controller.status()).phase,'connection-lost');assert.equal(stops,0);
+ f.processes=[];await f.controller.tick();assert.equal((await f.controller.status()).active,false);assert.equal(stops,1);
+});
+
+test('failed tunnel or lost proof before launch never opens game and attempts recovery',async()=>{
+ for(const fail of [true,false]){
+  let owned=false,stops=0;const transport={init:async()=>{},status:async()=>({owned,connected:false}),connect:async()=>{owned=true;if(fail)throw Error('no handshake')},disconnect:async()=>{owned=false;stops++},cancel:()=>{}};
+  const f=fixture({transport});await assert.rejects(f.controller.start(),fail?/handshake/:/Маршрут/);assert.equal(f.calls.includes('launch'),false);assert.equal(stops,1);assert.equal((await f.controller.status()).active,false);
+ }
 });

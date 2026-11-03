@@ -1,6 +1,6 @@
 {
   "name": "gtm-pc",
-  "version": "0.15.0-beta.1",
+  "version": "0.16.0-beta.1",
   "private": true,
   "description": "GTM PC — Get The Most of PC. Windows optimization and game profiles.",
   "main": "electron/main.cjs",
@@ -9,7 +9,7 @@
     "dev": "vite --host 0.0.0.0",
     "desktop": "npm run build && electron .",
     "build": "tsc -b && vite build",
-    "test": "node electron/policy.test.cjs && node electron/optimization.test.cjs && node electron/windows-powershell.test.cjs && node electron/drivers.test.cjs && node electron/optimizer-session.test.cjs && node electron/activity.test.cjs && node electron/gpu-badge.test.cjs && node electron/restart.test.cjs && node electron/optimization-rating.test.cjs && node electron/windows-compatibility.test.cjs && node electron/optimization.windows.test.cjs && node electron/game-selection.test.cjs && node electron/branding.test.cjs && node electron/window-chrome.test.cjs && node electron/windows-actions.test.cjs && node electron/ping.test.cjs && node electron/ping-controller.test.cjs && node electron/warp-client.test.cjs && node electron/ping-probe.test.cjs && node electron/ping-ipc.test.cjs && node electron/ping-worker.test.cjs && node electron/ping-session.test.cjs && node electron/ping-session.windows.test.cjs",
+    "test": "node electron/policy.test.cjs && node electron/optimization.test.cjs && node electron/windows-powershell.test.cjs && node electron/drivers.test.cjs && node electron/optimizer-session.test.cjs && node electron/activity.test.cjs && node electron/gpu-badge.test.cjs && node electron/restart.test.cjs && node electron/optimization-rating.test.cjs && node electron/windows-compatibility.test.cjs && node electron/optimization.windows.test.cjs && node electron/game-selection.test.cjs && node electron/branding.test.cjs && node electron/window-chrome.test.cjs && node electron/windows-actions.test.cjs && node electron/ping.test.cjs && node electron/ping-controller.test.cjs && node electron/warp-client.test.cjs && node electron/ping-probe.test.cjs && node electron/ping-ipc.test.cjs && node electron/ping-worker.test.cjs && node electron/ping-session.test.cjs && node electron/ping-session.windows.test.cjs && node electron/proton-tunnel.test.cjs && node electron/ping-support.test.cjs && node electron/ping-session-ipc.test.cjs",
     "dist:win": "npm run build && electron-builder --win nsis --x64",
     "dist:portable": "npm run build && electron-builder --win portable --x64",
     "test:ui": "node scripts/game-animation.browser.cjs"
@@ -68,7 +68,8 @@
       "electron/game-executables.json",
       "electron/ping-probe.ps1",
       "electron/ping-watchdog.ps1",
-      "electron/ping-session.ps1"
+      "electron/ping-session.ps1",
+      "electron/wireguard-tunnel.ps1"
     ]
   }
 }

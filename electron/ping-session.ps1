@@ -1,4 +1,4 @@
-﻿param([ValidateSet('roots','snapshot','measure','processes','bits','pause','restore','watch')][string]$Mode,[string]$PayloadBase64='e30=',[string]$SessionPathBase64,[int]$ParentId,[string]$LeaseId)
+﻿param([ValidateSet('roots','snapshot','measure','processes','bits','pause','restore','watch','preflight','vpn-check','audit')][string]$Mode,[string]$PayloadBase64='e30=',[string]$SessionPathBase64,[int]$ParentId,[string]$LeaseId)
 $ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue'
 [Console]::OutputEncoding=New-Object Text.UTF8Encoding($false)
 $data=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($PayloadBase64))|ConvertFrom-Json
@@ -29,7 +29,7 @@ function PauseSession([string]$lease) {
    $job=$jobs|Where-Object {$_.JobId.ToString() -eq $entry.id -and [string]$_.JobState -in @('Transferring','Queued','Connecting')}|Select-Object -First 1
    if(-not $job){continue}
    $entry.intent=$true;Journal $state
-   Suspend-BitsTransfer -BitsJob $job -ErrorAction Stop|Out-Null;$paused++
+   Suspend-BitsTransfer -BitsJob $job -ErrorAction Stop|Out-Null;$verified=@(BitsJobs|Where-Object {$_.JobId.ToString() -eq $entry.id -and [string]$_.JobState -eq 'Suspended'});if(-not $verified.Count){throw 'Пауза BITS не подтверждена.'};$paused++
   }
   return @{paused=$paused}
 }
@@ -58,6 +58,34 @@ try{
   $names=@('TslGame.exe','FortniteClient-Win64-Shipping.exe','EscapeFromTarkov.exe')
   $rows=@(Get-CimInstance Win32_Process -Filter "Name='TslGame.exe' OR Name='FortniteClient-Win64-Shipping.exe' OR Name='EscapeFromTarkov.exe'"|ForEach-Object {@{name=[string]$_.Name;path=$(if($_.ExecutablePath){[string]$_.ExecutablePath}else{$null});processId=[int]$_.ProcessId}})
   Emit @{games=$rows};exit
+ }
+ if($Mode -eq 'preflight'){
+  $games=@(Get-Process -Name TslGame,FortniteClient-Win64-Shipping,EscapeFromTarkov -ErrorAction SilentlyContinue|ForEach-Object {@{name=$_.ProcessName}})
+  $epic=@(Get-Process -Name EpicGamesLauncher -ErrorAction SilentlyContinue).Count -gt 0
+  $settings=Get-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Internet Settings' -ErrorAction SilentlyContinue
+  $other=@(Get-NetAdapter -IncludeHidden -ErrorAction Stop|Where-Object {$_.Status -eq 'Up' -and ($_.InterfaceDescription -match 'WireGuard|Proton|Windscribe|Cloudflare|GearUP|TAP-Windows|OpenVPN' -or $_.Name -match 'VPN|TUN|TAP|GearUP') -and $_.Name -notmatch '^GTMPC[a-f0-9]{20}$'}).Count -gt 0
+  Emit @{games=$games;epicRunning=$epic;proxyEnabled=([int]$settings.ProxyEnable -eq 1 -or [bool]$settings.AutoConfigURL);otherVpn=$other};exit
+ }
+ if($Mode -eq 'vpn-check'){
+  $name=[string]$data.tunnelName;if($name -notmatch '^GTMPC[a-f0-9]{20}$'){throw 'Неизвестный туннель.'}
+  $adapter=Get-NetAdapter -Name $name -IncludeHidden -ErrorAction Stop;$index=[int]$adapter.ifIndex;$routeOk=$true;$dnsOk=$true;$ipv6Bypass=$false;$checked=0
+  foreach($hostName in @('www.cloudflare.com','www.epicgames.com','launcher-public-service-prod06.ol.epicgames.com')){
+   $addresses=@(Resolve-DnsName -Name $hostName -Type A -ErrorAction Stop|Where-Object {$_.IPAddress}|ForEach-Object {$_.IPAddress})
+   if(-not $addresses.Count){$dnsOk=$false};foreach($address in $addresses){$indexes=@(Find-NetRoute -RemoteIPAddress $address|ForEach-Object {$_.InterfaceIndex}|Select-Object -Unique);if($indexes.Count -ne 1 -or $indexes[0] -ne $index){$routeOk=$false};$checked++}
+  }
+  $client=New-Object Net.Sockets.TcpClient([Net.Sockets.AddressFamily]::InterNetworkV6)
+  try{$connection=$client.BeginConnect([Net.IPAddress]::Parse('2606:4700:4700::1111'),443,$null,$null);if($connection.AsyncWaitHandle.WaitOne(1200,$false)){$client.EndConnect($connection);$indexes=@(Find-NetRoute -RemoteIPAddress '2606:4700:4700::1111'|ForEach-Object {$_.InterfaceIndex}|Select-Object -Unique);$ipv6Bypass=$indexes.Count -ne 1 -or $indexes[0] -ne $index}}catch{}finally{if($connection){$connection.AsyncWaitHandle.Close()};$client.Close()}
+  Emit @{routeOk=($routeOk -and $checked -gt 0);dnsOk=$dnsOk;ipv6Bypass=[bool]$ipv6Bypass;checkedAddresses=$checked};exit
+ }
+ if($Mode -eq 'audit'){
+  $adapters=@(Get-NetAdapter -IncludeHidden -ErrorAction Stop);$interfaces=@(Get-NetIPInterface -ErrorAction Stop)
+  $proxy=Get-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Internet Settings' -ErrorAction SilentlyContinue
+  $virtual=@($adapters|Where-Object {$_.InterfaceDescription -match 'WireGuard|VPN|Proton|Windscribe|Cloudflare|GearUP|TAP|TUN'}|ForEach-Object {@{kind=$(if($_.InterfaceDescription -match 'Cloudflare'){'warp'}elseif($_.InterfaceDescription -match 'WireGuard'){'wireguard'}else{'vpn-or-virtual'});up=($_.Status -eq 'Up');gtm=($_.Name -match '^GTMPC[a-f0-9]{20}$')}})
+  $dns=@(Get-DnsClientServerAddress|Where-Object {$_.ServerAddresses}|ForEach-Object {@{interfaceIndex=[int]$_.InterfaceIndex;count=@($_.ServerAddresses).Count}})
+  $defaults=@(Get-NetRoute -ErrorAction Stop|Where-Object {$_.DestinationPrefix -in @('0.0.0.0/0','::/0')}|ForEach-Object {@{family=[string]$_.AddressFamily;interfaceIndex=[int]$_.InterfaceIndex;metric=[int]$_.RouteMetric;gtm=($_.InterfaceAlias -match '^GTMPC[a-f0-9]{20}$')}})
+  $firewall=$null;try{$firewall=@(Get-NetFirewallProfile -ErrorAction Stop|ForEach-Object {@{profile=[string]$_.Name;enabled=[bool]$_.Enabled}})}catch{}
+  $qos=$null;try{$qos=@(Get-NetQosPolicy -PolicyStore ActiveStore -ErrorAction Stop).Count}catch{}
+  Emit @{at=[DateTime]::UtcNow.ToString('o');defaultRoutes=$defaults;dnsInterfaces=$dns;proxyEnabled=([int]$proxy.ProxyEnable -eq 1);pacConfigured=[bool]$proxy.AutoConfigURL;virtualAdapters=$virtual;firewall=$firewall;qosPolicyCount=$qos;notice='Read-only snapshot. No reset, DNS, proxy or firewall changes performed.'};exit
  }
  if($Mode -eq 'bits'){
   try{$jobs=@(BitsJobs|Where-Object {[string]$_.JobState -in @('Transferring','Queued','Connecting')}|ForEach-Object {@{id=$_.JobId.ToString();state=[string]$_.JobState}});Emit @{supported=$true;jobs=$jobs}}catch{Emit @{supported=$false;jobs=@()}};exit
@@ -90,8 +118,8 @@ try{
     $tx=$(if($interval -gt 0.01){[math]::Max(0,([double]$stats.SentBytes-$previous.txBytes)*8/$interval/1e6)}else{$null})
     foreach($target in $targets){
      $status='error';$rtt=$null
-     try{$reply=$tasks[$target].GetAwaiter().GetResult();if($reply.Status -eq 'Success'){$status='success';$rtt=[double]$reply.RoundtripTime}elseif($reply.Status -eq 'TimedOut'){$status='timeout'}else{$status='unreachable'}}catch{}
-     [void]$samples[$target].Add(@{sequence=$i;at=[DateTime]::UtcNow.ToString('o');status=$status;rttMs=$rtt;rxMbps=$rx;txMbps=$tx})
+     try{$reply=$tasks[$target].GetAwaiter().GetResult();if($reply.Status -eq [Net.NetworkInformation.IPStatus]::Success -and $null -ne $reply.RoundtripTime -and [long]$reply.RoundtripTime -ge 0){$status='success';$rtt=[long]$reply.RoundtripTime}elseif($reply.Status -eq 'TimedOut'){$status='timeout'}else{$status='unreachable'}}catch{}
+     [void]$samples[$target].Add(@{sequence=$i;at=[DateTime]::UtcNow.ToString('o');status=$status;rttMs=$rtt;resolutionMs=1;rxMbps=$rx;txMbps=$tx})
     }
     $previous=@{rxBytes=[double]$stats.ReceivedBytes;txBytes=[double]$stats.SentBytes};$lastTime=$elapsed
     Start-Sleep -Milliseconds 300
@@ -99,6 +127,6 @@ try{
   }finally{foreach($ping in $pings.Values){$ping.Dispose()}}
   $end=Snapshot;if($end.interfaceIndex -ne $network.interfaceIndex -or $end.gateway -ne $network.gateway){throw 'Подключение изменилось во время замера. Повтори проверку.'}
   $duration=$clock.Elapsed.TotalSeconds
-  Emit @{network=$network;gateway=$(if($gateway){@{address=$gateway;method='icmp';interfaceIndex=$network.interfaceIndex;samples=@($samples[$gateway])}}else{$null});control=@{address=$control;method='icmp';interfaceIndex=$network.interfaceIndex;samples=@($samples[$control])};traffic=@{rxMbps=[math]::Round([math]::Max(0,($end.rxBytes-$first.rxBytes)*8/$duration/1e6),3);txMbps=[math]::Round([math]::Max(0,($end.txBytes-$first.txBytes)*8/$duration/1e6),3)};at=[DateTime]::UtcNow.ToString('o')};exit
+  Emit @{network=$network;gateway=$(if($gateway){@{address=$gateway;method='icmp';resolutionMs=1;measuredAt=[DateTime]::UtcNow.ToString('o');interfaceIndex=$network.interfaceIndex;samples=@($samples[$gateway])}}else{$null});control=@{address=$control;method='icmp';resolutionMs=1;measuredAt=[DateTime]::UtcNow.ToString('o');interfaceIndex=$network.interfaceIndex;samples=@($samples[$control])};traffic=@{rxMbps=[math]::Round([math]::Max(0,($end.rxBytes-$first.rxBytes)*8/$duration/1e6),3);txMbps=[math]::Round([math]::Max(0,($end.txBytes-$first.txBytes)*8/$duration/1e6),3)};at=[DateTime]::UtcNow.ToString('o')};exit
  }
 }catch{Emit @{error=$_.Exception.Message};exit 1}

@@ -14,7 +14,13 @@ declare global {
    gamePingRefresh:()=>Promise<void>;
    gamePingSettings:(input:Partial<SessionSettings>)=>Promise<SessionSettings>;
    gamePingManual:(id:string)=>Promise<boolean>;
-   gamePingStart:()=>Promise<void>;
+   gamePingStart:(options?:{mode:'tunnel'|'diagnostic'|'direct'|'gearup'})=>Promise<void>;
+   gamePingVpnImport:()=>Promise<boolean>;
+   gamePingSetup:(page:'proton'|'wireguard'|'terms'|'epic')=>Promise<void>;
+   gamePingMatch:(input:{kind:'normal'|'creative';result:'success'|'failure'|'not-tested';gamePingMs?:number|null})=>Promise<void>;
+   gamePingReport:()=>Promise<boolean>;
+   gamePingLegacy:()=>Promise<{owned:boolean;knownOriginalDisconnected?:boolean}>;
+   gamePingLegacyStop:()=>Promise<boolean>;
    gamePingStop:()=>Promise<void>;
    windowChrome?:boolean;
    setWindowTheme?:(theme:string)=>Promise<void>;
