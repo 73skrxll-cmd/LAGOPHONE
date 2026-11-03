@@ -13,7 +13,7 @@ const server=spawn(process.execPath,[path.join(root,'node_modules/vite/bin/vite.
 const browser=spawn(process.env.CHROMIUM_BIN||'chromium',['--headless','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-first-run','--disable-background-networking','--remote-debugging-port='+debugPort,'--user-data-dir='+path.join(output,'profile'),'about:blank'],{stdio:['ignore','ignore',fs.openSync(path.join(output,'chromium.log'),'w')]});
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 let ws,launchError;browser.on('error',error=>{launchError=error});
-const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '+output);browser.kill('SIGKILL');server.kill();process.exit(1)},180000);
+const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '+output);browser.kill('SIGKILL');server.kill();process.exit(1)},210000);
 (async()=>{
  for(let i=0;i<100;i++){if(launchError)throw launchError;try{if((await fetch(origin)).ok)break}catch{}await delay(100)}
  let pages;
@@ -78,20 +78,60 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await send('Emulation.setDeviceMetricsOverride',{width:960,height:680,deviceScaleFactor:1,mobile:false});
  assert.ok(await evaluate(`(()=>{const b=document.querySelectorAll('.os-card')[1].getBoundingClientRect();return b.bottom<680})()`),'OS cards remain visible in the minimum window');
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:960,deviceScaleFactor:1,mobile:false});
- // Both choices animate the selected four-pane mark before persisting the view.
- await evaluate(`document.querySelectorAll('.os-card')[0].click()`);await delay(140);
- assert.equal(await evaluate(`document.querySelector('.os-selection-overlay')?.dataset.version`),'10');
- assert.ok(await evaluate(`!!document.querySelector('.os-selection-overlay .windows-logo.tilted')`));
- assert.equal(await evaluate(`document.querySelectorAll('.os-selection-overlay .windows-logo i').length`),4);
- fs.writeFileSync(path.join(output,'windows-10-selection.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
- await waitFor(`!!document.querySelector('.app-shell')&&!document.querySelector('.os-selection-overlay')`,'Windows 10 selected');
- assert.equal(await evaluate(`localStorage.getItem('lagophone-windows-version')`),'10');
+ // Verify the requested order using actual positions, opacity and rendered screens.
+ const choiceShot=async name=>fs.writeFileSync(path.join(output,name+'.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+ const selectWindows=async(index,prefix)=>{
+  await waitFor(`!!document.querySelector('.welcome')&&Number(getComputedStyle(document.querySelector('.welcome')).opacity)>.95`,'Visible OS cards');
+  const started=Date.now();
+  const initial=await evaluate(`(async()=>{const card=document.querySelectorAll('.os-card')[${index}],logo=card.querySelector('.windows-logo'),source=logo.getBoundingClientRect();card.click();${index===0?"document.querySelectorAll('.os-card')[1].click();":''}await new Promise(requestAnimationFrame);const moving=document.querySelector('.os-choice-mark').getBoundingClientRect();return{source:{x:source.x+source.width/2,y:source.y+source.height/2,width:source.width},moving:{x:moving.x+moving.width/2,y:moving.y+moving.height/2,width:moving.width},center:{x:innerWidth/2,y:innerHeight/2}}})()`);
+  const distance=p=>Math.hypot(p.x-initial.center.x,p.y-initial.center.y);
+  assert.ok(Math.hypot(initial.moving.x-initial.source.x,initial.moving.y-initial.source.y)<22,'Logo starts in the chosen card: '+JSON.stringify(initial));
+  assert.ok(Math.abs(initial.moving.width-initial.source.width)<12,'Logo initially retains the card size');
+  assert.equal(await evaluate(`document.querySelector('.os-selection-overlay').dataset.version`),index===0?'10':'11','Repeated clicks cannot replace the selected system');
+  assert.equal(await evaluate(`Number(getComputedStyle(document.querySelector('.os-choice-caption')).opacity)`),0,'Name is hidden during travel');assert.equal(await evaluate(`document.querySelector('.welcome').inert`),true,'Keyboard input cannot change a pending selection');
+  await delay(400);const moving=await evaluate(`(()=>{const b=document.querySelector('.os-choice-mark').getBoundingClientRect();return{x:b.x+b.width/2,y:b.y+b.height/2}})()`);
+  assert.ok(distance(moving)<distance(initial.moving)-20,'The chosen logo actually travels toward the centre');await choiceShot(prefix+'-travel');
+  await waitFor(`['title','hold'].includes(document.querySelector('.os-selection-overlay')?.dataset.stage)&&Number(getComputedStyle(document.querySelector('.os-choice-caption')).opacity)>.95`,'Readable system name after arrival');
+  const centered=await evaluate(`(()=>{const b=document.querySelector('.os-choice-mark').getBoundingClientRect();return{x:b.x+b.width/2-innerWidth/2,y:b.y+b.height/2-innerHeight/2}})()`);
+  assert.ok(Math.abs(centered.x)<2&&Math.abs(centered.y)<2,'Logo finishes at the screen centre');
+  assert.equal(await evaluate(`document.querySelector('.os-choice-caption b').textContent`),index===0?'Windows 10':'Windows 11');
+  assert.equal(await evaluate(`!!document.querySelector('.app-shell')`),false,'The name is shown before the workspace');await choiceShot(prefix+'-title');
+  await waitFor(`document.querySelector('.os-selection-overlay')?.dataset.stage==='reveal'&&!!document.querySelector('.app-shell')`,'Workspace crossfade begins');
+  assert.equal(await evaluate(`document.querySelector('main').dataset.page`),'system','Every explicit OS selection opens System');assert.equal(await evaluate(`document.querySelector('.app-shell').inert`),true,'Workspace input stays blocked until the logo disappears');
+  await delay(280);const revealing=await evaluate(`Number(getComputedStyle(document.querySelector('.app-shell')).opacity)`);
+  assert.ok(revealing>0&&revealing<.99,'Workspace fades in gradually');assert.equal(await evaluate(`Number(getComputedStyle(document.querySelector('.os-selection-overlay')).opacity)`),1,'Windows logo remains visible during the workspace fade');await choiceShot(prefix+'-workspace');
+  await waitFor(`document.querySelector('.os-selection-overlay')?.dataset.stage==='dismiss'`,'Logo dismissal after workspace reveal');
+  assert.ok(await evaluate(`Number(getComputedStyle(document.querySelector('.app-shell')).opacity)>.99`),'Workspace is visible before logo dismissal');await delay(220);
+  const disappearing=await evaluate(`Number(getComputedStyle(document.querySelector('.os-selection-overlay')).opacity)`);assert.ok(disappearing>0&&disappearing<1,'Logo fades out separately');await choiceShot(prefix+'-dismiss');
+  await waitFor(`!document.querySelector('.os-selection-overlay')`,'Selection animation completes');assert.ok(Date.now()-started>=3700,'The sequence must remain readable, not flash past');
+  assert.equal(await evaluate(`localStorage.getItem('lagophone-windows-version')`),index===0?'10':'11');await delay(120);
+  assert.ok(await evaluate(`Number(getComputedStyle(document.querySelector('.app-shell')).opacity)>.99`),'Completing the overlay does not restart the workspace fade');
+  assert.equal(await evaluate(`document.querySelector('.os-selector').disabled`),false);assert.equal(await evaluate(`document.querySelector('.app-shell').inert`),false);
+ };
+ await selectWindows(0,'windows-10');
+ // Changing an incompatible choice directly from System must not stall the sequence.
+ await evaluate(`document.querySelector('.warning button').click()`);
+ await waitFor(`document.querySelector('.os-selection-overlay')?.dataset.stage==='hold'`,'Compatibility choice title');
+ assert.ok(await evaluate(`Number(getComputedStyle(document.querySelector('.app-shell')).opacity)<.01`),'Old workspace fades out before the new choice');
+ await waitFor(`document.querySelector('.os-selection-overlay')?.dataset.stage==='reveal'`,'Compatibility workspace reveal');
+ await waitFor(`!document.querySelector('.os-selection-overlay')`,'Compatibility sequence finishes');
+ assert.equal(await evaluate(`localStorage.getItem('lagophone-windows-version')`),'11');
+ assert.ok(await evaluate(`Number(getComputedStyle(document.querySelector('.app-shell')).opacity)>.99`));
  await evaluate(`document.querySelector('.os-selector').click()`);await waitFor(`!!document.querySelector('.welcome')`,'Return to OS choice');
- await evaluate(`document.querySelectorAll('.os-card')[1].click()`);await delay(220);
- assert.equal(await evaluate(`document.querySelector('.os-selection-overlay')?.dataset.version`),'11');
- assert.equal(await evaluate(`document.querySelector('.os-selection-overlay .windows-logo').classList.contains('tilted')`),false);
- fs.writeFileSync(path.join(output,'windows-11-selection.png'),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
- await waitFor(`!!document.querySelector('.app-shell')&&!document.querySelector('.os-selection-overlay')`,'Windows 11 selected');
+ await selectWindows(1,'windows-11');
+ // Disabled Windows motion must not compress the explicit in-app sequence.
+ await evaluate(`document.querySelector('.os-selector').click()`);await waitFor(`!!document.querySelector('.welcome')`,'Motion preference choice');
+ await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});await delay(80);
+ await selectWindows(1,'windows-11-system-motion-off');
+ await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});await delay(80);
+ if(process.env.GTM_TEST_OS_ONLY){
+  await evaluate(`document.querySelector('[aria-label="Цветовая тема"]').value='white';document.querySelector('[aria-label="Цветовая тема"]').dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('.os-selector').click()`);
+  await waitFor(`!!document.querySelector('.welcome')`,'Light choice');
+  await send('Emulation.setDeviceMetricsOverride',{width:960,height:680,deviceScaleFactor:1,mobile:false});
+  await selectWindows(0,'windows-10-light-minimum');
+  assert.ok(await evaluate(`document.documentElement.scrollWidth<=document.documentElement.clientWidth`),'Choice fits the minimum window');
+  console.log('PASS: four-stage OS choice, real logo travel, title hold, System crossfade, final dismissal; Windows motion off; light/minimum window; repeated-click protection');return;
+ }
  await click('Игровая оптимизация');
  assert.equal(await evaluate(`!!document.querySelector('.main-footer')`),false);
  await click('Выбрать игру');assert.ok(await evaluate(`document.querySelectorAll('.game-catalog-card').length>=17`));
@@ -298,7 +338,7 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await visit('Скачан установщик');assert.equal(await evaluate(`document.querySelector('main').dataset.page`),'apps');assert.equal(await evaluate(`window.__requests.length`),requests+1,'History navigation never reapplies settings');assert.equal(await evaluate(`window.__actions.length`),1,'History navigation does not repeat system actions');
  await evaluate(`window.scrollTo(0,0);document.querySelector('[aria-label^="Недавние действия"]').click()`);await waitFor(`!!document.querySelector('.activity-go')`,'History screenshot');await shot('notifications-with-navigation');
  await evaluate(`document.querySelector('[aria-label="Цветовая тема"]').value='white';document.querySelector('[aria-label="Цветовая тема"]').dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('.os-selector').click()`);await waitFor(`!!document.querySelector('.welcome')`,'Light welcome');assert.ok(await evaluate(`getComputedStyle(document.querySelector('.os-card')).backgroundImage==='none'`));await shot('ivory-welcome');
- await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});await delay(80);await evaluate(`document.querySelectorAll('.os-card')[1].click()`);await delay(220);assert.equal(await evaluate(`document.querySelector('.os-selection-overlay')?.dataset.version`),'11');assert.equal(await evaluate(`document.querySelector('.os-selection-overlay')?.dataset.reduced`),'false');await shot('windows-11-selection-light');await waitFor(`!!document.querySelector('.app-shell')`,'Return from light welcome');await click('Система');await evaluate(`window.scrollTo(0,0)`);await shot('ivory-system');
+ await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});await delay(80);await selectWindows(1,'windows-11-light');await click('Система');await evaluate(`window.scrollTo(0,0)`);await shot('ivory-system');
  await click('Игровая оптимизация');await click('Выбрать другую игру');await evaluate(`document.querySelector('[aria-label="Выбрать Dota 2"]').click()`);await waitStage(['snow-orbit']);await shot('snow-dota');
 
  // Navigation and bridge contain only the remaining sections.
