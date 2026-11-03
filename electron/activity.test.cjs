@@ -34,6 +34,7 @@ test('notification destinations persist through restart and old records resolve 
  assert.deepEqual(activityTarget({kind:'apply',title:'Игровые настройки применены'}),{page:'gaming'});
  assert.deepEqual(activityTarget({kind:'restore',title:'План питания восстановлен'}),{page:'tweaks',section:'power'});
  assert.equal(cleanTarget({page:'https://bad.example/'}),null);
+ assert.equal(cleanTarget({page:'ping'}),null);assert.deepEqual(activityTarget({target:{page:'ping'}}),{page:'system'});
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'gtm-activity-route-'));
  try{const file=path.join(dir,'activity.json');await createActivityStore(file).add([{kind:'apply',status:'success',title:'Game',detail:'Done',target:{page:'gaming',game:'fortnite'}}]);const row=(await createActivityStore(file).list()).items[0];assert.deepEqual(activityTarget(row),{page:'gaming',game:'fortnite'})}finally{await fs.rm(dir,{recursive:true,force:true})}
 });

@@ -1,4 +1,4 @@
-const pages=new Set(['gaming','tweaks','apps','drivers','ping','system','monitor']);
+const pages=new Set(['gaming','tweaks','apps','drivers','system','monitor']);
 export function cleanTarget(value){
  if(!value||!pages.has(value.page))return null;
  const target={page:value.page};
