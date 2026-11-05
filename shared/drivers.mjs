@@ -54,7 +54,7 @@ export function buildDriverCatalog(system,version){
  return categories.map(c=>({...c,links:c.links.map(l=>({...l,id:c.id+':'+l.id})),windows:version,installedDrivers:c.id==='gpu'?(system.gpuDrivers||[]):[],boardRevision:system.boardVersion||null}));
 }
 
-// One supported source per component, merged by destination rather than category ID.
+// One supported source per driver, merged by destination rather than category ID.
 // Keep IDs from the native catalog: the renderer never supplies arbitrary download URLs.
 export function buildDriverRecommendations(categories){
  const result=[],byUrl=new Map();
@@ -74,6 +74,12 @@ export function buildDriverRecommendations(categories){
   // vendor's optional maintenance page when a matching SSD was detected.
   if(id==='storage'){for(const l of specific)add(category,l,true);continue}
   if(id==='components'){for(const l of specific)add(category,l,/directx-runtime|dotnet-desktop/.test(l.id));continue}
+  // Hybrid graphics need both vendors' drivers. NVIDIA App is an alternative
+  // to NVIDIA's model selector, not a second required graphics package.
+  if(id==='gpu'&&specific.length){
+   for(const l of specific.filter(l=>!l.id.endsWith(':nvidia-app')))add(category,l);
+   continue;
+  }
   const source=specific[0]||category.links[0];
   if(source)add(category,source);
  }

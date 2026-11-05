@@ -52,3 +52,12 @@ test('one Intel DSA download covers both GPU and network; absent SSD does not su
  assert.equal(list.some(r=>r.categories.includes('Накопители / NVMe / RAID')),false);
  assert.deepEqual(buildDriverRecommendations([]),[]);
 });
+test('hybrid graphics retain both vendors without suggesting NVIDIA App as a second driver',async()=>{
+ const {buildDriverCatalog,buildDriverRecommendations}=await import('../shared/drivers.mjs');
+ const list=buildDriverRecommendations(buildDriverCatalog({gpu:['NVIDIA RTX 4060','Intel UHD'],network:[{name:'Intel Wi-Fi'}]},'11'));
+ const graphics=list.filter(r=>r.categories.includes('Видеокарта'));
+ assert.equal(graphics.length,2);
+ assert.ok(graphics.some(r=>r.link.id.endsWith(':nvidia-driver')));
+ assert.ok(graphics.some(r=>r.link.url.includes('dsadata.intel.com')));
+ assert.equal(list.some(r=>r.link.id.endsWith(':nvidia-app')),false);
+});
