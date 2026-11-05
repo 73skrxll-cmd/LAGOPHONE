@@ -1,3 +1,5 @@
 export type DriverLink={id:string;title:string;url:string;kind:string;note:string};
 export type DriverCategory={id:string;name:string;device:string;description:string;links:DriverLink[];windows:string;installedDrivers?:{name:string;version:string}[];boardRevision:string|null};
+export type DriverRecommendation={link:DriverLink;categories:string[];optional:boolean};
+export function buildDriverRecommendations(categories:DriverCategory[]):DriverRecommendation[];
 export function buildDriverCatalog(system:{cpu?:string;gpu?:string[];gpuDrivers?:{name:string;version:string}[];board?:string;boardVersion?:string;model?:string;manufacturer?:string;vendor?:string;network?:{name:string;vendor?:string;hardwareId?:string}[];audio?:{name:string}[];bluetooth?:{name:string;hardwareId?:string}[];disks?:{name:string}[]},version:'10'|'11'):DriverCategory[];

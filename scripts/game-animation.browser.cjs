@@ -42,7 +42,7 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
   await waitFor(operation,'Button '+text);await delay(400);
  };
  await send('Page.enable');await send('Runtime.enable');await send('Emulation.setFocusEmulationEnabled',{enabled:true});
- const hardware={demo:false,version:'11',build:'26100',cpu:'AMD Ryzen 5 5600X',gpu:['NVIDIA GeForce RTX 3060'],gpuDrivers:[{name:'NVIDIA GeForce RTX 3060',version:'580.0'}],board:'B550',ram:32,disks:[]};
+ const hardware={demo:false,version:'11',build:'26100',cpu:'AMD Ryzen 5 5600X',gpu:['NVIDIA GeForce RTX 3060'],gpuDrivers:[{name:'NVIDIA GeForce RTX 3060',version:'580.0'}],board:'B550',vendor:'ASRock',network:[{name:'Realtek PCIe GbE'}],audio:[{name:'Realtek Audio'}],ram:32,disks:[]};
  const {buildDriverCatalog}=await import(pathToFileURL(path.join(root,'shared/drivers.mjs')).href);
  const categories=buildDriverCatalog(hardware,'11');
  const empty={ok:true,active:false,remaining:0,checks:[],savedGames:[],appliedTargets:[],windows:{version:'11',build:26100}};
@@ -52,7 +52,7 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  window.lagophone={windowChrome:sessionStorage.getItem('test-window-chrome')==='true',setWindowTheme:async theme=>{window.__windowTheme=theme},system:async()=>(${JSON.stringify(hardware)}),onProgress:()=>()=>{},activities:async()=>({items:window.__activityItems||[],warning:''}),restartStatus:async()=>({pending:false}),optimizationStatus:async()=>({ok:true,active:true,needsRecovery:true,remaining:1,checks:[],windows:{version:'11',build:26100}}),powerOptimizationStatus:async()=>({...${JSON.stringify(empty)},power:'381b4222-f694-41f0-9685-ff5bb260df2e',plans:{balanced:true,lagophone:true}}),gameOptimizationStatus:async()=>window.__game,
  chooseGame:async id=>window.__paths[id],chooseOtherGame:async()=>{const id='custom-'+(window.__game.savedGames.some(g=>g.id.startsWith('custom-'))?'b':'a').repeat(32),gamePath='E:/My Games/'+(id.includes('aaaa')?'FirstGame.exe':'SecondGame.exe');window.__paths[id]=gamePath;return{id,name:gamePath.split('/').at(-1).replace('.exe',''),gamePath}},
  optimize:async input=>{window.__requests.push(input);window.__game={...window.__game,running:true,operation:{mode:'apply',phase:'windows'}};return new Promise((resolve,reject)=>window.__finish=()=>{if(window.__outcome){window.__game={...window.__game,running:false,operation:null};if(window.__outcome==='throw'){reject(Error('native test failure'));return}resolve({ok:window.__outcome==='cancelled',cancelled:window.__outcome==='cancelled',report:[],error:window.__outcome==='error'?'Native operation failed':undefined});return}const gamePath=window.__paths[input.game];window.__game={...window.__game,active:true,running:false,operation:null,savedGames:[...window.__game.savedGames.filter(g=>g.id!==input.game),{id:input.game,gamePath}],appliedTargets:[...window.__game.appliedTargets.filter(t=>t.gamePath!==gamePath),...['game-gpu','game-priority'].map(id=>({id,gamePath,enabled:true}))]};sessionStorage.setItem('game-test',JSON.stringify(window.__game));resolve({ok:true,report:[{id:'game-priority',status:'applied',message:'High verified'}]})})},
- installedApps:async()=>({ok:true,apps:{discord:{name:'Discord',version:'1.0',source:'registry'},'nvidia-app':{name:'NVIDIA App',version:'11.0',source:'registry'}}}),driverCatalog:async()=>(${JSON.stringify(categories)}),open:async id=>{window.__opened=id},openDriver:async()=>{}};
+ installedApps:async()=>({ok:true,apps:{discord:{name:'Discord',version:'1.0',source:'registry'},'nvidia-app':{name:'NVIDIA App',version:'11.0',source:'registry'}}}),driverCatalog:async()=>(${JSON.stringify(categories)}),open:async id=>{window.__opened=id},openDriver:async id=>{window.__openedDriver=id}};
  `});
  await send('Storage.clearDataForOrigin',{origin,storageTypes:'local_storage'});
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:960,deviceScaleFactor:1,mobile:false});
@@ -92,8 +92,8 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
   await delay(400);const moving=await evaluate(`(()=>{const b=document.querySelector('.os-choice-mark').getBoundingClientRect();return{x:b.x+b.width/2,y:b.y+b.height/2}})()`);
   assert.ok(distance(moving)<distance(initial.moving)-20,'The chosen logo actually travels toward the centre');await choiceShot(prefix+'-travel');
   await waitFor(`['title','hold'].includes(document.querySelector('.os-selection-overlay')?.dataset.stage)&&Number(getComputedStyle(document.querySelector('.os-choice-caption')).opacity)>.95`,'Readable system name after arrival');
-  const centered=await evaluate(`(()=>{const b=document.querySelector('.os-choice-mark').getBoundingClientRect();return{x:b.x+b.width/2-innerWidth/2,y:b.y+b.height/2-innerHeight/2}})()`);
-  assert.ok(Math.abs(centered.x)<2&&Math.abs(centered.y)<2,'Logo finishes at the screen centre');
+  const centered=await evaluate(`(()=>{const b=document.querySelector('.os-choice-mark .windows-logo').getBoundingClientRect(),label=document.querySelector('.os-choice-caption b').getBoundingClientRect();return{x:b.x+b.width/2-innerWidth/2,y:b.y+b.height/2-innerHeight/2,caption:label.x+label.width/2-(b.x+b.width/2)}})()`);
+  assert.ok(Math.abs(centered.x)<2&&Math.abs(centered.y)<2,'Visible logo finishes at the screen centre: '+JSON.stringify(centered));assert.ok(Math.abs(centered.caption)<1,'Visible logo and label share the same axis: '+JSON.stringify(centered));
   assert.equal(await evaluate(`document.querySelector('.os-choice-caption b').textContent`),index===0?'Windows 10':'Windows 11');
   assert.equal(await evaluate(`!!document.querySelector('.app-shell')`),false,'The name is shown before the workspace');await choiceShot(prefix+'-title');
   await waitFor(`document.querySelector('.os-selection-overlay')?.dataset.stage==='reveal'&&!!document.querySelector('.app-shell')`,'Workspace crossfade begins');
@@ -108,7 +108,23 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
   assert.ok(await evaluate(`Number(getComputedStyle(document.querySelector('.app-shell')).opacity)>.99`),'Completing the overlay does not restart the workspace fade');
   assert.equal(await evaluate(`document.querySelector('.os-selector').disabled`),false);assert.equal(await evaluate(`document.querySelector('.app-shell').inert`),false);
  };
+ const checkDriverRecommendations=async prefix=>{
+  await click('Приложения и драйверы');
+  await waitFor(`!!document.querySelector('.driver-download-list>li')`,'Driver recommendations');
+  const rows=await evaluate(`[...document.querySelectorAll('.driver-download-list>li')].map(e=>({url:e.dataset.url,step:Number(e.querySelector('.driver-step').textContent),title:e.querySelector('h3').textContent,scope:e.querySelector('.driver-scope').textContent}))`);
+  assert.equal(new Set(rows.map(r=>r.url)).size,rows.length,'No repeated download destinations');
+  assert.deepEqual(rows.map(r=>r.step),rows.map((_,i)=>i+1),'Sequential installation order');
+  const oem=rows.filter(r=>r.url.includes('asrock.com'));assert.equal(oem.length,1);assert.ok(oem[0].scope.includes('LAN')&&oem[0].scope.includes('Звук'),'One board page covers related components');
+  assert.equal(rows.filter(r=>r.scope.includes('Видеокарта')).length,1,'One recommended GPU source');
+  assert.ok(rows[0].url.includes('/am4/b550.html'),'Chipset recommended first');
+  assert.ok(await evaluate(`!document.querySelector('.driver-category,.driver-modal')`),'No duplicate category download dialogs');
+  await evaluate(`document.querySelector('.driver-download-list button').click()`);await delay(60);
+  assert.equal(await evaluate(`window.__openedDriver`),'chipset:amd-chipset-b550','Download resolves through the native allowlist');
+  await evaluate(`document.querySelector('.driver-recommendations').scrollIntoView({block:'start'})`);await choiceShot(prefix);
+  assert.ok(await evaluate(`document.documentElement.scrollWidth<=document.documentElement.clientWidth`),'Recommendations fit the window');
+ };
  await selectWindows(0,'windows-10');
+ await checkDriverRecommendations('black-driver-recommendations');await click('Система');
  // Changing an incompatible choice directly from System must not stall the sequence.
  await evaluate(`document.querySelector('.warning button').click()`);
  await waitFor(`document.querySelector('.os-selection-overlay')?.dataset.stage==='hold'`,'Compatibility choice title');
@@ -129,6 +145,7 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
   await waitFor(`!!document.querySelector('.welcome')`,'Light choice');
   await send('Emulation.setDeviceMetricsOverride',{width:960,height:680,deviceScaleFactor:1,mobile:false});
   await selectWindows(0,'windows-10-light-minimum');
+  await checkDriverRecommendations('white-minimum-driver-recommendations');
   assert.ok(await evaluate(`document.documentElement.scrollWidth<=document.documentElement.clientWidth`),'Choice fits the minimum window');
   console.log('PASS: four-stage OS choice, real logo travel, title hold, System crossfade, final dismissal; Windows motion off; light/minimum window; repeated-click protection');return;
  }
@@ -288,7 +305,7 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await click('Мониторинг');await delay(150);
  const core=await evaluate(`(()=>{const e=document.querySelector('.core-symbol .brand-mark').getBoundingClientRect(),parent=document.querySelector('.optimization-core>svg').getBoundingClientRect();return{size:e.width,cx:e.x+e.width/2-parent.x-parent.width/2,cy:e.y+e.height/2-parent.y-parent.height/2}})()`);
  assert.ok(core.size>=30&&core.size<=65&&Math.abs(core.cx)<2&&Math.abs(core.cy)<2,'Monitor mark remains bounded and centered: '+JSON.stringify(core));assert.ok(await evaluate(`getComputedStyle(document.querySelector('.rating-hero')).backgroundImage==='none'`));await shot('white-monitor');
- await click('Полезные приложения');assert.ok(await evaluate(`getComputedStyle(document.querySelector('.application-card')).backgroundImage==='none'`));await shot('white-apps');await click('Приложения и драйверы');await evaluate(`document.querySelector('.driver-category').click()`);await delay(100);assert.ok(await evaluate(`getComputedStyle(document.querySelector('.driver-modal')).backgroundImage==='none'`));await shot('white-drivers');await evaluate(`document.querySelector('[aria-label="Закрыть драйверы"]').click()`);
+ await click('Полезные приложения');assert.ok(await evaluate(`getComputedStyle(document.querySelector('.application-card')).backgroundImage==='none'`));await shot('white-apps');await checkDriverRecommendations('white-driver-recommendations');assert.ok(await evaluate(`getComputedStyle(document.querySelector('.driver-download-list>li')).backgroundImage==='none'`));await shot('white-drivers');
  await click('Твики');assert.ok(await evaluate(`['.power-first','.profile-card'].every(selector=>getComputedStyle(document.querySelector(selector)).backgroundImage==='none')`));await shot('ivory-tweaks');
  await click('Игровая оптимизация');await waitStage(['snow-orbit']);assert.equal((await animation()).variant,'snowflake');assert.equal((await animation()).snowflakeArms,'6');assert.equal((await animation()).coreDark,'true');assert.equal((await animation()).needleCount,undefined,'The helmet and needle renderer is removed');assert.equal(await evaluate(`getComputedStyle(document.querySelector('.emblem-logo')).color`),'rgb(242, 251, 255)','Logo stays readable inside the snowflake centre');await shot('white-gaming');
  if(process.env.GTM_CAPTURE_SNOW){

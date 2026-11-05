@@ -14,8 +14,9 @@
 .os-selection-overlay{position:fixed;inset:0;z-index:80;pointer-events:none;color:var(--neutral);overflow:hidden;opacity:1}
 .os-choice-mark{position:absolute;left:50vw;top:50vh;width:120px;height:112.5px;margin:-56.25px 0 0 -60px;transform-origin:center;transform:translate3d(0,0,0) scale(1);color:var(--source-ink);animation:os-logo-travel var(--travel-duration) cubic-bezier(.22,.7,.2,1) both!important;will-change:transform}
 .os-choice-mark .windows-logo{width:120px;height:112.5px;gap:7.5px;color:inherit}
-.os-choice-mark .windows-logo.tilted{transform:perspective(212.5px) rotateY(-17deg)}
-.os-choice-caption{position:absolute;left:0;top:calc(50vh + 87px);width:100%;text-align:center;color:var(--neutral);opacity:1}
+/* A flat, symmetric SVG viewBox keeps the visible Windows 10 mark centred.
+   Both elements use the same viewport axis, including when a scrollbar is present. */
+.os-choice-caption{position:absolute;left:50vw;top:calc(50vh + 87px);width:max-content;transform:translateX(-50%);text-align:center;color:var(--neutral);opacity:1}
 .os-choice-caption b{font-size:32px;letter-spacing:-.7px;font-weight:650}
 .os-selection-overlay[data-stage=travel] .os-choice-caption{opacity:0;visibility:hidden}
 .os-selection-overlay[data-stage=title] .os-choice-caption{animation:os-caption-enter var(--title-duration) ease-out both!important}
@@ -25,7 +26,7 @@
 .app-shell[data-screen-phase=selecting]{animation:os-welcome-out 850ms ease-in-out both!important;pointer-events:none}
 .app-shell[data-screen-phase=selecting] .os-selector .windows-logo{visibility:hidden}
 @keyframes os-logo-travel{from{transform:translate3d(calc(var(--source-x) - 50vw),calc(var(--source-y) - 50vh),0) scale(var(--source-scale-x),var(--source-scale-y))}to{transform:translate3d(0,0,0) scale(1)}}
-@keyframes os-caption-enter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes os-caption-enter{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
 @keyframes os-welcome-out{from{opacity:1}to{opacity:0}}
 @keyframes os-workspace-reveal{from{opacity:0}to{opacity:1}}
 @keyframes os-choice-dismiss{from{opacity:1}to{opacity:0}}

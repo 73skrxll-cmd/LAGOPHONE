@@ -53,3 +53,29 @@ export function buildDriverCatalog(system,version){
  categories.push({id:'components',name:'Visual C++, DirectX и .NET',device:'Системные библиотеки',description:'Устанавливаются по требованиям конкретных игр и программ, а не вместо драйверов оборудования.',links:[link('vcredist-x64','Visual C++ 2015–2022 x64 — официальный EXE','https://aka.ms/vs/17/release/vc_redist.x64.exe','installer'),link('vcredist-x86','Visual C++ 2015–2022 x86 — официальный EXE','https://aka.ms/vs/17/release/vc_redist.x86.exe','installer','32-битным играм может понадобиться и x86 на 64-битной Windows.'),link('directx-runtime','DirectX End-User Runtime — страница пакета','https://www.microsoft.com/en-us/download/details.aspx?id=35','category','Дополнительные старые библиотеки, не замена текущему DirectX Windows.'),link('dotnet-desktop','.NET Desktop Runtime — выбрать версию','https://dotnet.microsoft.com/en-us/download/dotnet','selector','Выберите версию, требуемую приложением, и Desktop Runtime x64/x86.') ]});
  return categories.map(c=>({...c,links:c.links.map(l=>({...l,id:c.id+':'+l.id})),windows:version,installedDrivers:c.id==='gpu'?(system.gpuDrivers||[]):[],boardRevision:system.boardVersion||null}));
 }
+
+// One supported source per component, merged by destination rather than category ID.
+// Keep IDs from the native catalog: the renderer never supplies arbitrary download URLs.
+export function buildDriverRecommendations(categories){
+ const result=[],byUrl=new Map();
+ const add=(category,source,optional=false)=>{
+  const url=new URL(source.url);url.hash='';
+  const key=url.href;
+  const existing=byUrl.get(key);
+  if(existing){if(!existing.categories.includes(category.name))existing.categories.push(category.name);return}
+  const item={link:source,categories:[category.name],optional};
+  result.push(item);byUrl.set(key,item);
+ };
+ for(const id of ['chipset','network','audio','bluetooth','gpu','components','storage']){
+  const category=categories.find(c=>c.id===id);if(!category)continue;
+  if(id==='bluetooth'&&category.device==='Физический Bluetooth-адаптер не определён')continue;
+  const specific=category.links.filter(l=>!l.id.endsWith(':category-oem'));
+  // NVMe/RAID and firmware are not routine driver updates. Only show the SSD
+  // vendor's optional maintenance page when a matching SSD was detected.
+  if(id==='storage'){for(const l of specific)add(category,l,true);continue}
+  if(id==='components'){for(const l of specific)add(category,l,/directx-runtime|dotnet-desktop/.test(l.id));continue}
+  const source=specific[0]||category.links[0];
+  if(source)add(category,source);
+ }
+ return result;
+}

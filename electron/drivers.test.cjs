@@ -1,7 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const system={cpu:'AMD Ryzen 5 5600X',gpu:['NVIDIA RTX 3060'],board:'B550 AORUS ELITE V2',vendor:'Gigabyte Technology',network:[{name:'Realtek PCIe GbE'}],disks:[{name:'Samsung SSD 970 EVO'}]};
-test('driver dialog has separate categories and the chipset link matches the board instead of the GPU',async()=>{
+test('driver catalog has separate categories and the chipset link matches the board instead of the GPU',async()=>{
  const {buildDriverCatalog}=await import('../shared/drivers.mjs');
  const data=buildDriverCatalog(system,'11');
  assert.equal(data.length,7);
@@ -27,4 +27,28 @@ test('unknown board does not fabricate a chipset or revision; links remain HTTPS
   const u=new URL(l.url);assert.equal(u.protocol,'https:');assert.ok(/(nvidia\.com|amd\.com|intel\.com|gigabyte\.com|samsung\.com|aka\.ms|microsoft\.com)$/.test(u.hostname));
  }
  assert.throws(()=>buildDriverCatalog(system,'12'));
+});
+test('recommendations merge repeated board pages, use one GPU source and preserve distinct runtimes',async()=>{
+ const {buildDriverCatalog,buildDriverRecommendations}=await import('../shared/drivers.mjs');
+ const catalog=buildDriverCatalog({...system,audio:[{name:'Realtek Audio'}]},'10');
+ const list=buildDriverRecommendations(catalog);
+ assert.equal(new Set(list.map(r=>r.link.url)).size,list.length);
+ assert.ok(list[0].link.url.includes('/am4/b550.html'),'Chipset comes first');
+ const board=list.filter(r=>r.link.url.includes('gigabyte.com'));
+ assert.equal(board.length,1);assert.deepEqual(board[0].categories,['LAN и Wi-Fi','Звук']);
+ assert.equal(list.filter(r=>r.categories.includes('Видеокарта')).length,1);
+ assert.ok(list.some(r=>r.link.id.endsWith(':vcredist-x64')));
+ assert.ok(list.some(r=>r.link.id.endsWith(':vcredist-x86')));
+ assert.equal(list.find(r=>r.link.id.endsWith(':directx-runtime')).optional,true);
+ assert.equal(list.some(r=>r.categories.includes('Bluetooth')),false,'No Bluetooth download without an adapter');
+ assert.equal(list.filter(r=>r.categories.includes('Накопители / NVMe / RAID')).length,1,'Only detected Samsung utility, not a generic RAID driver');
+ for(const r of list)assert.ok(catalog.some(c=>c.links.some(l=>l.id===r.link.id&&l.url===r.link.url)),'Every recommendation retains an allowed native catalog ID');
+});
+test('one Intel DSA download covers both GPU and network; absent SSD does not suggest storage packages',async()=>{
+ const {buildDriverCatalog,buildDriverRecommendations}=await import('../shared/drivers.mjs');
+ const list=buildDriverRecommendations(buildDriverCatalog({cpu:'Intel i7',gpu:['Intel UHD'],network:[{name:'Intel Wi-Fi'}]},'11'));
+ const dsa=list.filter(r=>r.link.url.includes('dsadata.intel.com'));
+ assert.equal(dsa.length,1);assert.deepEqual(dsa[0].categories,['LAN и Wi-Fi','Видеокарта']);
+ assert.equal(list.some(r=>r.categories.includes('Накопители / NVMe / RAID')),false);
+ assert.deepEqual(buildDriverRecommendations([]),[]);
 });
