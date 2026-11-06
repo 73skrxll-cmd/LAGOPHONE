@@ -48,6 +48,9 @@ app.whenReady().then(async () => {
 });
 app.on('window-all-closed', () => app.quit());
 ipcMain.handle('system', () => system());
+const security=require('./security.cjs').createSecurityService({app,shell});
+ipcMain.handle('security:status',event=>{if(!win||win.isDestroyed()||event.sender!==win.webContents||event.senderFrame!==win.webContents.mainFrame)throw Error('Недоступное окно.');return security.inspect()});
+ipcMain.handle('security:recovery',event=>{if(!win||win.isDestroyed()||event.sender!==win.webContents||event.senderFrame!==win.webContents.mainFrame)throw Error('Недоступное окно.');return security.openRecovery()});
 ipcMain.handle('apps:installed',()=>require('./installed-apps.cjs').inspectInstalled());
 const executeWindowsAction=require('./windows-actions.cjs').createWindowsActions({isRunning:()=>optimizer.isRunning(),system,run:powershell,activities});
 ipcMain.handle('action',(_,id,version)=>executeWindowsAction(id,version));

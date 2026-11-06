@@ -4,6 +4,15 @@
 
 Настольное приложение для Windows 10/11 x64: сведения о ПК и мониторинг оптимизации, автоматические профили настройки Windows с откатом, каталог приложений и официальная поддержка драйверов. React + TypeScript + Electron + Windows PowerShell 5.1.
 
+## GTM PC 0.18.4-beta.1 — Secure Boot и TPM 2.0
+
+- В разделе «Система», под комплектующими, добавлены статусы Secure Boot и TPM: версия, готовность, режим загрузки и источник данных. Ручная проверка, обновление раз в минуту и при возвращении в приложение.
+- Secure Boot читается через `Confirm-SecureBootUEFI`; если прямой доступ недоступен, запись состояния Windows при загрузке явно помечается. Ошибка чтения не означает «выключено». TPM 1.2, TPM 2.0, отсутствие устройства, блокировка и неизвестная готовность различаются.
+- Автоматического включения нет: оно зависит от UEFI производителя. Встроена короткая инструкция и кнопка открытия `ms-settings:recovery`, без автоматической перезагрузки. TPM, ключи Secure Boot, CSM, разделы диска и BitLocker приложение не меняет.
+- Источники: [Secure Boot — Microsoft](https://support.microsoft.com/en-us/windows/security/devicesecurity/windows-11-and-secure-boot), [TPM 2.0 — Microsoft](https://support.microsoft.com/en-us/windows/security/devicesecurity/enable-tpm-2-0-on-your-pc), [Tbsi_GetDeviceInfo](https://learn.microsoft.com/en-us/windows/win32/api/tbs/nf-tbs-tbsi_getdeviceinfo), [Confirm-SecureBootUEFI](https://learn.microsoft.com/en-us/powershell/module/secureboot/confirm-securebootuefi).
+
+Проверки Chromium используют управляемые статусы и проверяют отображение, ошибки и обе темы. На Windows runner выполняется настоящий запрос состояния без изменения прошивки; его результат не подтверждает состояние ПК пользователя.
+
 ## GTM PC 0.18.3-beta.1 — окна в стиле приложения
 
 - Подтверждения игровых профилей и питания, восстановления настроек, перезагрузки и уведомление о текущей операции теперь открываются внутри GTM PC. Тема, цвета, шрифт и кнопки соответствуют оформлению приложения.

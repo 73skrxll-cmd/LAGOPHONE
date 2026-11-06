@@ -1,3 +1,4 @@
+export type SecurityStatus={supported:boolean;checkedAt:string|null;firmware:'uefi'|'legacy'|'unknown';secureBoot:{enabled:boolean|null;source:'firmware'|'windows-boot'|'none';issue:'legacy'|'access'|null};tpm:{present:boolean|null;version:'1.2'|'2.0'|null;enabled:boolean|null;ready:boolean|null;lockedOut:boolean|null;source:'tbs'|'cim'|'get-tpm'|'none'}};
 export type RestartRequest={required:boolean;scheduled:boolean;warning:string};
 export type AppDialogRequest={id:string;type:'info'|'question'|'warning'|'error';title:string;message:string;detail:string;items:{title:string;detail:string}[];buttons:string[];cancelId:number;defaultId:number};
 export type RestartState={pending:boolean;offer?:boolean;scheduled?:boolean;warning?:string;celebration?:{profile:string;count:number;version:'10'|'11'}};
@@ -21,6 +22,8 @@ declare global {
    driverCatalog:(version:'10'|'11')=>Promise<DriverCategory[]>;
    openDriver:(id:string,version:'10'|'11')=>Promise<void>;
    system:()=>Promise<System>;
+   securityStatus?:()=>Promise<SecurityStatus>;
+   openRecoverySettings?:()=>Promise<void>;
    action:(id:string,version:'10'|'11')=>Promise<string>;
    download:(id:string)=>Promise<string>;
    open:(id:string)=>Promise<void>;

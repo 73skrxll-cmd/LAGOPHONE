@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('lagophone', {
   driverCatalog: version => ipcRenderer.invoke('drivers:catalog',version),
   openDriver: (id,version) => ipcRenderer.invoke('drivers:open',id,version),
   system: () => ipcRenderer.invoke('system'),
+  securityStatus: () => ipcRenderer.invoke('security:status'),
+  openRecoverySettings: () => ipcRenderer.invoke('security:recovery'),
   action: (id, version) => ipcRenderer.invoke('action', id, version),
   download: id => ipcRenderer.invoke('download', id),
   open: id => ipcRenderer.invoke('open', id),
