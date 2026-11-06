@@ -10,7 +10,7 @@ const quote=value=>"'"+String(value).replaceAll("'","''")+"'";
 function ps(script,timeout=600000){
   return new Promise((resolve,reject)=>execFile(windowsPowerShellExecutable(),['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from("$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.Encoding]::UTF8; "+script,'utf16le').toString('base64')],{env:windowsPowerShellEnvironment(),windowsHide:true,timeout,maxBuffer:4*1024*1024},(e,out)=>e?reject(new Error(e.killed||e.code==='ETIMEDOUT'?`Windows не ответила за ${Math.round(timeout/1000)} секунд. Повторите проверку состояния.`:'Windows не выполнила запрос. Если появлялся запрос прав администратора, он мог быть отменён. Повторите проверку состояния.')):resolve(out.trim())));
 }
-function registerOptimizer(getWindow,activities,restart){
+function registerOptimizer(getWindow,activities,restart,dialogs){
   const {optimizationEvents}=require('./activity.cjs');
   const session=require('./optimizer-session.cjs').createOptimizerSession();
   let cachedStatus=null,cachedGameStatus=null,cachedPowerStatus=null,cachedLast=null,sidRequest=null;
@@ -55,7 +55,7 @@ function registerOptimizer(getWindow,activities,restart){
   });
   ipcMain.handle('optimization:power-restore',()=>{assertWindows();return session.exclusive('power',async setPhase=>{
     setPhase('confirmation');
-    const choice=await dialog.showMessageBox(getWindow(),{type:'question',message:'Завершить прерванную настройку питания?',detail:'Восстановятся только параметры отдельной операции питания. Системные твики не изменятся.',buttons:['Отмена','Восстановить питание'],defaultId:0,cancelId:0});
+    const choice=await dialogs.showMessageBox(getWindow(),{type:'question',message:'Завершить прерванную настройку питания?',detail:'Восстановятся только параметры отдельной операции питания. Системные твики не изменятся.',buttons:['Отмена','Восстановить питание'],defaultId:0,cancelId:0});
     if(choice.response!==1)return {ok:true,cancelled:true,report:[]};
     setPhase('windows');const result=await run('restore',{scope:'power'},true);await activities.add(optimizationEvents('restore',{scope:'power'},result));return result;
   })});
@@ -72,7 +72,7 @@ function registerOptimizer(getWindow,activities,restart){
   });
   ipcMain.handle('optimization:game-restore',()=>{assertWindows();return session.exclusive('restore',async setPhase=>{
     setPhase('confirmation');
-    const answer=await dialog.showMessageBox(getWindow(),{type:'question',message:'Восстановить игровые настройки всех игр?',detail:'Отменятся только игровые изменения. Системные твики и планы питания останутся. После восстановления перезапустите игры.',buttons:['Отмена','Восстановить'],defaultId:0,cancelId:0});
+    const answer=await dialogs.showMessageBox(getWindow(),{type:'question',message:'Восстановить игровые настройки всех игр?',detail:'Отменятся только игровые изменения. Системные твики и планы питания останутся. После восстановления перезапустите игры.',buttons:['Отмена','Восстановить'],defaultId:0,cancelId:0});
     if(answer.response!==1)return {ok:true,cancelled:true,report:[]};
     setPhase('windows');const result=await run('restore',{scope:'game'},true);await activities.add(optimizationEvents('restore',{scope:'game'},result));return result;
   })});
@@ -109,7 +109,7 @@ function registerOptimizer(getWindow,activities,restart){
     plan.ratingPlan.ids=plan.ratingPlan.ids.filter(id=>status.availability?.[id]?.available!==false);
     if(plan.scope){
     setPhase('confirmation');
-    const choice=await dialog.showMessageBox(getWindow(),{type:'warning',title:'Применить профиль?',message:'Изменений: '+plan.ids.length,detail:plan.ids.map(id=>{const step=catalog.steps.find(s=>s.id===id);const description={...step,...step.variants?.[actual.version]};return description.attention?'⚠ '+description.name+' — '+description.attention.consequence:description.name}).join('\n')+'\n\nИсходные значения будут сохранены до изменений. Windows запросит права администратора. При ошибке программа попытается выполнить откат; результат будет показан в отчёте.',buttons:['Отмена','Применить'],defaultId:0,cancelId:0});
+    const choice=await dialogs.showMessageBox(getWindow(),{type:'warning',title:'Применить профиль?',message:'Изменений: '+plan.ids.length,items:plan.ids.map(id=>{const step=catalog.steps.find(s=>s.id===id);const description={...step,...step.variants?.[actual.version]};return {title:description.name,detail:description.attention?.consequence||''}}),detail:'Исходные значения будут сохранены до изменений. Windows запросит права администратора. При ошибке программа попытается выполнить откат; результат будет показан в отчёте.',buttons:['Отмена','Применить'],defaultId:0,cancelId:0});
     if(choice.response!==1){const result={ok:true,cancelled:true,report:[]};await activities.add(optimizationEvents('apply',input,result));return result;}
     }
     setPhase('windows');
@@ -121,7 +121,7 @@ function registerOptimizer(getWindow,activities,restart){
   ipcMain.handle('optimization:restore',()=>{assertWindows();return session.exclusive('restore',async setPhase=>{
     try {
     setPhase('confirmation');
-    const choice=await dialog.showMessageBox(getWindow(),{type:'question',message:'Восстановить исходные настройки?',detail:'Восстановятся сохранённые параметры реестра, состояния служб и план питания. Настройки, изменённые сторонними программами, могут потребовать ручной проверки.',buttons:['Отмена','Восстановить'],defaultId:0,cancelId:0});
+    const choice=await dialogs.showMessageBox(getWindow(),{type:'question',message:'Восстановить исходные настройки?',detail:'Восстановятся сохранённые параметры реестра, состояния служб и план питания. Настройки, изменённые сторонними программами, могут потребовать ручной проверки.',buttons:['Отмена','Восстановить'],defaultId:0,cancelId:0});
     if(choice.response!==1){const result={ok:true,cancelled:true,report:[]};await activities.add(optimizationEvents('restore',null,result));return result;}
     setPhase('windows');
     const result=await run('restore',{},true);

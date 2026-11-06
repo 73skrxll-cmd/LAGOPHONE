@@ -97,7 +97,7 @@ export function GameOptimizer({native,active,version,mismatch,onCompleted,activi
   setBusy(true);setError('');
   try{const response=await window.lagophone!.restoreGameOptimization();setResult(response);await refresh();onCompleted()}catch(e){setError(friendlyError(e))}finally{setBusy(false);setStatus(previous=>previous?{...previous,running:false,operation:null}:previous)}
  }
- const phase=status?.operation?.phase==='confirmation'?'Подтвердите игровые настройки в окне Windows':status?.operation?.phase==='windows'?'Windows применяет и проверяет параметры игры':'Подготавливаем игровые настройки';
+ const phase=status?.operation?.phase==='confirmation'?'Подтвердите игровые настройки в GTM PC':status?.operation?.phase==='windows'?'Windows применяет и проверяет параметры игры':'Подготавливаем игровые настройки';
  return <div className="game-optimizer">
   <section ref={launcher} className="game-launcher" aria-label="Оптимизация выбранной игры">
    <GameAnimation theme={theme} game={game} run={animation.run} phase={animation.run?animation.phase:optimized?'ready':'idle'} active={active} launcher={launcher} button={optimizeButton} emblem={emblem}/>

@@ -2,6 +2,18 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('lagophone', {
   windowChrome: process.platform==='win32',
   setWindowTheme: theme => ipcRenderer.invoke('window:theme',theme),
+  respondAppDialog: (id,response) => ipcRenderer.invoke('app-dialog:respond',id,response),
+  onAppDialog: callback => {
+    const show=(_,value)=>callback(value),close=(_,id)=>callback({closed:id});
+    ipcRenderer.on('app-dialog:show',show);
+    ipcRenderer.on('app-dialog:closed',close);
+    void ipcRenderer.invoke('app-dialog:ready',true).catch(()=>{});
+    return () => {
+      ipcRenderer.removeListener('app-dialog:show',show);
+      ipcRenderer.removeListener('app-dialog:closed',close);
+      void ipcRenderer.invoke('app-dialog:ready',false).catch(()=>{});
+    };
+  },
   restartAcknowledge: () => ipcRenderer.invoke('restart:acknowledge'),
   restartStatus: () => ipcRenderer.invoke('restart:status'),
   restartLater: () => ipcRenderer.invoke('restart:later'),

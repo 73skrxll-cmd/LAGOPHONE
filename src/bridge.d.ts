@@ -1,4 +1,5 @@
 export type RestartRequest={required:boolean;scheduled:boolean;warning:string};
+export type AppDialogRequest={id:string;type:'info'|'question'|'warning'|'error';title:string;message:string;detail:string;items:{title:string;detail:string}[];buttons:string[];cancelId:number;defaultId:number};
 export type RestartState={pending:boolean;offer?:boolean;scheduled?:boolean;warning?:string;celebration?:{profile:string;count:number;version:'10'|'11'}};
 import type {ActivityTarget} from '../shared/activity-target.mjs';
 export type ActivityEntry={target?:ActivityTarget;id:string;at:string;kind:string;status:'success'|'error'|'warning'|'cancelled';title:string;detail:string};
@@ -10,6 +11,8 @@ declare global {
   lagophone?: {
    windowChrome?:boolean;
    setWindowTheme?:(theme:string)=>Promise<void>;
+   onAppDialog?:(cb:(request:AppDialogRequest|{closed:string})=>void)=>()=>void;
+   respondAppDialog?:(id:string,response:number)=>Promise<boolean>;
    restartAcknowledge:()=>Promise<{ok:boolean}>;
    restartStatus:()=>Promise<RestartState>;
    restartLater:()=>Promise<{ok:boolean}>;
