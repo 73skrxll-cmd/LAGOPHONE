@@ -1,0 +1,22 @@
+import {useEffect,useRef,useState} from 'react';
+import {ArrowUpRight,Gamepad2,Info,SlidersHorizontal} from 'lucide-react';
+import {componentImpact,estimatePerformance,performanceProfiles,performanceSources} from '../shared/performance.mjs';
+import type {System} from './main';
+import './performance.css';
+export function Performance({system,selection}:{system:System;selection:{component:string;request:number}|null}){
+ const [profile,setProfile]=useState(()=>{try{return localStorage.getItem('gtm-fps-profile')||'fast1080'}catch{return 'fast1080'}}),[gpu,setGpu]=useState(''),[error,setError]=useState('');
+ const ref=useRef<HTMLElement>(null);
+ const result=estimatePerformance(system,profile,gpu),impact=componentImpact(system,selection?.component||'');
+ useEffect(()=>{try{localStorage.setItem('gtm-fps-profile',result.profile)}catch{}},[result.profile]);
+ useEffect(()=>{if(selection){ref.current?.scrollIntoView({block:'start',behavior:'auto'});ref.current?.focus({preventScroll:true})}},[selection?.request]);
+ async function source(id:string){try{setError('');if(window.lagophone&&!system.demo)await window.lagophone.open(id);else window.open(performanceSources[id],'_blank','noopener,noreferrer')}catch{setError('Не удалось открыть источник. Повторите попытку.')}}
+ return <section className="performance-panel" id="performance-panel" tabIndex={-1} ref={ref} aria-labelledby="performance-title">
+  <div className="performance-heading"><div><span className="eyebrow">КАЛЬКУЛЯТОР · НЕ ЗАМЕР</span><h2 id="performance-title"><Gamepad2 size={23}/> Как пойдут игры</h2></div><span className="performance-confidence">Приблизительная оценка</span></div>
+  {system.demo&&<p className="performance-demo">Пример на демонстрационной сборке. Это не данные вашего ПК.</p>}
+  <div className="performance-controls"><label>Режим<select aria-label="Режим оценки FPS" value={result.profile} onChange={e=>setProfile(e.target.value)}>{performanceProfiles.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></label>{(system.gpu?.length||0)>1&&<label>GPU для оценки<select aria-label="Видеокарта для оценки FPS" value={result.gpu} onChange={e=>setGpu(e.target.value)}>{system.gpu?.map(name=><option key={name}>{name}</option>)}</select></label>}<div className="performance-detected"><b>{system.cpu||'CPU не определён'}</b><span>{result.gpu||'GPU не определена'} · {system.ram||'—'} ГБ RAM</span></div></div>
+  <div className="performance-impact" role="status"><SlidersHorizontal size={19}/><div><b>{impact.title}</b><p>{impact.text}</p></div></div>
+  <div className="fps-grid">{result.rows.map(row=><article className="fps-card" data-game-fps={row.id} key={row.id}><div className="fps-card-top"><h3>{row.name}</h3><span>{result.profile==='quality1440'?'1440p':'1080p'}</span></div><strong>{row.low!==null?<>{row.low}–{row.high}<small> FPS</small></>:'Нет данных'}</strong><p>{row.settings}</p><div className="fps-limitation">{row.limitation}</div>{row.reason&&<p className="fps-missing">{row.reason}</p>}<small>{row.version}</small>{row.source&&<button className="fps-source" onClick={()=>void source(row.source!)}>Источник теста <ArrowUpRight size={13}/></button>}</article>)}</div>
+  {error&&<p role="alert">{error}</p>}
+  <details className="performance-method"><summary><Info size={16}/> Откуда цифры и насколько им верить</summary><p>Это расчётный ориентир для всей системы, а не измеренный FPS. База — опубликованные тесты ComputerBase (2024) и Notebookcheck. Условия, версия игры и стенд в источнике отличаются от вашего ПК. Для неподтверждённых моделей и режимов показываем «Нет данных».</p><p>Диапазон расширен эвристикой по поколению CPU и объёму RAM; она не откалибрована на вашей системе и не является доверительным интервалом. Патчи, драйверы, сцена, охлаждение и фоновые процессы способны вывести результат за его пределы. Это не минимальный FPS и не 1% low.</p><p>Fortnite: DLSS для RTX или TSR для GTX/Radeon, режим указан на карточке; Performance Mode не оценён. Профиль RTX 3060 относится к 12 ГБ, RTX 3050 и 4060 Ti — к 8 ГБ. Реальный объём VRAM не определён. Dota 2 использует старую тест-сцену Reborn, GTA V — Legacy. Для других GPU эти три дополнительных игры могут не иметь данных.</p><p>«Упор в CPU/GPU» — гипотеза по выбранным настройкам, без процента потери. Подтверждать её нужно временем кадра и загрузкой CPU/GPU в игре. Применение твиков само по себе не меняет этот прогноз и не обещает прирост FPS.</p></details>
+ </section>;
+}

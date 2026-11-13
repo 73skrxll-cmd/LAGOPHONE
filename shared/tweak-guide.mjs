@@ -1,0 +1,3 @@
+export const tweakGuideTiming={first:15000,cooldown:240000,duration:3200,maximum:2};
+export function readTweakGuide(value){try{const data=JSON.parse(value||'{}');return {shown:Number.isInteger(data.shown)&&data.shown>=0?Math.min(data.shown,2):0,last:Number.isFinite(data.last)&&data.last>0?data.last:0,visited:data.visited===true}}catch{return {shown:0,last:0,visited:false}}}
+export function nextTweakGuideDelay(state,now){if(state.visited||state.shown>=tweakGuideTiming.maximum)return null;return Math.min(tweakGuideTiming.cooldown,Math.max(tweakGuideTiming.first,state.last?state.last+tweakGuideTiming.cooldown-now:0))}

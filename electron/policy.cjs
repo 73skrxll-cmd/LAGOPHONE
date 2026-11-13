@@ -9,6 +9,11 @@ const apps = {
   vlc: { page: 'https://www.videolan.org/vlc/' },
 };
 const links = {
+  'fps-fortnite':'https://www.computerbase.de/artikel/gaming/fortnite-benchmark-test.87822/',
+  'fps-pubg':'https://www.computerbase.de/artikel/gaming/pubg-battlegrounds-benchmark-test.87841/',
+  'fps-cs2':'https://www.computerbase.de/artikel/gaming/counter-strike-2-benchmark-test.87904/',
+  'fps-1660s':'https://www.notebookcheck.net/NVIDIA-GeForce-GTX-1660-Super-Desktop-GPU-Benchmarks-and-Specs.448675.0.html',
+  'fps-3060':'https://www.notebookcheck.net/NVIDIA-GeForce-RTX-3060-Desktop-GPU-Benchmarks-and-Specs.579000.0.html',
   nvidia: 'https://www.nvidia.com/en-us/software/nvidia-app/',
   amd: 'https://www.amd.com/en/support/download/drivers.html',
   intel: 'https://www.intel.com/content/www/us/en/support/detect.html',

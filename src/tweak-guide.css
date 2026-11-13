@@ -1,0 +1,8 @@
+nav button.tweaks-featured{position:relative;border-color:color-mix(in srgb,var(--accent-muted) 65%,transparent);isolation:isolate}
+nav button.tweaks-featured[data-glow=true]{animation:tweaks-glow 7s ease-in-out infinite}
+nav button.tweaks-featured[data-glow=false]{animation:none!important}
+.tweak-guide-hand{position:fixed;left:0;width:86px;height:58px;z-index:35;pointer-events:none;filter:drop-shadow(0 3px 4px #0004);animation:tweak-hand-point 3.2s cubic-bezier(.2,.7,.3,1) both;will-change:transform,opacity}
+.tweak-guide-hand svg{display:block;width:100%;height:100%}
+@keyframes tweaks-glow{0%,100%{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 6%,transparent),0 0 7px color-mix(in srgb,var(--accent) 4%,transparent)}50%{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 32%,transparent),0 0 20px color-mix(in srgb,var(--accent) 13%,transparent)}}
+@keyframes tweak-hand-point{0%{opacity:0;transform:translateX(-115px) rotate(-8deg)}18%{opacity:1;transform:translateX(-1px) rotate(0)}36%{opacity:1;transform:translateX(5px) rotate(0)}52%{opacity:1;transform:translateX(-3px) rotate(-3deg)}68%{opacity:1;transform:translateX(4px) rotate(0)}82%{opacity:1;transform:translateX(0) rotate(0)}100%{opacity:0;transform:translateX(-115px) rotate(5deg)}}
+@media(prefers-reduced-motion:reduce){nav button.tweaks-featured{animation:none!important}.tweak-guide-hand{display:none}}
