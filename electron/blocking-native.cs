@@ -8,6 +8,9 @@ public sealed class GTMBlockingChild:IDisposable{
  [DllImport("kernel32.dll",SetLastError=true)]static extern bool SetInformationJobObject(IntPtr job,int info,IntPtr data,uint size);
  [DllImport("kernel32.dll",SetLastError=true)]static extern bool AssignProcessToJobObject(IntPtr job,IntPtr process);
  [DllImport("kernel32.dll")]static extern bool CloseHandle(IntPtr h);
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern uint GetLongPathName(string shortPath,StringBuilder longPath,uint size);
+ public static string CanonicalPath(string path){path=Environment.ExpandEnvironmentVariables(path.Trim('"'));if(path.StartsWith(@"\??\",StringComparison.Ordinal)||path.StartsWith(@"\\?\",StringComparison.Ordinal))path=path.Substring(4);if(path.StartsWith(@"\SystemRoot\",StringComparison.OrdinalIgnoreCase))path=System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),path.Substring(12));string full=System.IO.Path.GetFullPath(path);var text=new StringBuilder(32768);uint length=GetLongPathName(full,text,(uint)text.Capacity);return length>0&&length<text.Capacity?text.ToString():full;}
+
  IntPtr job;Process child;readonly Queue<string> lines=new Queue<string>();readonly object gate=new object();
  public int Pid{get{return child==null?0:child.Id;}}public bool Running{get{return child!=null&&!child.HasExited;}}public int ExitCode{get{return child!=null&&child.HasExited?child.ExitCode:0;}}public string Output{get{lock(gate)return String.Join("\n",lines.ToArray());}}
  public void Start(string exe,string arguments,string cwd){

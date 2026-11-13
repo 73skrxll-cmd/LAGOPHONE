@@ -26,7 +26,7 @@ function Cleanup-Driver {
  if(@(Get-Process -Name 'winws','winws2','goodbyedpi' -ErrorAction SilentlyContinue).Count){return}
  # Remove only a service absent before GTM and whose binary points at this exact package.
  $service=Get-CimInstance Win32_SystemDriver -Filter "Name='WinDivert'" -ErrorAction SilentlyContinue
- if($service){$expected=[IO.Path]::GetFullPath((Join-Path $root 'zapret/bin/WinDivert64.sys'));$actual=([string]$service.PathName).Trim('"').Replace('\??\','');if($actual -ieq $expected){& "$env:SystemRoot\System32\sc.exe" stop WinDivert|Out-Null;$after=Get-CimInstance Win32_SystemDriver -Filter "Name='WinDivert'" -ErrorAction SilentlyContinue;if($after -and $after.State -eq 'Stopped'){& "$env:SystemRoot\System32\sc.exe" delete WinDivert|Out-Null}}}
+ if($service){$expected=[GTMBlockingChild]::CanonicalPath((Join-Path $root 'zapret/bin/WinDivert64.sys'));$actual=[GTMBlockingChild]::CanonicalPath(([string]$service.PathName).Trim('"').Replace('\??\',''));if($actual -ieq $expected){& "$env:SystemRoot\System32\sc.exe" stop WinDivert|Out-Null;$until=[datetime]::UtcNow.AddSeconds(5);do{$after=Get-CimInstance Win32_SystemDriver -Filter "Name='WinDivert'" -ErrorAction SilentlyContinue;if(!$after -or $after.State -eq 'Stopped'){break};Start-Sleep -Milliseconds 150}while([datetime]::UtcNow -lt $until);if($after -and $after.State -eq 'Stopped'){& "$env:SystemRoot\System32\sc.exe" delete WinDivert|Out-Null}}}
 }
 try{
  if(Test-Path -LiteralPath $stop){exit 0}
@@ -50,7 +50,7 @@ try{
       if($cmd.gameFilter -notin @('off','tcp','udp','all')){throw 'Недопустимый игровой фильтр.'}
       if($fnport -and $fnport.Running -and $cmd.gameFilter -ne 'off'){throw 'Игровой фильтр Zapret несовместим с работающим fnport.'}
       if(@(Get-Process -Name 'winws','winws2' -ErrorAction SilentlyContinue|Where-Object {!$zapret -or $_.Id -ne $zapret.Pid}).Count){throw 'Другой Zapret уже запущен. Остановите его в его приложении.'}
-      if(!$zapret){$existing=Get-CimInstance Win32_SystemDriver -Filter "Name='WinDivert'" -ErrorAction SilentlyContinue;if($existing){$expected=[IO.Path]::GetFullPath((Join-Path $root 'zapret/bin/WinDivert64.sys'));$actual=([string]$existing.PathName).Trim('"').Replace('\??\','');if($actual -ieq $expected){$ownedDriver=$true}else{throw 'WinDivert уже используется другой программой; GTM PC не будет менять её драйвер.'}};if(!$existing){$ownedDriver=$true}}
+      if(!$zapret){$existing=Get-CimInstance Win32_SystemDriver -Filter "Name='WinDivert'" -ErrorAction SilentlyContinue;if($existing){$expected=[GTMBlockingChild]::CanonicalPath((Join-Path $root 'zapret/bin/WinDivert64.sys'));$actual=[GTMBlockingChild]::CanonicalPath(([string]$existing.PathName).Trim('"').Replace('\??\',''));if($actual -ieq $expected){$ownedDriver=$true}else{throw 'WinDivert уже используется другой программой; GTM PC не будет менять её драйвер.'}};if(!$existing){$ownedDriver=$true}}
       $tcp='12';$udp='12';if($cmd.gameFilter -in @('tcp','all')){$tcp='1024-65535'};if($cmd.gameFilter -in @('udp','all')){$udp='1024-65535'}
       $winwsArgs=@($candidate[0].args|ForEach-Object {([string]$_).Replace('%BIN%',(Join-Path $root 'zapret/bin/') ).Replace('%LISTS%',($working+'\')).Replace('%GameFilterTCP%',$tcp).Replace('%GameFilterUDP%',$udp)})
       $ipset=Join-Path $working 'ipset-all.txt';if($cmd.ipset -eq $true){Copy-Item -LiteralPath (Join-Path $working 'ipset-all.txt.backup') -Destination $ipset -Force}else{[IO.File]::WriteAllText($ipset,'203.0.113.113')}
