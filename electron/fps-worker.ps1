@@ -9,7 +9,7 @@ $collector=$null;$sessions=@();$phase='starting';$message='';$parent=$null
 try{
  if(Test-Path -LiteralPath $stopFile){$phase='stopped';exit 0}
  $parent=[Diagnostics.Process]::GetProcessById([int]$p.parentPid)
- if([Math]::Abs(($parent.StartTime.ToUniversalTime()-[datetime]$p.parentStartedAt).TotalSeconds) -gt 15){throw 'Parent process changed'}
+ if([Math]::Abs(($parent.StartTime.ToUniversalTime()-([datetime]$p.parentStartedAt).ToUniversalTime()).TotalSeconds) -gt 15){throw 'Parent process changed'}
  if((Get-FileHash -LiteralPath $p.binary -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'b2a706bc6ad475749e3b7e3409263aa1e6906d45bdcf993f6dbc0f660188f1af'){throw 'Component hash mismatch'}
  Add-Type -Path (Join-Path $PSScriptRoot 'fps-native.cs')
  $collector=[GTMFpsCollector]::new([string[]]@($p.games.exe),[string[]]@($p.games.id),[string[]]@($p.games.name))

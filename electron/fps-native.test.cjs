@@ -29,3 +29,8 @@ test('production Windows worker stops its own ETW session on stop and heartbeat 
   }finally{clearInterval(timer);await fsp.writeFile(path.join(directory,'stop'),'1').catch(()=>{});if(child.exitCode===null){await wait(5000);if(child.exitCode===null)child.kill()}await fsp.rm(directory,{recursive:true,force:true})}
  }
 });
+test('production parent-process identity check works with a non-UTC local timezone',{skip:!pwsh},()=>{
+ const validation=fs.readFileSync(path.join(__dirname,'fps-worker.ps1'),'utf8').split(/\r?\n/).find(line=>line.includes("throw 'Parent process changed'"));assert.ok(validation);
+ const command=`$ErrorActionPreference='Stop';$parent=[Diagnostics.Process]::GetCurrentProcess();$p=[pscustomobject]@{parentStartedAt=$parent.StartTime.ToUniversalTime().ToString('o')};${validation};'Process identity OK'`;
+ const output=execFileSync(pwsh,['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(command,'utf16le').toString('base64')],{encoding:'utf8',timeout:15000,env:{...process.env,TZ:'Europe/Minsk'}});assert.match(output,/Process identity OK/);
+});
