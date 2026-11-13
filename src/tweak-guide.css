@@ -1,8 +1,16 @@
-nav button.tweaks-featured{position:relative;border-color:color-mix(in srgb,var(--accent-muted) 65%,transparent);isolation:isolate}
-nav button.tweaks-featured[data-glow=true]{animation:tweaks-glow 7s ease-in-out infinite}
-nav button.tweaks-featured[data-glow=false]{animation:none!important}
-.tweak-guide-hand{position:fixed;left:0;width:86px;height:58px;z-index:35;pointer-events:none;filter:drop-shadow(0 3px 4px #0004);animation:tweak-hand-point 3.2s cubic-bezier(.2,.7,.3,1) both;will-change:transform,opacity}
+nav button.tweaks-featured{position:relative;isolation:isolate;overflow:hidden;border-color:#8796ab;--tweak-a:#435570;--tweak-b:#765f7b;--tweak-c:#7b6b46;--tweak-shine:#fff9e9;--tweak-halo:#c5d7ff66}
+nav button.tweaks-featured::before,nav button.tweaks-featured::after{content:'';position:absolute;pointer-events:none;border-radius:inherit;opacity:0}
+nav button.tweaks-featured::before{inset:1px;z-index:-2;background:linear-gradient(110deg,var(--tweak-a),var(--tweak-b),var(--tweak-c),var(--tweak-a));background-size:300% 200%}
+nav button.tweaks-featured::after{inset:-25% auto -25% -70%;width:60%;z-index:-1;background:linear-gradient(105deg,transparent 15%,color-mix(in srgb,var(--tweak-shine) 50%,transparent) 50%,transparent 85%);filter:blur(5px)}
+nav button.tweaks-featured[data-glow=true]{animation:tweaks-halo 4.8s ease-in-out infinite!important;color:#fff}
+nav button.tweaks-featured[data-glow=true]::before{opacity:.95;animation:tweaks-fill 6s ease-in-out infinite!important}
+nav button.tweaks-featured[data-glow=true]::after{animation:tweaks-sheen 4.8s ease-in-out infinite!important}
+nav button.tweaks-featured[data-glow=false],nav button.tweaks-featured[data-glow=false]::before,nav button.tweaks-featured[data-glow=false]::after{animation:none!important}
+nav button.tweaks-featured[data-glow=false]::before,nav button.tweaks-featured[data-glow=false]::after{opacity:0}
+:root[data-theme=white] nav button.tweaks-featured{--tweak-a:#c2d8e9;--tweak-b:#dfc7df;--tweak-c:#efdfb3;--tweak-shine:#fff;--tweak-halo:#819cc766;color:var(--neutral);border-color:#9ba9b6}
+.tweak-guide-hand{position:fixed;left:0;width:86px;height:58px;z-index:35;pointer-events:none;filter:drop-shadow(0 3px 4px #0004);animation:tweak-hand-point 3.2s cubic-bezier(.2,.7,.3,1) both!important;will-change:transform,opacity}
 .tweak-guide-hand svg{display:block;width:100%;height:100%}
-@keyframes tweaks-glow{0%,100%{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 6%,transparent),0 0 7px color-mix(in srgb,var(--accent) 4%,transparent)}50%{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 32%,transparent),0 0 20px color-mix(in srgb,var(--accent) 13%,transparent)}}
+@keyframes tweaks-fill{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes tweaks-halo{0%,100%{box-shadow:inset 0 0 12px #ffffff19,0 0 8px var(--tweak-halo)}50%{box-shadow:inset 0 0 18px #ffffff35,0 0 22px var(--tweak-halo)}}
+@keyframes tweaks-sheen{0%{opacity:0;transform:translateX(-30%) skewX(-12deg)}15%{opacity:.8}70%{opacity:.85}100%{opacity:0;transform:translateX(360%) skewX(-12deg)}}
 @keyframes tweak-hand-point{0%{opacity:0;transform:translateX(-115px) rotate(-8deg)}18%{opacity:1;transform:translateX(-1px) rotate(0)}36%{opacity:1;transform:translateX(5px) rotate(0)}52%{opacity:1;transform:translateX(-3px) rotate(-3deg)}68%{opacity:1;transform:translateX(4px) rotate(0)}82%{opacity:1;transform:translateX(0) rotate(0)}100%{opacity:0;transform:translateX(-115px) rotate(5deg)}}
-@media(prefers-reduced-motion:reduce){nav button.tweaks-featured{animation:none!important}.tweak-guide-hand{display:none}}

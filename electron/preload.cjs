@@ -1,6 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('lagophone', {
   windowChrome: process.platform==='win32',
+  fpsStatus:()=>ipcRenderer.invoke('fps:status'),
+  setFpsEnabled:enabled=>ipcRenderer.invoke('fps:enabled',enabled),
+  addFpsGame:()=>ipcRenderer.invoke('fps:add-game'),
   setWindowTheme: theme => ipcRenderer.invoke('window:theme',theme),
   respondAppDialog: (id,response) => ipcRenderer.invoke('app-dialog:respond',id,response),
   onAppDialog: callback => {

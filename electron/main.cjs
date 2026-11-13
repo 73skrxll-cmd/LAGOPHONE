@@ -8,6 +8,11 @@ require('./branding.cjs').configureBranding(app);
 const {windowChromeOptions,applyWindowTheme}=require('./window-chrome.cjs');
 let win;
 const appDialogs=require('./app-dialogs.cjs').createAppDialogs({ipcMain,getWindow:()=>win});
+const fps=require('./fps-controller.cjs').createFpsController({app});
+const trusted=event=>!!win&&!win.isDestroyed()&&event.sender===win.webContents&&event.senderFrame===win.webContents.mainFrame;
+ipcMain.handle('fps:status',event=>{if(!trusted(event))throw Error('Недоступное окно.');return fps.status()});
+ipcMain.handle('fps:enabled',(event,enabled)=>{if(!trusted(event))throw Error('Недоступное окно.');return fps.setEnabled(enabled)});
+ipcMain.handle('fps:add-game',async event=>{if(!trusted(event))throw Error('Недоступное окно.');const choice=await dialog.showOpenDialog(win,{title:'Выберите EXE игры для статистики FPS',properties:['openFile'],filters:[{name:'Игра',extensions:['exe']}]});if(choice.canceled)return fps.status();const location=choice.filePaths[0];if(!(await fs.promises.stat(location)).isFile())throw Error('Файл недоступен.');return fps.addGame(location)});
 ipcMain.handle('window:theme',(event,theme)=>{if(process.platform!=='win32'||!win||win.isDestroyed()||event.sender!==win.webContents||event.senderFrame!==win.webContents.mainFrame)return;applyWindowTheme(win,theme)});
 const activities=require('./activity.cjs').createActivityStore(()=>path.join(app.getPath('userData'),'activity.json'));
 const restart=require('./restart-ipc.cjs').createWindowsRestart({inspect:()=>optimizer.status(),dialogs:appDialogs});
@@ -38,7 +43,7 @@ app.on('second-instance', () => { if (win) { if(win.isMinimized()) win.restore()
 app.whenReady().then(async () => {
   if(process.argv.includes('--lagophone-after-restart')){try{if(await restart.startup()){app.quit();return}}catch{ /* The UI offers a retry if Windows could not be inspected. */ }}
   win = new BrowserWindow({ ...windowChromeOptions(process.platform), show:false, width: 1440, height: 960, minWidth: 960, minHeight: 680, backgroundColor: '#090909', icon:path.join(__dirname,'../assets/brand.png'), title: 'GTM PC', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname,'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
-  win.once('ready-to-show',()=>win.show());
+  win.once('ready-to-show',()=>{win.show();setTimeout(()=>void fps.start().catch(()=>{}),2000)});
   win.on('close', e => { if(optimizer.isMutating()){e.preventDefault();void appDialogs.showMessageBox(win,{type:'info',message:'Дождитесь завершения оптимизации или отката.',detail:'Сейчас сохраняются и проверяются настройки Windows.'});} });
   win.loadFile(path.join(__dirname,'../dist/index.html'));
   // Update only an existing, consented RunOnce target; do not delay the window.
@@ -47,6 +52,7 @@ app.whenReady().then(async () => {
   win.webContents.on('will-navigate', e => e.preventDefault());
 });
 app.on('window-all-closed', () => app.quit());
+let fpsQuitting=false;app.on('before-quit',event=>{if(!fpsQuitting){event.preventDefault();fpsQuitting=true;void fps.stop().finally(()=>app.quit())}});
 ipcMain.handle('system', () => system());
 const security=require('./security.cjs').createSecurityService({app,shell});
 ipcMain.handle('security:status',event=>{if(!win||win.isDestroyed()||event.sender!==win.webContents||event.senderFrame!==win.webContents.mainFrame)throw Error('Недоступное окно.');return security.inspect()});

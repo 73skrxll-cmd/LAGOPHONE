@@ -2,14 +2,14 @@ import {useEffect,useState,type RefObject} from 'react';
 import {createPortal} from 'react-dom';
 import {nextTweakGuideDelay,readTweakGuide,tweakGuideTiming} from '../shared/tweak-guide.mjs';
 import './tweak-guide.css';
-const storageKey='gtm-tweaks-guide';
+const storageKey='gtm-tweaks-guide-v2';
 let memory=readTweakGuide(null);
 function read(){try{const value=sessionStorage.getItem(storageKey);if(value)memory=readTweakGuide(value)}catch{}return memory}
 function write(value:ReturnType<typeof read>){memory=value;try{sessionStorage.setItem(storageKey,JSON.stringify(value))}catch{}}
 export function TweakGuide({target,running,blocked,visited}:{target:RefObject<HTMLButtonElement>;running:boolean;blocked:boolean;visited:boolean}){
  const [top,setTop]=useState<number|null>(null);
  useEffect(()=>{
-  if(visited){write({...read(),visited:true});setTop(null);return}
+  if(visited){setTop(null);return}
   if(!running||blocked){setTop(null);return}
   let timer:ReturnType<typeof setTimeout>|undefined,hide:ReturnType<typeof setTimeout>|undefined,disposed=false;
   const schedule=()=>{const delay=nextTweakGuideDelay(read(),Date.now());if(delay!==null)timer=setTimeout(show,delay)};

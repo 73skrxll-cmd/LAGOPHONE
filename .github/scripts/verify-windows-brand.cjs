@@ -20,3 +20,12 @@ for(const leaf of leaves.filter(leaf=>leaf.ids[0]===16))versionBlock(leaf.data);
 assert.equal(values.ProductName,expectedName,'Product name embedded in the executable');
 if(!process.argv[2]){const reader=path.join(path.dirname(executable),'resources','app.asar.unpacked','electron','security.ps1');assert.ok(fs.readFileSync(reader).equals(fs.readFileSync('electron/security.ps1')),'Production security reader is shipped outside ASAR for Windows PowerShell');}
 console.log('Verified Windows product name and all app-icon resolutions:',expectedName);
+
+if(!process.argv[2]){
+ const crypto=require('node:crypto'),resources=path.join(path.dirname(executable),'resources');
+ const spec=require('../../shared/presentmon.json');
+ assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(resources,'presentmon','PresentMon.exe'))).digest('hex'),spec.sha256,'Official pinned PresentMon is included');
+ for(const worker of ['fps-worker.ps1','fps-native.cs'])assert.ok(fs.readFileSync(path.join(resources,'app.asar.unpacked','electron',worker)).equals(fs.readFileSync(path.join('electron',worker))),worker+' is shipped outside ASAR');
+ assert.ok(fs.readFileSync(path.join(resources,'presentmon','LICENSE.txt'),'utf8').includes('Permission is hereby granted'),'PresentMon MIT license included');
+ console.log('Verified packaged PresentMon SHA-256, MIT license and FPS workers');
+}
