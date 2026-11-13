@@ -214,6 +214,7 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await selectWindows(0,'windows-10');
  const checkBlocking=async prefix=>{
   await click('Блокировки');await waitFor(`document.querySelectorAll('.blocking-card').length===2`,'Embedded blocking section');await choiceShot(prefix);
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.blocking-card h2')].map(x=>x.textContent)`),['DiscordFix','FortniteFix']);
   assert.ok(await evaluate(`document.querySelector('.blocking-section').textContent.includes('Ещё не подтверждён')`),'A process or probe never claims a match');
   await click('Включить');await waitFor(`document.querySelector('.blocking-badge').textContent.includes('работает')`,'Zapret starts through native bridge');await click('Отключить');
   await click('Включить для Fortnite');await waitFor(`!!document.querySelector('.blocking-runtime')`,'Fnport exposes actual runtime counters');assert.ok(await evaluate(`document.querySelector('.blocking-runtime').textContent.includes('3')`));await choiceShot(prefix+'-running');await click('Отключить');

@@ -35,7 +35,7 @@ try{
  $manifest=Get-Content -LiteralPath (Join-Path $root 'manifest.json') -Raw -Encoding UTF8|ConvertFrom-Json
  foreach($entry in $manifest.files.PSObject.Properties){$file=[IO.Path]::GetFullPath((Join-Path $root $entry.Name));if(!$file.StartsWith([IO.Path]::GetFullPath($root)+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Недопустимый путь компонента.'};if((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.Value){throw 'Компонент изменён или отсутствует. Переустановите GTM PC.'}}
  Add-Type -Path (Join-Path $PSScriptRoot 'blocking-native.cs')
- $profiles=@(Get-Content -LiteralPath (Join-Path $root 'profiles.json') -Raw -Encoding UTF8|ConvertFrom-Json)
+ $profiles=Get-Content -LiteralPath (Join-Path $root 'profiles.json') -Raw -Encoding UTF8|ConvertFrom-Json
  $working=Join-Path $dir 'lists';New-Item -ItemType Directory -Path $working -Force|Out-Null;Copy-Item -Path (Join-Path $root 'zapret/lists/*') -Destination $working -Force
  $ready=$true;Save-State
  while(!$parent.HasExited -and !(Test-Path -LiteralPath $stop) -and (Test-Path -LiteralPath $heartbeat) -and (([datetime]::UtcNow-(Get-Item -LiteralPath $heartbeat).LastWriteTimeUtc).TotalSeconds -lt 12)){
