@@ -29,3 +29,12 @@ if(!process.argv[2]){
  assert.ok(fs.readFileSync(path.join(resources,'presentmon','LICENSE.txt'),'utf8').includes('Permission is hereby granted'),'PresentMon MIT license included');
  console.log('Verified packaged PresentMon SHA-256, MIT license and FPS workers');
 }
+
+if(!process.argv[2]){
+ const crypto=require('node:crypto'),resources=path.join(path.dirname(executable),'resources','blocking');
+ const manifest=JSON.parse(fs.readFileSync(path.join(resources,'manifest.json'),'utf8'));
+ for(const [file,sha] of Object.entries(manifest.files))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(resources,file))).digest('hex'),sha,'Packaged network component '+file);
+ assert.equal(JSON.parse(fs.readFileSync(path.join(resources,'profiles.json'),'utf8')).length,22,'All Zapret strategies included');
+ for(const worker of ['blocking-worker.ps1','blocking-native.cs'])assert.ok(fs.readFileSync(path.join(path.dirname(executable),'resources/app.asar.unpacked/electron',worker)).equals(fs.readFileSync(path.join('electron',worker))),'Blocking worker shipped outside ASAR');
+ console.log('Verified packaged Zapret/fnport hashes, profiles, source archives and licenses');
+}

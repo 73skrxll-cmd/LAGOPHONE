@@ -1,0 +1,27 @@
+{
+  "zapret": {
+    "version": "1.10.4",
+    "url": "https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.4/zapret-discord-youtube-1.10.4.zip",
+    "sha256": "291af673bd0238506f9548e0e94ca0abf244000f4c9a06960544fb01c5f97b34"
+  },
+  "fnport": {
+    "version": "0.6.3",
+    "commit": "855eb018c116c7838a5d0229a1eef3001e6e25dd",
+    "url": "https://github.com/YUNGSLXRD/fnport/releases/download/v0.6.3/fnport-windows-v0.6.3.zip",
+    "sha256": "6b1a802b498c7796a43ae5cda4084d4e3de7fee8a709bdb125981ea4added665",
+    "sourceUrl": "https://codeload.github.com/YUNGSLXRD/fnport/zip/855eb018c116c7838a5d0229a1eef3001e6e25dd",
+    "sourceSha256": "8263924190caf4e499f5de20ef83aafcf7d15047948c0087f8099ed2d7feb703"
+  },
+  "sourceDependencies": [
+    {
+      "name": "cygwin-source.zip",
+      "url": "https://codeload.github.com/cygwin/cygwin/zip/refs/tags/cygwin-3.4.10",
+      "sha256": "54bb6f7aa6dd48e2a986f9f2b850dd9e42998ca334fd1e6ad1b8f7fd9ccb80bc"
+    },
+    {
+      "name": "windivert-source.zip",
+      "url": "https://codeload.github.com/basil00/WinDivert/zip/refs/tags/v2.2.2",
+      "sha256": "65ec79c9e6afa99f648a3f4d1f6db794640b40d0b65bd438770ea503ee14ecb7"
+    }
+  ]
+}

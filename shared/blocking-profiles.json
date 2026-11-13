@@ -1,0 +1,90 @@
+[
+  {
+    "id": "general-alt",
+    "name": "ALT"
+  },
+  {
+    "id": "general-alt10",
+    "name": "ALT10"
+  },
+  {
+    "id": "general-alt11",
+    "name": "ALT11"
+  },
+  {
+    "id": "general-alt12",
+    "name": "ALT12"
+  },
+  {
+    "id": "general-alt13",
+    "name": "ALT13"
+  },
+  {
+    "id": "general-alt2",
+    "name": "ALT2"
+  },
+  {
+    "id": "general-alt3",
+    "name": "ALT3"
+  },
+  {
+    "id": "general-alt4",
+    "name": "ALT4"
+  },
+  {
+    "id": "general-alt5",
+    "name": "ALT5"
+  },
+  {
+    "id": "general-alt6",
+    "name": "ALT6"
+  },
+  {
+    "id": "general-alt7",
+    "name": "ALT7"
+  },
+  {
+    "id": "general-alt8",
+    "name": "ALT8"
+  },
+  {
+    "id": "general-alt9",
+    "name": "ALT9"
+  },
+  {
+    "id": "general-exp",
+    "name": "EXP"
+  },
+  {
+    "id": "general-fake-tls-auto-alt",
+    "name": "FAKE TLS AUTO ALT"
+  },
+  {
+    "id": "general-fake-tls-auto-alt2",
+    "name": "FAKE TLS AUTO ALT2"
+  },
+  {
+    "id": "general-fake-tls-auto-alt3",
+    "name": "FAKE TLS AUTO ALT3"
+  },
+  {
+    "id": "general-fake-tls-auto",
+    "name": "FAKE TLS AUTO"
+  },
+  {
+    "id": "general-simple-fake-alt",
+    "name": "SIMPLE FAKE ALT"
+  },
+  {
+    "id": "general-simple-fake-alt2",
+    "name": "SIMPLE FAKE ALT2"
+  },
+  {
+    "id": "general-simple-fake",
+    "name": "SIMPLE FAKE"
+  },
+  {
+    "id": "general",
+    "name": "Основная"
+  }
+]

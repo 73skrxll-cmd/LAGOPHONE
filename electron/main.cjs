@@ -9,7 +9,13 @@ const {windowChromeOptions,applyWindowTheme}=require('./window-chrome.cjs');
 let win;
 const appDialogs=require('./app-dialogs.cjs').createAppDialogs({ipcMain,getWindow:()=>win});
 const fps=require('./fps-controller.cjs').createFpsController({app});
+const blocking=require('./blocking-controller.cjs').createBlockingController({app});
 const trusted=event=>!!win&&!win.isDestroyed()&&event.sender===win.webContents&&event.senderFrame===win.webContents.mainFrame;
+
+ipcMain.handle('blocking:status',event=>{if(!trusted(event))throw Error('Недоступное окно.');return blocking.status()});
+ipcMain.handle('blocking:action',(event,action)=>{if(!trusted(event)||typeof action!=='string')throw Error('Недопустимое действие.');return blocking.action(action)});
+ipcMain.handle('blocking:settings',(event,value)=>{if(!trusted(event))throw Error('Недоступное окно.');return blocking.setSettings(value)});
+ipcMain.handle('blocking:report',async event=>{if(!trusted(event))throw Error('Недоступное окно.');const choice=await dialog.showSaveDialog(win,{title:'Сохранить отчёт о проверке блокировок',defaultPath:path.join(app.getPath('documents'),'GTM-PC-blocking-report.json'),filters:[{name:'Диагностический отчёт',extensions:['json']}]});if(choice.canceled||!choice.filePath)return false;await fs.promises.writeFile(choice.filePath,JSON.stringify(await blocking.report(),null,2),'utf8');return true});
 ipcMain.handle('fps:status',event=>{if(!trusted(event))throw Error('Недоступное окно.');return fps.status()});
 ipcMain.handle('fps:enabled',(event,enabled)=>{if(!trusted(event))throw Error('Недоступное окно.');return fps.setEnabled(enabled)});
 ipcMain.handle('fps:add-game',async event=>{if(!trusted(event))throw Error('Недоступное окно.');const choice=await dialog.showOpenDialog(win,{title:'Выберите EXE игры для статистики FPS',properties:['openFile'],filters:[{name:'Игра',extensions:['exe']}]});if(choice.canceled)return fps.status();const location=choice.filePaths[0];if(!(await fs.promises.stat(location)).isFile())throw Error('Файл недоступен.');return fps.addGame(location)});
@@ -52,7 +58,7 @@ app.whenReady().then(async () => {
   win.webContents.on('will-navigate', e => e.preventDefault());
 });
 app.on('window-all-closed', () => app.quit());
-let fpsQuitting=false;app.on('before-quit',event=>{if(!fpsQuitting){event.preventDefault();fpsQuitting=true;void fps.stop().finally(()=>app.quit())}});
+let fpsQuitting=false;app.on('before-quit',event=>{if(!fpsQuitting){event.preventDefault();fpsQuitting=true;void Promise.allSettled([fps.stop(),blocking.stop()]).finally(()=>app.quit())}});
 ipcMain.handle('system', () => system());
 const security=require('./security.cjs').createSecurityService({app,shell});
 ipcMain.handle('security:status',event=>{if(!win||win.isDestroyed()||event.sender!==win.webContents||event.senderFrame!==win.webContents.mainFrame)throw Error('Недоступное окно.');return security.inspect()});

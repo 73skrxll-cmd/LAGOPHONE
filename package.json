@@ -1,6 +1,6 @@
 {
   "name": "gtm-pc",
-  "version": "0.20.0-beta.1",
+  "version": "0.21.0-beta.1",
   "private": true,
   "description": "GTM PC \u2014 Get The Most of PC. Windows optimization and game profiles.",
   "main": "electron/main.cjs",
@@ -9,12 +9,13 @@
     "dev": "vite --host 0.0.0.0",
     "desktop": "npm run build && electron .",
     "build": "tsc -b && vite build",
-    "test": "node electron/policy.test.cjs && node electron/optimization.test.cjs && node electron/windows-powershell.test.cjs && node electron/drivers.test.cjs && node electron/optimizer-session.test.cjs && node electron/activity.test.cjs && node electron/gpu-badge.test.cjs && node electron/restart.test.cjs && node electron/optimization-rating.test.cjs && node electron/windows-compatibility.test.cjs && node electron/optimization.windows.test.cjs && node electron/game-selection.test.cjs && node electron/branding.test.cjs && node electron/window-chrome.test.cjs && node electron/windows-actions.test.cjs && node electron/app-dialogs.test.cjs && node electron/security.test.cjs && node electron/fps-stats.test.cjs && node electron/fps-native.test.cjs && node electron/tweak-guide.test.cjs",
+    "test": "node electron/policy.test.cjs && node electron/optimization.test.cjs && node electron/windows-powershell.test.cjs && node electron/drivers.test.cjs && node electron/optimizer-session.test.cjs && node electron/activity.test.cjs && node electron/gpu-badge.test.cjs && node electron/restart.test.cjs && node electron/optimization-rating.test.cjs && node electron/windows-compatibility.test.cjs && node electron/optimization.windows.test.cjs && node electron/game-selection.test.cjs && node electron/branding.test.cjs && node electron/window-chrome.test.cjs && node electron/windows-actions.test.cjs && node electron/app-dialogs.test.cjs && node electron/security.test.cjs && node electron/fps-stats.test.cjs && node electron/fps-native.test.cjs && node electron/tweak-guide.test.cjs && node electron/blocking.test.cjs && node electron/blocking.windows.test.cjs",
     "dist:win": "npm run build && electron-builder --win nsis --x64",
     "dist:portable": "npm run build && electron-builder --win portable --x64",
     "test:ui": "node scripts/game-animation.browser.cjs",
-    "predist:win": "node .github/scripts/prepare-presentmon.cjs",
-    "predist:portable": "node .github/scripts/prepare-presentmon.cjs"
+    "predist:win": "node .github/scripts/prepare-presentmon.cjs && npm run prepare:blocking",
+    "predist:portable": "node .github/scripts/prepare-presentmon.cjs && npm run prepare:blocking",
+    "prepare:blocking": "node .github/scripts/prepare-blocking.cjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
@@ -42,7 +43,9 @@
       "package.json",
       "shared/**/*",
       "assets/**/*",
-      "!assets/presentmon/PresentMon.exe"
+      "!assets/presentmon/PresentMon.exe",
+      "!assets/blocking/**/*",
+      "!assets/blocking-cache/**/*"
     ],
     "win": {
       "target": "nsis",
@@ -71,7 +74,9 @@
       "electron/registry-specs.json",
       "electron/game-executables.json",
       "electron/fps-worker.ps1",
-      "electron/fps-native.cs"
+      "electron/fps-native.cs",
+      "electron/blocking-worker.ps1",
+      "electron/blocking-native.cs"
     ],
     "extraResources": [
       {
@@ -81,6 +86,10 @@
       {
         "from": "assets/presentmon/LICENSE.txt",
         "to": "presentmon/LICENSE.txt"
+      },
+      {
+        "from": "assets/blocking",
+        "to": "blocking"
       }
     ]
   }

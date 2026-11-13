@@ -4,3 +4,5 @@ release/
 *.log
 *.tsbuildinfo
 assets/presentmon/PresentMon.exe
+assets/blocking-cache/
+assets/blocking/

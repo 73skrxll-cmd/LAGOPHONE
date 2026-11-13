@@ -9,6 +9,8 @@ const apps = {
   vlc: { page: 'https://www.videolan.org/vlc/' },
 };
 const links = {
+ 'blocking-zapret':'https://github.com/Flowseal/zapret-discord-youtube/releases/tag/1.10.4',
+ 'blocking-fnport':'https://github.com/YUNGSLXRD/fnport/releases/tag/v0.6.3',
   nvidia: 'https://www.nvidia.com/en-us/software/nvidia-app/',
   amd: 'https://www.amd.com/en/support/download/drivers.html',
   intel: 'https://www.intel.com/content/www/us/en/support/detect.html',

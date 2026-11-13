@@ -1,6 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('lagophone', {
   windowChrome: process.platform==='win32',
+  blockingStatus:()=>ipcRenderer.invoke('blocking:status'),
+  blockingAction:action=>ipcRenderer.invoke('blocking:action',action),
+  blockingSettings:value=>ipcRenderer.invoke('blocking:settings',value),
+  blockingReport:()=>ipcRenderer.invoke('blocking:report'),
   fpsStatus:()=>ipcRenderer.invoke('fps:status'),
   setFpsEnabled:enabled=>ipcRenderer.invoke('fps:enabled',enabled),
   addFpsGame:()=>ipcRenderer.invoke('fps:add-game'),
