@@ -37,3 +37,8 @@ test('ordinary enable starts the actual engine even when HTTPS is already reacha
  const c=createBlockingController({app:{getPath:()=>directory,isPackaged:false},platform:'win32',runFile:supervisor.runFile,series:async()=>{probes++;return [{ok:true}]}});
  try{await c.setSettings({...defaults,gameFilter:'all'});const value=await c.action('zapret-start');assert.equal(value.zapret.running,true);assert.equal(value.settings.gameFilter,'off');assert.equal(probes,0);assert.equal(value.lastReport,null);await c.action('zapret-stop');assert.equal((await c.status()).zapret.running,false)}finally{await c.stop();supervisor.dispose();await fs.rm(directory,{recursive:true,force:true})}
 });
+
+test('all shipped strategies have every referenced host list, IP set and fake payload',{skip:!componentsAvailable},async()=>{
+ const root=path.join(__dirname,'../assets/blocking'),rows=JSON.parse(await fs.readFile(path.join(root,'profiles.json'),'utf8'));
+ for(const row of rows)for(const arg of row.args){const value=arg.slice(arg.indexOf('=')+1);if(!value.startsWith('%LISTS%')&&!value.startsWith('%BIN%'))continue;const file=value.replace('%LISTS%',path.join(root,'zapret/lists')+path.sep).replace('%BIN%',path.join(root,'zapret/bin')+path.sep);const data=await fs.readFile(file);assert.ok(data.length>0,row.id+': '+arg)}
+});

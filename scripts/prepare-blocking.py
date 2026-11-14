@@ -15,6 +15,12 @@ def unpack(name,destination,sha):
    if f.is_dir():continue
    target=destination.joinpath(*p.parts[1:]);target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(z.read(f))
 unpack('zapret.zip',OUT/'zapret',spec['zapret']['sha256'])
+# Upstream service.bat creates these before winws starts. We do not run that menu;
+# provide its exact non-empty defaults so all original strategy references resolve.
+for name, text in {'ipset-exclude-user.txt':'203.0.113.113/32\n', 'list-general-user.txt':'# Never leave this file empty\ndomain.example.abc\n', 'list-exclude-user.txt':'domain.example.abc\n'}.items():
+ target=OUT/'zapret/lists'/name
+ if not target.exists():target.write_text(text,encoding='utf-8')
+
 unpack('fnport-release.zip',BUILD/'release',spec['fnport']['sha256'])
 unpack('fnport-source.zip',BUILD/'source',spec['fnport']['sourceSha256'])
 SRC=BUILD/'source';MOD=BUILD/'module';MOD.mkdir(parents=True,exist_ok=True)
