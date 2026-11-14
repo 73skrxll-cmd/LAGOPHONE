@@ -11,7 +11,7 @@ const count=(rows:{ok:boolean}[])=>rows.filter(r=>r.ok).length;
 export function Blocking(){
  const [state,setState]=useState<BlockingState|null>(null),[pending,setPending]=useState(''),[error,setError]=useState(''),[selected,setSelected]=useState('');
  useEffect(()=>{let disposed=false,reading=false;const refresh=async()=>{if(reading||document.hidden)return;reading=true;try{const value=await window.lagophone?.blockingStatus?.();if(!disposed&&value)setState(value)}catch{if(!disposed)setError('Не удалось получить состояние. Повторите попытку.')}finally{reading=false}};void refresh();const timer=setInterval(()=>void refresh(),700);return()=>{disposed=true;clearInterval(timer)}},[]);
- useEffect(()=>{if(state?.settings.profile)setSelected(state.settings.profile)},[state?.settings.profile]);
+ useEffect(()=>{if(state?.settings.profile)setSelected(state.settings.profile)},[state?.settings.profile,state?.lastReport?.at]);
  const label=(text?:string)=>text?.replace(/Zapret/g,'DiscordFix').replace(/\bfnport\b/gi,'FortniteFix')||'';
  async function action(name:string){setPending(name);setError('');try{if(!window.lagophone?.blockingAction)throw Error('Запустите Windows-версию GTM PC.');setState(await window.lagophone.blockingAction(name))}catch(e){setError((e as Error).message)}finally{setPending('')}}
  const fn=state?.fnport,discordOn=!!state?.zapret.running,fortniteOn=fn?.phase==='running',fortniteStarting=fn?.phase==='starting',fortniteChecking=fn?.phase==='checking',fortniteActive=fortniteOn||fortniteStarting||fortniteChecking;
