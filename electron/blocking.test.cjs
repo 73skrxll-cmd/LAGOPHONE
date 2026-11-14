@@ -64,3 +64,9 @@ test('equal success counts cannot hide a lost endpoint or protocol in a repeated
  assert.equal(covers(swapped,baseline),false);assert.equal(rank(baseline,[{profile:'swapped',rows:swapped}]).length,0);
  const missingRound=[{id:'discord',method:'TLS 1.2',round:1,ok:true}];assert.equal(covers(missingRound,[...missingRound,{id:'discord',method:'TLS 1.2',round:2,ok:true}]),false);
 });
+
+test('cancelled Windows elevation during search never requests elevation again for restoration',{skip:!componentsAvailable},async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'gtm-fix-uac-cancel-'));let prompts=0;
+ const c=createBlockingController({app:{getPath:()=>directory,isPackaged:false},platform:'win32',runFile:(_exe,_args,_options,done)=>{prompts++;done(Error('UAC cancelled'))}});
+ try{const result=await c.action('select');assert.equal(prompts,1);assert.equal(result.operation,null);assert.equal(result.lastReport.phase,'error');assert.equal(result.zapret.running,false);assert.match(result.message,/отменён/)}finally{await c.stop();await fs.rm(directory,{recursive:true,force:true})}
+});

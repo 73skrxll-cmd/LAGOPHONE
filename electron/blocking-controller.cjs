@@ -27,8 +27,8 @@ function createBlockingController({app,platform=process.platform,runFile=execFil
   operation={kind:'selecting',index:0,total:policy.profiles.length+2,label:'Проверка обычного подключения'};
   const controller=new AbortController(),previous=worker.zapret?.running?worker.zapret.profile:null;
   const report={at:new Date().toISOString(),phase:'running',baseline:[],results:[],selected:null,verified:false,message:'Проверяем подключение и перебираем стратегии.'};lastReport=report;auto={controller,promise:null};
-  const promise=(async()=>{try{
-   await rpc('check-safe');await rpc('zapret-stop');
+  const promise=(async()=>{let canRestore=false;try{
+   await rpc('check-safe');canRestore=true;await rpc('zapret-stop');
    report.baseline=await series({signal:controller.signal});
    for(let i=0;i<policy.profiles.length;i++){
     if(controller.signal.aborted)throw Error('Поиск отменён.');const profile=policy.profiles[i];
@@ -47,7 +47,7 @@ function createBlockingController({app,platform=process.platform,runFile=execFil
    report.message=report.selected?(policy.score(report.results.find(r=>r.profile===report.selected).verification)>policy.score(report.baseline)?'Найден вариант с лучшей доступностью в повторных тестах. Нажмите «Включить выбранную».':'Стратегия прошла повторные тесты. Обычное подключение даёт столько же успешных ответов; голос и видео проверьте в Discord.'):'Стабильно подходящий вариант не найден. Результаты доступны ниже; можно выбрать стратегию и проверить её вручную.';
   }catch(e){report.phase=controller.signal.aborted?'cancelled':'error';report.message=controller.signal.aborted?'Поиск остановлен. Предыдущий режим восстановлен.':e.message;report.selected=null;report.verified=false;if(!controller.signal.aborted)throw e}
   finally{try{
-   if(!stopping){let safe=true;try{await rpc('check-safe')}catch(e){safe=false;error=e.message+' Поиск остановлен; текущая стратегия сохранена, чтобы не менять сеть посреди игры.';report.phase='interrupted';report.message=error;report.selected=null;report.verified=false}
+   if(!stopping&&canRestore){let safe=true;try{await rpc('check-safe')}catch(e){safe=false;error=e.message+' Поиск остановлен; текущая стратегия сохранена, чтобы не менять сеть посреди игры.';report.phase='interrupted';report.message=error;report.selected=null;report.verified=false}
     if(safe){if(previous)await rpc('zapret-start',{profile:previous,gameFilter:'off'});else await rpc('zapret-stop');}
    }
    if(report.selected){configuration={...configuration,profile:report.selected,gameFilter:'off'};await save()}
