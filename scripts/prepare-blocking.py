@@ -31,6 +31,7 @@ p=CORE/'core.go';p.write_text(p.read_text().replace('wnet.OpenTun("fnport", cfg.
 p=MOD/'internal/wnet/wintun.go';s=p.read_text();start=s.index('const wintunUnpack =');end=s.index('// WintunProblem',start);s=s[:start]+'const wintunUnpack = "Переустановите GTM PC из проверенной сборки. Если Windows блокирует компонент, работа fnport недоступна."\n\n'+s[end:];p.write_text(s)
 p=MOD/'internal/wnet/wintun_test.go';p.write_text(p.read_text().replace('не из архива','Переустановите GTM PC').replace('антивирус','Переустановите GTM PC'))
 for f in (ROOT/'native/blocking').glob('*.go'):shutil.copyfile(f,CORE/f.name)
+for f in (ROOT/'native/blocking/wnet').glob('*.go'):shutil.copyfile(f,MOD/'internal/wnet'/f.name)
 FN=OUT/'fnport';FN.mkdir(parents=True,exist_ok=True)
 shutil.copytree(BUILD/'release/fakes',FN/'fakes',dirs_exist_ok=True)
 shutil.copyfile(BUILD/'release/wintun.dll',FN/'wintun.dll')

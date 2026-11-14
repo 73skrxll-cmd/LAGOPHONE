@@ -86,9 +86,9 @@ func gtmRun() error {
 	if err != nil {
 		return err
 	}
-	if physicalInfo.Tunnel {
-		return fmt.Errorf("обнаружен внешний VPN: отключите его перед проверкой прямого пути fnport")
-	}
+	// Tunnel is an upstream heuristic (also true for virtual Ethernet). It is not proof
+	// of an active VPN and must not veto the original fnport forwarding path.
+	uplink := map[string]any{"name": physicalInfo.Alias, "description": physicalInfo.Desc, "virtual": physicalInfo.Tunnel}
 	usePhysical("")
 	c := newController(s)
 	defer c.stop()
@@ -107,7 +107,7 @@ func gtmRun() error {
 			for i, v := range lines {
 				safe[i] = maskAddresses(v)
 			}
-			data := map[string]any{"phase": "checking", "lines": safe, "updatedAt": time.Now().UTC()}
+			data := map[string]any{"phase": "checking", "lines": safe, "updatedAt": time.Now().UTC(), "uplink": uplink}
 			if !running && result != nil {
 				data["phase"] = "checked"
 				data["result"] = map[string]any{"portKept": result.PortKept, "freeze": result.Freeze, "fake": result.Fake, "ttl": result.TTL, "fakeFile": result.FakeFile, "summary": result.Summary, "epic": result.Epic, "control": result.Control}
@@ -121,7 +121,7 @@ func gtmRun() error {
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
-	gtmWrite(*dir, map[string]any{"phase": "starting", "updatedAt": time.Now().UTC()})
+	gtmWrite(*dir, map[string]any{"phase": "starting", "updatedAt": time.Now().UTC(), "uplink": uplink})
 	c.start()
 	st, message := c.state()
 	if st != stateOn {
@@ -129,12 +129,12 @@ func gtmRun() error {
 	}
 	for !gtmStopped(*dir) {
 		stats := c.totals()
-		state := map[string]any{"phase": "running", "adapter": gtmAdapterName, "stats": stats, "updatedAt": time.Now().UTC(), "gameConnections": len(c.flows())}
+		state := map[string]any{"phase": "running", "adapter": gtmAdapterName, "stats": stats, "updatedAt": time.Now().UTC(), "gameConnections": len(c.flows()), "uplink": uplink}
 		gtmWrite(*dir, state)
 		time.Sleep(time.Second)
 	}
 	c.stop()
-	gtmWrite(*dir, map[string]any{"phase": "stopped", "updatedAt": time.Now().UTC()})
+	gtmWrite(*dir, map[string]any{"phase": "stopped", "updatedAt": time.Now().UTC(), "uplink": uplink})
 	return nil
 }
 func main() {

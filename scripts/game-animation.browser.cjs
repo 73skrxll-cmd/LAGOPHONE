@@ -213,16 +213,17 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  };
  await selectWindows(0,'windows-10');
  const checkBlocking=async prefix=>{
-  await click('Блокировки');await waitFor(`document.querySelectorAll('.blocking-card').length===2`,'Embedded blocking section');await choiceShot(prefix);
-  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.blocking-card h2')].map(x=>x.textContent)`),['DiscordFix','FortniteFix']);
-  assert.ok(await evaluate(`document.querySelector('.blocking-section').textContent.includes('Ещё не подтверждён')`),'A process or probe never claims a match');
-  await click('Включить');await waitFor(`document.querySelector('.blocking-badge').textContent.includes('работает')`,'Zapret starts through native bridge');await click('Отключить');
-  await click('Включить для Fortnite');await waitFor(`!!document.querySelector('.blocking-runtime')`,'Fnport exposes actual runtime counters');assert.ok(await evaluate(`document.querySelector('.blocking-runtime').textContent.includes('3')`));await choiceShot(prefix+'-running');await click('Отключить');
-  await click('Проверить провайдера');await waitFor(`!!document.querySelector('.blocking-provider-progress')`,'Provider check progress');await click('Отменить проверку');
-  await evaluate(`document.querySelector('.blocking-advanced').open=true`);await choiceShot(prefix+'-settings');assert.ok(await evaluate(`document.querySelector('.blocking-settings-grid select').options.length===2`));await click('Сохранить настройки');await click('Сохранить отчёт');assert.equal(await evaluate(`window.__blockingReport`),true);
-  assert.ok(await evaluate(`document.documentElement.scrollWidth<=document.documentElement.clientWidth`),'Blocking panels fit window');await click('Система');
+  await click('Блокировки');await waitFor(`document.querySelectorAll('.fix-card').length===2`,'Simple fix section');
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.fix-card h2')].map(x=>x.textContent)`),['DiscordFix','FortniteFix']);
+  assert.equal(await evaluate(`[...document.querySelectorAll('.blocking-simple button')].filter(b=>b.getClientRects().length).length`),2,'Only two visible primary controls');
+  assert.equal(await evaluate(`!!document.querySelector('.blocking-intro,.blocking-report,.blocking-advanced,table')`),false,'No diagnostic clutter');await choiceShot(prefix);
+  await evaluate(`document.querySelector('[data-fix="discord"] .fix-toggle').click()`);await waitFor(`document.querySelector('[data-fix="discord"] .fix-badge').textContent==='Включено'`,'Discord enable actually starts engine');assert.equal(await evaluate(`window.__blockingActions.at(-1)`),'zapret-start','HTTP reachability is not used as a gate');
+  await evaluate(`document.querySelector('[data-fix="discord"] .fix-toggle').click()`);await waitFor(`document.querySelector('[data-fix="discord"] .fix-badge').textContent==='Выключено'`,'Discord stop');
+  await evaluate(`document.querySelector('[data-fix="fortnite"] .fix-toggle').click()`);await waitFor(`document.querySelector('[data-fix="fortnite"] .fix-badge').textContent==='Включено'`,'Fortnite engine enabled');await choiceShot(prefix+'-running');
+  assert.ok(await evaluate(`document.querySelector('[data-fix="fortnite"] .fix-status').textContent.includes('Epic')`));await evaluate(`document.querySelector('[data-fix="fortnite"] .fix-toggle').click()`);await waitFor(`document.querySelector('[data-fix="fortnite"] .fix-badge').textContent==='Выключено'`,'Fortnite stop');
+  await evaluate(`document.querySelector('.fix-help').open=true`);assert.equal(await evaluate(`document.querySelector('.fix-help select').options.length`),2);await click('Сохранить отчёт');assert.equal(await evaluate(`window.__blockingReport`),true);assert.ok(await evaluate(`document.documentElement.scrollWidth<=document.documentElement.clientWidth`));await choiceShot(prefix+'-help');await click('Система');
  };
- if(process.env.GTM_TEST_BLOCKING_ONLY){await checkBlocking('blocking-dark');await evaluate(`window.__testTheme('white')`);await send('Emulation.setDeviceMetricsOverride',{width:960,height:680,deviceScaleFactor:1,mobile:false});await checkBlocking('blocking-light-minimum');console.log('PASS: styled blocking section, native controls, honest match status, fnport counters, cancellable provider checks, settings and report in both themes');return;}
+ if(process.env.GTM_TEST_BLOCKING_ONLY){await checkBlocking('blocking-dark');await evaluate(`window.__testTheme('white')`);await send('Emulation.setDeviceMetricsOverride',{width:960,height:680,deviceScaleFactor:1,mobile:false});await checkBlocking('blocking-light-minimum');console.log('PASS: exactly two primary controls, actual engine start without HTTPS gate, simple status, hidden troubleshooting, settings and reports in both themes');return;}
  await checkBlocking('blocking-dark');
  await checkFpsStatistics('black-performance');await checkTweakGuide();
  if(process.env.GTM_TEST_FPS_ONLY){await evaluate(`(async()=>{await window.__testTheme('white')})()`);await send('Emulation.setDeviceMetricsOverride',{width:960,height:680,deviceScaleFactor:1,mobile:false});await checkFpsStatistics('white-minimum-performance');console.log('PASS: actual FPS session statistics, empty first launch, game detection status, average/1% low/max, duration, seven-day graph gaps, general settings, collection disable, iridescent filling/glow and rare glove');return;}
@@ -364,6 +365,9 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await evaluate(`window.__outcome='throw';document.querySelector('.game-optimize').click()`);await delay(200);await evaluate(`window.__finish()`);await delay(150);assert.equal((await animation()).stage,'error');assert.ok(await evaluate(`document.querySelector('.optimization-message').textContent.includes('native test failure')`));
  await evaluate(`window.__outcome=null;document.querySelector('.game-optimize').click()`);await delay(3100);await evaluate(`window.__finish()`);await waitStage(['boost']);
  const previousDocument=await evaluate(`performance.timeOrigin`);await send('Page.reload');await waitFor(`performance.timeOrigin!==${previousDocument}&&!!document.querySelector('.app-shell')`,'Reloaded application');await click('Игровая оптимизация');await waitStage(['orbit']);assert.equal((await animation()).stage,'orbit','Saved optimized game opens with a formed orbit, without emission');
+ // ResizeObserver can clear the canvas after React restores the saved orbit.
+ // Wait for the next animated frame before sampling actual rendered pixels.
+ await waitFor(`Number(document.querySelector('.game-animation')?.dataset.angle)>0`,'Reloaded orbit renders a moving frame');
  const firstDisk=await diskDepth();let diskYaw=firstDisk.yaw,depthChecks=firstDisk.back.length?1:0;
  for(let i=0;i<3;i++){
   await delay(800);const next=await diskDepth();

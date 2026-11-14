@@ -31,3 +31,9 @@ test('auto-selection requires repeated improvement and restores the previous mod
   hold=true;const started=new Promise(resolve=>entered=resolve),operation=controller.action('select');await started;await controller.action('cancel');await operation;const restored=await controller.status();assert.equal(restored.zapret.profile,'general-alt11');assert.equal(restored.zapret.running,true);assert.equal(restored.operation,null);
  }finally{await controller.stop();supervisor.dispose();await fs.rm(directory,{recursive:true,force:true})}
 });
+
+test('ordinary enable starts the actual engine even when HTTPS is already reachable',{skip:!componentsAvailable},async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'gtm-fix-enable-')),supervisor=fakeSupervisor();let probes=0;
+ const c=createBlockingController({app:{getPath:()=>directory,isPackaged:false},platform:'win32',runFile:supervisor.runFile,series:async()=>{probes++;return [{ok:true}]}});
+ try{await c.setSettings({...defaults,gameFilter:'all'});const value=await c.action('zapret-start');assert.equal(value.zapret.running,true);assert.equal(value.settings.gameFilter,'off');assert.equal(probes,0);assert.equal(value.lastReport,null);await c.action('zapret-stop');assert.equal((await c.status()).zapret.running,false)}finally{await c.stop();supervisor.dispose();await fs.rm(directory,{recursive:true,force:true})}
+});
