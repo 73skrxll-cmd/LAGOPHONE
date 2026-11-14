@@ -42,7 +42,7 @@ func TestGTMNativeRelay(t *testing.T) {
 	clientName := fmt.Sprintf("gtm-net-client-%d", os.Getpid())
 	oldIndex, oldAddr := wnet.PhysIndex, wnet.PhysAddr
 	defer func() { wnet.PhysIndex, wnet.PhysAddr = oldIndex, oldAddr }()
-	b, bIP, err := wnet.GTMTestTun(serverName, []netip.Prefix{netip.MustParsePrefix("198.18.254.0/24")}, netip.MustParsePrefix("198.18.254.1/24"))
+	b, bIP, err := wnet.GTMTestTun(serverName, nil, netip.MustParsePrefix("198.18.254.1/24"))
 	if err != nil {
 		t.Fatal(err)
 	}
