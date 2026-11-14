@@ -493,7 +493,7 @@ const deadline=setTimeout(()=>{console.error('UI validation timed out; output: '
  await click('Игровая оптимизация');await click('Выбрать другую игру');await evaluate(`document.querySelector('[aria-label="Выбрать Dota 2"]').click()`);await waitStage(['snow-orbit']);await shot('snow-dota');
 
  // Navigation and bridge contain only the remaining sections.
- assert.deepEqual(await evaluate(`[...document.querySelectorAll('aside nav button')].map(b=>b.textContent.trim())`),['Система','Мониторинг','Твики','Игровая оптимизация','Блокировки','Полезные приложения','Приложения и драйверы']);
+ assert.deepEqual(await evaluate(`[...document.querySelectorAll('aside nav button')].map(b=>b.textContent.trim())`),['Система','Мониторинг','Твики','Блокировки','Игровая оптимизация','Полезные приложения','Приложения и драйверы']);
  assert.equal(await evaluate(`Object.keys(window.lagophone).some(key=>key.startsWith('gamePing'))`),false);
  console.log('PASS: real FPS session UI, empty startup, detected game, average/1% low/max, duration, weekly graph gaps, full disable and general settings; iridescent Tweaks filling, glow and rare glove; Secure Boot/TPM and existing Windows selection, themes, game animations, dialogs, drivers and activity regressions');
 })().catch(e=>{console.error(e);if(process.env.GITHUB_ACTIONS)console.log('::error title=Browser assertion details::'+String(e.stack||e).replaceAll('%','%25').replaceAll('\r','%0D').replaceAll('\n','%0A'));process.exitCode=1}).finally(()=>{clearTimeout(deadline);ws?.close();browser.kill('SIGKILL');server.kill();console.log('Browser snapshots: '+output)});
